@@ -207,6 +207,146 @@ table.q tr:nth-child(even) td{background:#fbfcfd}
 .tcell .t{padding:5px 7px 6px;font-size:10.5px;line-height:1.35;color:#4a515c;word-break:break-all}
 .tcell .t em{display:block;font-style:normal;color:#a8842f;margin-top:2px}
 
+/* ---------- 总览 · 舰桥 ---------- */
+body.dark{background:#070b10;color:#dfe7f2}
+body.dark header.top{background:rgba(9,14,20,.9);border-bottom-color:#1b2734}
+body.dark .brand b{color:#eaf3ff}
+body.dark .brand span{color:#5a6b80}
+body.dark nav.tabs a{color:#8a9bb0}
+body.dark nav.tabs a:hover{background:#151d28;color:#eaf3ff;text-decoration:none}
+body.dark nav.tabs a.on{background:#5fd0ff;color:#04121b}
+body.dark footer{color:#5a7089}
+body.dark main{max-width:1360px}
+
+.ov{position:relative;border-radius:14px;overflow:hidden;color:#dfe7f2;
+  background:radial-gradient(120% 90% at 50% -10%,#15202c 0%,#0b1118 48%,#070b10 100%);
+  border:1px solid #1b2734;
+  box-shadow:0 26px 70px rgba(0,0,0,.55),inset 0 1px 0 rgba(150,200,255,.07)}
+.ov::before{content:"";position:absolute;inset:0;pointer-events:none;opacity:.55;z-index:0;
+  background:
+    repeating-linear-gradient(90deg,rgba(255,255,255,.03) 0 1px,transparent 1px 88px),
+    repeating-linear-gradient(0deg,rgba(0,0,0,.22) 0 1px,transparent 1px 44px),
+    radial-gradient(circle at 22px 22px,rgba(150,200,255,.09) 1.2px,transparent 1.7px);
+  background-size:auto,auto,88px 44px}
+
+.ov-bar{position:relative;z-index:2;display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+  padding:11px 18px;border-bottom:1px solid #1b2734;
+  background:linear-gradient(180deg,rgba(23,35,48,.92),rgba(11,17,24,.55))}
+.ov-bar .k{font:600 9.5px/1 ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:2.6px;color:#5fd0ff}
+.ov-bar h2{margin:5px 0 0;font-size:15px;letter-spacing:3px;font-weight:600;color:#eef6ff}
+.ov-bar .flex{flex:1 1 auto}
+.led{width:7px;height:7px;border-radius:50%;background:#3ce08a;box-shadow:0 0 9px #3ce08a;animation:led 2.2s ease-in-out infinite;flex:0 0 auto}
+@keyframes led{0%,100%{opacity:1}50%{opacity:.28}}
+.ov-stats{display:flex}
+.ov-stat{padding:0 13px;border-left:1px solid #223142;text-align:right}
+.ov-stat:first-child{border-left:0}
+.ov-stat .n{font:700 16px/1.2 ui-monospace,SFMono-Regular,Consolas,monospace;color:#eaf3ff;font-variant-numeric:tabular-nums}
+.ov-stat .l{font-size:9.5px;letter-spacing:1.1px;color:#6d8098;margin-top:2px;white-space:nowrap}
+
+.ov-stage{position:relative;z-index:2;display:grid;grid-template-columns:196px minmax(0,1fr) 300px;align-items:stretch}
+.ov-side{padding:20px 18px;display:flex;flex-direction:column;gap:13px;min-width:0}
+.ov-left{border-right:1px solid #1b2734;background:linear-gradient(90deg,rgba(9,15,22,.92),rgba(9,15,22,.3))}
+.ov-right{border-left:1px solid #1b2734;background:linear-gradient(270deg,rgba(9,15,22,.92),rgba(9,15,22,.3))}
+.ov-k{font:600 9.5px/1 ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:2.4px;color:#5fd0ff;opacity:.85}
+.ov-id{font:700 20px/1 ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:1.2px;color:#f2f8ff;margin-top:-3px}
+.ov-field{min-width:0}
+.ov-lab{font-size:9.5px;letter-spacing:1.6px;color:#66798f;text-transform:uppercase;margin-bottom:4px}
+.ov-val{font-size:13px;color:#cfdbe9;word-break:break-word}
+.ov-eye-row{display:flex;align-items:center;gap:8px}
+.ov-eye-row i{width:12px;height:12px;border-radius:50%;flex:0 0 auto}
+.ov-eye-row b{font:600 11.5px/1 ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:.6px;color:#a9bccf}
+.ov-led{display:inline-block;width:6px;height:6px;border-radius:50%;background:#3ce08a;box-shadow:0 0 8px #3ce08a;margin-right:6px;vertical-align:1px}
+.ov-led.warn{background:#e8b64c;box-shadow:0 0 8px #e8b64c}
+.ov-meter{height:6px;border-radius:4px;background:#16202b;overflow:hidden;border:1px solid #1e2b39}
+.ov-meter i{display:block;height:100%;background:linear-gradient(90deg,#2b8fd0,#5fd0ff);box-shadow:0 0 12px rgba(95,208,255,.6)}
+.ov-num{font:600 10.5px/1.7 ui-monospace,SFMono-Regular,Consolas,monospace;color:#8fa5bb;margin-top:5px;font-variant-numeric:tabular-nums}
+
+.ov-center{position:relative;display:flex;align-items:center;justify-content:center;min-height:566px;overflow:hidden;padding:20px 0}
+.ov-space{position:absolute;left:50%;top:47%;width:min(88%,668px);aspect-ratio:1/1;transform:translate(-50%,-50%);border-radius:50%;
+  background:radial-gradient(circle at 50% 40%,#143049 0%,#091826 42%,#050a10 72%,#04070a 100%);
+  box-shadow:inset 0 0 90px 30px rgba(2,6,10,.94),0 0 0 1px #1d3145,0 0 80px rgba(50,140,220,.13)}
+.ov-space i{position:absolute;inset:0;opacity:.75;
+  background-image:
+    radial-gradient(1.3px 1.3px at 22% 28%,#fff,transparent),
+    radial-gradient(1px 1px at 62% 18%,#cfe6ff,transparent),
+    radial-gradient(1.6px 1.6px at 78% 62%,#fff,transparent),
+    radial-gradient(1px 1px at 34% 72%,#9fc6e8,transparent),
+    radial-gradient(1px 1px at 48% 46%,#fff,transparent),
+    radial-gradient(1.2px 1.2px at 14% 58%,#bcd8f0,transparent),
+    radial-gradient(1px 1px at 86% 34%,#fff,transparent),
+    radial-gradient(1px 1px at 70% 84%,#cfe6ff,transparent);
+  animation:twinkle 7s ease-in-out infinite alternate}
+@keyframes twinkle{from{opacity:.45}to{opacity:.9}}
+.ov-ring{position:absolute;left:50%;top:47%;transform:translate(-50%,-50%);border-radius:50%;pointer-events:none}
+.ov-ring.r1{width:min(94%,610px);aspect-ratio:1/1;border:1px solid rgba(95,208,255,.18);box-shadow:inset 0 0 44px rgba(95,208,255,.13)}
+.ov-ring.r2{width:min(84%,540px);aspect-ratio:1/1;border:1px dashed rgba(95,208,255,.24);animation:spin 30s linear infinite}
+.ov-ring.r3{width:min(68%,440px);aspect-ratio:1/1;
+  background:conic-gradient(from 0deg,transparent 0deg,rgba(95,208,255,.45) 42deg,transparent 96deg,transparent 210deg,rgba(232,192,114,.34) 250deg,transparent 300deg);
+  -webkit-mask:radial-gradient(circle,transparent 63%,#000 64%);
+  mask:radial-gradient(circle,transparent 63%,#000 64%);
+  animation:spin 18s linear infinite reverse;opacity:.9}
+@keyframes spin{to{transform:translate(-50%,-50%) rotate(360deg)}}
+
+.ov-figure{position:relative;z-index:3;display:flex;align-items:flex-end;justify-content:center;height:100%;padding-bottom:4px}
+.ov-figure img{position:relative;z-index:2;max-height:min(438px,52vh);width:auto;max-width:100%;object-fit:contain;border-radius:10px;
+  box-shadow:0 0 0 1px rgba(120,190,255,.17),0 0 46px rgba(40,110,180,.16),0 24px 50px rgba(0,0,0,.7);
+  -webkit-mask-image:linear-gradient(180deg,#000 0%,#000 87%,rgba(0,0,0,.45) 100%);
+  mask-image:linear-gradient(180deg,#000 0%,#000 87%,rgba(0,0,0,.45) 100%);
+  transition:opacity .3s ease,transform .45s cubic-bezier(.2,.8,.3,1)}
+.ov-figure.swap img{opacity:0;transform:translateY(12px) scale(.982)}
+.ov-plinth{position:absolute;z-index:1;left:50%;bottom:1%;width:82%;height:24px;transform:translateX(-50%);border-radius:50%;pointer-events:none;
+  background:radial-gradient(ellipse at 50% 50%,rgba(95,208,255,.4),rgba(95,208,255,.1) 56%,transparent 76%);
+  filter:blur(6px)}
+.ov-aura{position:absolute;z-index:1;left:50%;top:50%;width:82%;height:84%;transform:translate(-50%,-50%);pointer-events:none;
+  background:radial-gradient(58% 52% at 50% 46%,rgba(120,210,255,.22),rgba(120,210,255,.06) 58%,transparent 74%);
+  filter:blur(10px);mix-blend-mode:screen;opacity:.7;animation:aura 5.5s ease-in-out infinite}
+@keyframes aura{0%,100%{opacity:.55;transform:translate(-50%,-50%) scale(1)}50%{opacity:.92;transform:translate(-50%,-50%) scale(1.035)}}
+.ov-eye{position:absolute;z-index:3;left:50%;top:13%;width:96px;height:56px;margin-left:-48px;margin-top:-28px;pointer-events:none;
+  background:radial-gradient(circle,rgba(95,208,255,.95) 0%,rgba(95,208,255,.4) 32%,transparent 68%);
+  filter:blur(7px);mix-blend-mode:screen;opacity:0;transition:opacity .3s ease}
+.ov.hot .ov-eye{animation:eyepulse 1.5s ease-in-out infinite}
+@keyframes eyepulse{0%,100%{opacity:.62}50%{opacity:1}}
+
+.ov-scan{position:absolute;inset:0;z-index:4;pointer-events:none;opacity:0;
+  background:linear-gradient(180deg,transparent 49.4%,rgba(95,208,255,.75) 49.9%,rgba(95,208,255,.16) 50.5%,transparent 51.1%)}
+.ov.scanning .ov-scan{animation:scan 1.1s cubic-bezier(.35,.75,.4,1)}
+@keyframes scan{0%{opacity:0;transform:translateY(-100%)}10%{opacity:1}88%{opacity:1}100%{opacity:0;transform:translateY(100%)}}
+
+.ov-rbox{min-width:0}
+.ov-radar{width:100%;max-width:224px;height:auto;display:block;margin:6px auto 2px}
+.ov-radar .rg{fill:none;stroke:rgba(120,170,215,.22);stroke-width:.8}
+.ov-radar .ra{stroke:rgba(120,170,215,.18);stroke-width:.6}
+.ov-radar .rv{fill:var(--eye,#5fd0ff);fill-opacity:.24;stroke:var(--eye,#5fd0ff);stroke-width:1.1;stroke-linejoin:round}
+.ov-radar .rd{fill:var(--eye,#5fd0ff)}
+.ov-radar .rt{fill:#8095ab;font-size:8.2px;letter-spacing:.4px}
+.ov-gear{display:flex;flex-direction:column;gap:5px;margin-top:2px;max-height:246px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:#2d4356 transparent;padding-right:2px}
+.ov-gear::-webkit-scrollbar{width:4px}
+.ov-gear::-webkit-scrollbar-thumb{background:#2d4356;border-radius:3px}
+.ov-grow{display:flex;align-items:flex-start;gap:8px;font-size:11.5px;color:#b9c9da;
+  background:linear-gradient(90deg,rgba(24,36,49,.85),rgba(24,36,49,.25));
+  border-left:2px solid rgba(95,208,255,.5);border-radius:0 5px 5px 0;padding:5px 9px}
+.ov-grow span{flex:1 1 auto;min-width:0;line-height:1.5;word-break:break-word}
+.ov-grow b{flex:0 0 auto;margin-top:1px;font:600 9.5px/1 ui-monospace,SFMono-Regular,Consolas,monospace;color:#5fd0ff;letter-spacing:.6px}
+.ov-grow.empty{color:#5f7186;border-left-color:#2b3b4c}
+
+.ov-dock{position:relative;z-index:2;border-top:1px solid #1b2734;padding:10px 12px 12px;
+  background:linear-gradient(180deg,rgba(13,20,28,.55),rgba(7,11,16,.95))}
+.ov-dockrow{display:flex;align-items:center;gap:8px}
+.ov-strip{display:flex;gap:7px;align-items:center;overflow-x:auto;scrollbar-width:none;padding:2px 0;flex:0 1 auto;max-width:100%;margin:0 auto;min-width:0}
+.ov-strip::-webkit-scrollbar{display:none}
+.ov-nav{flex:0 0 28px;width:28px;height:74px;border-radius:7px;border:1px solid #243244;background:#0d151d;color:#8ea4bb;font-size:16px;line-height:1;cursor:pointer;transition:.18s}
+.ov-nav:hover{color:#5fd0ff;border-color:#3a6484;box-shadow:0 0 14px rgba(95,208,255,.25)}
+.ov-av{flex:0 0 58px;height:74px;border-radius:7px;overflow:hidden;position:relative;cursor:pointer;
+  border:1px solid #22303f;opacity:.45;filter:saturate(.45);transition:opacity .2s,transform .2s,box-shadow .2s,border-color .2s}
+.ov-av img{width:100%;height:100%;object-fit:cover;object-position:50% 14%}
+.ov-av:hover{opacity:.8;transform:translateY(-1px)}
+.ov-av.on{opacity:1;filter:none;border-color:#e8c072;box-shadow:0 0 0 1px rgba(232,192,114,.9),0 0 18px rgba(232,192,114,.4);transform:translateY(-2px)}
+.ov-av .no{position:absolute;left:0;right:0;bottom:0;text-align:center;font:600 8.5px/1.7 ui-monospace,SFMono-Regular,Consolas,monospace;color:#dfe7f2;background:linear-gradient(transparent,rgba(3,7,11,.9))}
+.ov-namebar{display:flex;align-items:baseline;gap:10px;justify-content:center;margin-top:9px;flex-wrap:wrap}
+.ov-namebar b{font-size:15px;letter-spacing:2.5px;color:#f2f8ff}
+.ov-namebar span{font-size:11px;letter-spacing:1.4px;color:#7f93a9}
+.ov-tip{text-align:center;font-size:10.5px;letter-spacing:1.2px;color:#4e6075;margin-top:5px}
+
 /* ---------- 灯箱 ---------- */
 #lb{position:fixed;inset:0;background:rgba(18,20,24,.86);display:none;align-items:center;justify-content:center;z-index:90;padding:24px}
 #lb.on{display:flex}
@@ -242,6 +382,55 @@ footer code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:11px}
   .hrow{grid-template-columns:56px minmax(0,1fr)}
   .hcell{width:23px;height:20px;font-size:9px}
   .quotes td:first-child{width:50%}
+}
+@media (max-width:1180px){
+  .ov-stage{grid-template-columns:170px minmax(0,1fr) 258px}
+  .ov-center{min-height:520px}
+  .ov-figure img{max-height:396px}
+  .ov-space{width:min(90%,560px)}
+  .ov-ring.r1{width:min(94%,520px)}
+  .ov-ring.r2{width:min(84%,460px)}
+  .ov-ring.r3{width:min(68%,380px)}
+}
+@media (max-width:900px){
+  .ov-stage{grid-template-columns:minmax(0,1fr)}
+  .ov-center{order:1;min-height:400px;padding:8px 0}
+  .ov-left{order:2;border-right:0;border-top:1px solid #1b2734;gap:12px 16px;padding:14px 16px}
+  .ov-right{order:3;border-left:0;border-top:1px solid #1b2734;gap:14px 18px;padding:14px 16px}
+  .ov-gear{max-height:none;overflow:visible}
+  .ov-figure img{max-height:300px}
+  .ov-space{width:min(86%,348px)}
+  .ov-ring.r1{width:min(92%,366px)}
+  .ov-ring.r2{width:min(82%,322px)}
+  .ov-ring.r3{width:min(66%,262px)}
+}
+@media (max-width:640px){
+  body.dark main{padding:10px 10px 40px}
+  .ov{border-radius:12px}
+  .ov-bar{padding:9px 12px;gap:8px}
+  .ov-bar h2{font-size:13.5px;letter-spacing:2px}
+  .ov-stats{width:100%;display:grid;grid-template-columns:repeat(4,minmax(0,1fr))}
+  .ov-stat{padding:0 4px;text-align:center;border-left:1px solid #223142}
+  .ov-stat:first-child{border-left:0}
+  .ov-stat .n{font-size:14px}
+  .ov-stat .l{font-size:8.5px;letter-spacing:.2px;white-space:normal;line-height:1.3}
+  .ov-center{min-height:372px}
+  .ov-figure img{max-height:286px}
+  .ov-space{width:min(94%,344px)}
+  .ov-ring.r1{width:min(98%,360px)}
+  .ov-ring.r2{width:min(88%,320px)}
+  .ov-ring.r3{width:min(70%,252px)}
+  .ov-side{padding:12px 12px}
+  .ov-left{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 12px}
+  .ov-left .ov-k,.ov-left .ov-id,.ov-left .ov-wide{grid-column:1/-1}
+  .ov-id{font-size:17px}
+  .ov-right{display:grid;grid-template-columns:minmax(0,1fr);gap:12px}
+  .ov-radar{max-width:190px}
+  .ov-nav{flex:0 0 26px;width:26px;height:64px}
+  .ov-av{flex:0 0 50px;height:64px}
+  .ov-namebar b{font-size:14px;letter-spacing:1.8px}
+  .ov-namebar span{font-size:10.5px;letter-spacing:.8px}
+  .ov-tip{font-size:10px;letter-spacing:.6px}
 }
 </style>
 </head>
@@ -285,37 +474,229 @@ footer code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:11px}
     }
     if(e.target.closest('#lb')) lb.classList.remove('on');
   });
-  document.addEventListener('keydown', function(e){ if(e.key==='Escape') lb.classList.remove('on'); });
+  document.addEventListener('keydown', function(e){
+    if(e.key==='Escape') lb.classList.remove('on');
+    if(!document.getElementById('ov')) return;
+    if(e.key==='ArrowLeft'){ e.preventDefault(); ovStep(-1); }
+    else if(e.key==='ArrowRight'){ e.preventDefault(); ovStep(1); }
+  });
 
-  /* ---------- 总览 ---------- */
+  /* ---------- 总览 · 舰桥 ---------- */
+  var MAXV = {done:1, series:1, fields:1, mods:1};
+  D.crews.forEach(function(c){
+    MAXV.done = Math.max(MAXV.done, c.done || 0);
+    MAXV.series = Math.max(MAXV.series, (c.series || []).length);
+    MAXV.fields = Math.max(MAXV.fields, Object.keys(c.profile || {}).length);
+    MAXV.mods = Math.max(MAXV.mods, (c.mods || []).length);
+  });
+  var OV_IDX = 0;
+
+  function ovLeft(c){
+    var p = pct(c.done, c.planned);
+    var eye = c.accent || '#5fd0ff';
+    return '<div class="ov-k">CREW FILE</div>'
+      + '<div class="ov-id">' + esc(c.id) + '</div>'
+      + '<div class="ov-field"><div class="ov-lab">义眼微光 / OPTIC</div>'
+      +   '<div class="ov-eye-row"><i style="background:' + esc(eye) + ';box-shadow:0 0 10px ' + esc(eye) + ',0 0 22px ' + esc(eye) + '"></i><b>' + esc(eye.toUpperCase()) + '</b></div></div>'
+      + '<div class="ov-field"><div class="ov-lab">机体型号 / MODEL</div><div class="ov-val">' + esc(c.code || '待定') + '</div></div>'
+      + '<div class="ov-field"><div class="ov-lab">战术代号 / CALLSIGN</div><div class="ov-val">' + esc(c.en || '—') + '</div></div>'
+      + '<div class="ov-field"><div class="ov-lab">战备状态 / STATUS</div><div class="ov-val"><span class="ov-led' + (p < 100 ? ' warn' : '') + '"></span>' + esc(c.status || '在档') + '</div></div>'
+      + '<div class="ov-field"><div class="ov-lab">系列 / SERIES</div><div class="ov-val">' + (c.series || []).length + ' 组</div></div>'
+      + '<div class="ov-field"><div class="ov-lab">立绘 / FRAMES</div><div class="ov-val">' + (c.done || 0) + ' 张已入档</div></div>'
+      + '<div class="ov-field ov-wide"><div class="ov-lab">姿势完整度</div>'
+      +   '<div class="ov-meter"><i style="width:' + p + '%"></i></div>'
+      +   '<div class="ov-num">' + c.done + ' / ' + c.planned + ' · ' + p + '%' + (c.missing ? ' · 缺 ' + c.missing : '') + '</div></div>';
+  }
+
+  function ovRadar(c){
+    var vals = [
+      ['入档', Math.min(1, (c.done || 0) / MAXV.done)],
+      ['系列', Math.min(1, (c.series || []).length / MAXV.series)],
+      ['档案', Math.min(1, Object.keys(c.profile || {}).length / MAXV.fields)],
+      ['完整', c.planned ? Math.min(1, c.done / c.planned) : 0],
+      ['装备', Math.min(1, (c.mods || []).length / MAXV.mods)]
+    ];
+    var cx = 75, cy = 76, R = 44, n = vals.length, i;
+    function pt(k, r){
+      var a = -Math.PI / 2 + k * 2 * Math.PI / n;
+      return [(cx + r * Math.cos(a)).toFixed(1), (cy + r * Math.sin(a)).toFixed(1)];
+    }
+    var s = '<svg class="ov-radar" viewBox="0 0 150 152" role="img" aria-label="战备雷达">';
+    [0.34, 0.67, 1].forEach(function(f){
+      var p = [];
+      for(var k = 0; k < n; k++) p.push(pt(k, R * f).join(','));
+      s += '<polygon class="rg" points="' + p.join(' ') + '"/>';
+    });
+    for(i = 0; i < n; i++){
+      var a1 = pt(i, R);
+      s += '<line class="ra" x1="' + cx + '" y1="' + cy + '" x2="' + a1[0] + '" y2="' + a1[1] + '"/>';
+    }
+    var poly = [];
+    for(i = 0; i < n; i++) poly.push(pt(i, R * Math.max(vals[i][1], 0.06)).join(','));
+    s += '<polygon class="rv" points="' + poly.join(' ') + '"/>';
+    for(i = 0; i < n; i++){
+      var d = pt(i, R * Math.max(vals[i][1], 0.06)), lp = pt(i, R + 12);
+      s += '<circle class="rd" cx="' + d[0] + '" cy="' + d[1] + '" r="1.8"/>'
+        + '<text class="rt" x="' + lp[0] + '" y="' + (Number(lp[1]) + 2.6).toFixed(1) + '" text-anchor="middle">' + vals[i][0] + '</text>';
+    }
+    return s + '</svg>';
+  }
+
+  function ovRight(c){
+    var mods = c.mods || [];
+    var h = '<div class="ov-rbox"><div class="ov-k">战备雷达 / RADAR</div>' + ovRadar(c) + '</div>';
+    h += '<div class="ov-rbox"><div class="ov-k">装备栏 / LOADOUT</div><div class="ov-gear">';
+    if(mods.length){
+      mods.forEach(function(m, i){
+        h += '<div class="ov-grow"><b>' + (i < 9 ? '0' : '') + (i + 1) + '</b><span>' + esc(m) + '</span></div>';
+      });
+    } else {
+      h += '<div class="ov-grow empty"><span>未登记改装</span></div>';
+    }
+    return h + '</div></div>';
+  }
+
+  function ovBar(m){
+    function st(n, l){ return '<div class="ov-stat"><div class="n">' + n + '</div><div class="l">' + l + '</div></div>'; }
+    return '<div class="ov-bar"><span class="led"></span>'
+      + '<div><div class="k">XUANSHU · BATTLE READY</div><h2>玄枢号 · 全员战备配置</h2></div>'
+      + '<div class="flex"></div>'
+      + '<div class="ov-stats">'
+      +   st(m.crewCount, '在档舰员')
+      +   st(m.artwork, '已入档立绘')
+      +   st(m.missing, '待补姿势位')
+      +   st(pct(m.artwork, m.planned) + '%', '整体完成度')
+      + '</div></div>';
+  }
+
+  function ovDock(){
+    var h = '<div class="ov-dock"><div class="ov-dockrow">'
+      + '<button class="ov-nav" id="ovPrev" type="button" aria-label="上一位">‹</button>'
+      + '<div class="ov-strip" id="ovStrip">';
+    D.crews.forEach(function(c, i){
+      h += '<div class="ov-av" data-i="' + i + '" title="' + esc(c.name + ' ' + c.id) + '">'
+        + (c.main ? '<img loading="lazy" decoding="async" src="' + esc(c.main.thumb) + '" alt="' + esc(c.name) + '">' : '')
+        + '<span class="no">' + esc(c.id.replace('CREW-', '')) + '</span></div>';
+    });
+    h += '</div><button class="ov-nav" id="ovNext" type="button" aria-label="下一位">›</button></div>'
+      + '<div class="ov-namebar"><b id="ovName"></b><span id="ovType"></span></div>'
+      + '<div class="ov-tip">← → 切换 · 悬停头像扫描 · 点立绘放大</div></div>';
+    return h;
+  }
+
+  function ovApply(i, still){
+    var c = D.crews[i];
+    if(!c) return;
+    OV_IDX = i;
+    var ovEl = document.getElementById('ov');
+    var fig = document.getElementById('ovFig');
+    var img = document.getElementById('ovImg');
+    var eye = c.accent || '#5fd0ff';
+    ovEl.style.setProperty('--eye', eye);
+    document.getElementById('ovLeft').innerHTML = ovLeft(c);
+    document.getElementById('ovRight').innerHTML = ovRight(c);
+    document.getElementById('ovName').textContent = c.name;
+    document.getElementById('ovType').textContent = (c.code ? c.code + ' · ' : '') + (c.role || '');
+    var avs = document.querySelectorAll('#ovStrip .ov-av');
+    for(var k = 0; k < avs.length; k++) avs[k].classList.toggle('on', Number(avs[k].getAttribute('data-i')) === i);
+    var strip = document.getElementById('ovStrip');
+    var on = document.querySelector('#ovStrip .ov-av.on');
+    if(strip && on){
+      var target = on.offsetLeft - (strip.clientWidth - on.offsetWidth) / 2;
+      target = Math.max(0, target);
+      if(still) strip.scrollLeft = target;
+      else if(strip.scrollTo) strip.scrollTo({left: target, behavior: 'smooth'});
+      else strip.scrollLeft = target;
+    }
+
+    function placeEye(){
+      var im = document.getElementById('ovImg');
+      var eg = document.getElementById('ovEye');
+      if(!im || !eg || !im.offsetHeight) return;
+      eg.style.top = (im.offsetTop + im.offsetHeight * 0.2) + 'px';
+    }
+
+    function paint(){
+      if(OV_IDX !== i || !document.getElementById('ovFig')) return;
+      if(c.main){
+        img.src = c.main.src;
+        img.alt = c.name + ' 立绘';
+        img.setAttribute('data-full', c.main.src);
+        img.setAttribute('data-cap', c.id + ' ' + c.name + ' · ' + c.main.title);
+        img.onload = placeEye;
+      }
+      fig.classList.remove('swap');
+      placeEye();
+    }
+    if(still){
+      paint();
+    } else {
+      fig.classList.add('swap');
+      window.setTimeout(paint, 180);
+    }
+    ovEl.classList.remove('scanning');
+    void ovEl.offsetWidth;
+    ovEl.classList.add('scanning');
+  }
+
+  function ovStep(d){
+    if(!document.getElementById('ov')) return;
+    var n = D.crews.length;
+    if(!n) return;
+    ovApply((OV_IDX + d + n) % n, 0);
+  }
+
   function viewOverview(){
     var m = D.meta;
-    var h = '';
-    h += '<div class="kpis">'
-      + kpi(m.crewCount, '在档舰员', 'CREW-001…007 / 011')
-      + kpi(m.artwork, '已入档立绘', '168 张核心 + 17 张补拍')
-      + kpi(m.missing, '待补姿势位', '失败占位 + 未入档成稿')
-      + kpi(pct(m.artwork, m.planned) + '%', '整体完成度', m.artwork + ' / ' + m.planned + ' 个姿势位')
+    var h = '<section class="ov" id="ov">';
+    h += ovBar(m);
+    h += '<div class="ov-stage">'
+      + '<aside class="ov-side ov-left" id="ovLeft"></aside>'
+      + '<div class="ov-center">'
+      +   '<div class="ov-space"><i></i></div>'
+      +   '<div class="ov-ring r1"></div><div class="ov-ring r2"></div><div class="ov-ring r3"></div>'
+      +   '<div class="ov-figure" id="ovFig"><span class="ov-aura"></span>'
+      +     '<img id="ovImg" alt="" decoding="async"><span class="ov-plinth"></span><span class="ov-eye" id="ovEye"></span></div>'
+      +   '<div class="ov-scan"></div>'
+      + '</div>'
+      + '<aside class="ov-side ov-right" id="ovRight"></aside>'
       + '</div>';
-    h += '<h2 class="sec">舰员总览<span class="hint">点卡片进入人物详情 · 缩略图仅用于列表，点开看大图</span></h2>';
-    h += '<div class="crew-grid">';
-    D.crews.forEach(function(c){
-      var p = pct(c.done, c.planned);
-      h += '<a class="crew-card" href="#/crew/' + c.id + '">'
-        + '<div class="shot">'
-        + (c.main ? '<img loading="lazy" decoding="async" src="' + esc(c.main.thumb) + '" alt="' + esc(c.name) + '" data-full="' + esc(c.main.src) + '" data-cap="' + esc(c.id + ' ' + c.name + ' · ' + c.main.title) + '">' : '')
-        + '<span class="tag">' + esc(c.id) + '</span>'
-        + (c.missing ? '<span class="miss">待补 ' + c.missing + '</span>' : '')
-        + '</div><div class="body">'
-        + '<div class="nm"><b>' + esc(c.name) + '</b><em>' + esc(c.en || c.code) + '</em></div>'
-        + '<div class="role">' + esc(c.role) + '</div>'
-        + '<div class="bar' + (p<100?' amber':'') + '"><i style="width:' + p + '%"></i></div>'
-        + '<div class="stat"><span>' + c.done + ' / ' + c.planned + ' 姿势</span><span>' + p + '%</span></div>'
-        + '</div></a>';
-    });
-    h += '</div>';
+    h += ovDock();
+    h += '</section>';
     app.innerHTML = h;
+
+    var ovEl = document.getElementById('ov');
+    ovEl.addEventListener('click', function(e){
+      var av = e.target.closest('.ov-av');
+      if(av){ ovApply(Number(av.getAttribute('data-i')), 0); return; }
+      if(e.target.closest('#ovPrev')) ovStep(-1);
+      else if(e.target.closest('#ovNext')) ovStep(1);
+    });
+    ovEl.addEventListener('mouseover', function(e){
+      var av = e.target.closest('.ov-av');
+      if(!av) return;
+      var c = D.crews[Number(av.getAttribute('data-i'))];
+      if(!c) return;
+      var eg = document.getElementById('ovEye');
+      var im = document.getElementById('ovImg');
+      if(eg && im && im.offsetHeight) eg.style.top = (im.offsetTop + im.offsetHeight * 0.2) + 'px';
+      if(eg){
+        var cc = c.accent || '#5fd0ff';
+        if(/^#[0-9a-fA-F]{6}$/.test(cc)){
+          eg.style.background = 'radial-gradient(circle,' + cc + 'f2 0%,' + cc + '66 32%,' + cc + '00 68%)';
+        } else {
+          eg.style.background = 'radial-gradient(circle,' + cc + ' 0%,transparent 68%)';
+        }
+      }
+      ovEl.classList.add('hot');
+    });
+    ovEl.addEventListener('mouseout', function(e){
+      if(e.target.closest('.ov-av')) ovEl.classList.remove('hot');
+    });
+
+    ovApply(OV_IDX % D.crews.length, 1);
   }
+
   function kpi(n,l,sub){ return '<div class="kpi"><div class="n">' + n + '</div><div class="l">' + l + '</div><div class="sub">' + esc(sub) + '</div></div>'; }
 
   /* ---------- 人物详情 ---------- */
@@ -501,7 +882,10 @@ footer code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:11px}
   function render(){
     lb.classList.remove('on');
     var hash = location.hash || '#/';
-    if(hash.indexOf('#/crew/')===0){ viewCrew(hash.slice(7)); nav('crew'); }
+    var isCrew = hash.indexOf('#/crew/')===0;
+    document.body.classList.toggle('dark', !(isCrew || hash === '#/board' || hash === '#/trash'));
+    if(!isCrew) document.documentElement.style.removeProperty('--accent');
+    if(isCrew){ viewCrew(hash.slice(7)); nav('crew'); }
     else if(hash === '#/board'){ viewBoard(); nav('board'); }
     else if(hash === '#/trash'){ viewTrash(); nav('trash'); }
     else { viewOverview(); nav('overview'); }
