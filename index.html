@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>玄枢号 · 工作台</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23111a24'/%3E%3Ccircle cx='16' cy='16' r='7.5' fill='none' stroke='%235fd0ff' stroke-width='2'/%3E%3Cpath d='M16 6.5v19M6.5 16h19' stroke='%235fd0ff' stroke-width='1.4'/%3E%3C/svg%3E">
 <meta name="description" content="玄枢号项目工作台：舰员档案总览、人物详情与姿势缺位、完成度看板、弃用图区。">
 <style>
 :root{
@@ -45,6 +46,53 @@ nav.tabs a{
 }
 nav.tabs a:hover{background:var(--line2);text-decoration:none;color:var(--text)}
 nav.tabs a.on{background:var(--text);color:#fff}
+
+/* ---------- 顶栏工具（世界年份 / 音效 / 设置 / 返回） ---------- */
+.tools{display:flex;align-items:center;gap:6px;margin-left:auto;flex-wrap:wrap}
+.tool{display:inline-flex;align-items:center;gap:5px;font:inherit;font-size:12px;height:28px;padding:0 10px;
+  border:1px solid var(--line);background:#fff;border-radius:999px;color:var(--muted);cursor:pointer;white-space:nowrap}
+.tool:hover{border-color:#c9cfd8;color:var(--text)}
+.tool.icon{width:30px;padding:0;justify-content:center}
+.tool svg{width:14px;height:14px;display:block;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.tool b{font:700 12.5px/1 ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:.6px;color:var(--text);font-variant-numeric:tabular-nums}
+.tool .k{font-size:9.5px;letter-spacing:1.2px;color:var(--faint)}
+.tool .u{font-size:10.5px;color:var(--faint)}
+.tool.off{color:#aab1ba}
+.tool.off b{color:#9aa1ab}
+.tool.off svg{opacity:.45}
+.tool .mute{display:none}
+.tool.off .mute{display:block}
+.tool.off .w1,.tool.off .w2{display:none}
+.tool[hidden]{display:none}
+.tool:disabled{opacity:.4;cursor:not-allowed}
+body.no-motion *,body.no-motion *::before,body.no-motion *::after{animation:none!important;transition:none!important}
+.pop{position:absolute;right:20px;top:calc(100% + 8px);z-index:60;width:min(92vw,318px);
+  background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:0 18px 46px rgba(20,26,36,.18);
+  padding:14px 15px;display:none;color:var(--text)}
+.pop.on{display:block}
+.pop h4{margin:0 0 4px;font-size:13.5px}
+.pop .ps{font-size:11.5px;color:var(--muted);line-height:1.6;margin-bottom:10px}
+.pop .row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:7px 0;border-top:1px solid var(--line2);font-size:12.5px}
+.pop .row span{color:var(--muted)}
+.pop .row b{font-variant-numeric:tabular-nums}
+.pop .sw{width:38px;height:21px;border-radius:999px;border:1px solid var(--line);background:var(--line2);position:relative;cursor:pointer;flex:0 0 auto}
+.pop .sw i{position:absolute;left:2px;top:2px;width:15px;height:15px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.18);transition:.16s}
+.pop .sw.on{background:#0a7d3c;border-color:#0a7d3c}
+.pop .sw.on i{left:19px}
+.pop .pbtn{font:inherit;font-size:12px;border:1px solid var(--line);background:#fff;border-radius:7px;padding:4px 10px;cursor:pointer;color:var(--muted)}
+.pop .pbtn:hover{border-color:#c9cfd8;color:var(--text)}
+.pop .pbtn.danger{color:#b3261e;border-color:#efcfcb}
+#toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,8px);z-index:95;background:#1f2329;color:#fff;
+  font-size:12.5px;padding:8px 16px;border-radius:999px;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s}
+#toast.on{opacity:1;transform:translate(-50%,0)}
+body.dark .tool{background:#0d151d;border-color:#1b2734;color:#8a9bb0}
+body.dark .tool b{color:#eaf3ff}
+body.dark .pop{background:#0c141d;border-color:#1e2c3b;box-shadow:0 18px 46px rgba(0,0,0,.55)}
+body.dark .pop .row{border-top-color:#17242f}
+body.dark .pop .sw{background:#16222d;border-color:#22303f}
+body.dark .pop .sw.on{background:#1f7a4a;border-color:#1f7a4a}
+body.dark .pop .pbtn{background:#101a24;border-color:#22303f;color:#9fb2c6}
+
 
 main{max-width:1240px;margin:0 auto;padding:22px 20px 64px}
 
@@ -114,6 +162,8 @@ h2.sec .btn{margin-left:auto;font-weight:400}
 .lib-card .mt{font-size:10.5px;color:var(--faint);padding:4px 9px 9px}
 .lib-card .mt a{color:var(--muted)}
 .lib-empty{padding:26px 0;color:var(--muted);font-size:13px}
+.lib-owner{margin:-6px 0 14px;font-size:12px;color:var(--muted)}
+.lib-owner b{color:var(--text)}
 
 /* ---------- 舰员选择 ---------- */
 .pick-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:14px}
@@ -295,7 +345,6 @@ body.dark main{max-width:1360px}
 .ov-left{border-right:1px solid #1b2734;background:linear-gradient(90deg,rgba(9,15,22,.92),rgba(9,15,22,.3))}
 .ov-right{border-left:1px solid #1b2734;background:linear-gradient(270deg,rgba(9,15,22,.92),rgba(9,15,22,.3))}
 .ov-k{font:600 9.5px/1 ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:2.4px;color:#5fd0ff;opacity:.85}
-.ov-id{font:700 20px/1 ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:1.2px;color:#f2f8ff;margin-top:-3px}
 .ov-field{min-width:0}
 .ov-lab{font-size:9.5px;letter-spacing:1.6px;color:#66798f;text-transform:uppercase;margin-bottom:4px}
 .ov-val{font-size:13px;color:#cfdbe9;word-break:break-word}
@@ -353,12 +402,16 @@ body.dark main{max-width:1360px}
 @keyframes aura{0%,100%{opacity:.55;transform:translate(-50%,-50%) scale(1)}50%{opacity:.92;transform:translate(-50%,-50%) scale(1.035)}}
 
 .ov-rbox{min-width:0}
-.ov-radar{width:100%;max-width:224px;height:auto;display:block;margin:6px auto 2px}
+.ov-radar{width:100%;max-width:238px;height:auto;display:block;margin:4px auto 2px}
 .ov-radar .rg{fill:none;stroke:rgba(120,170,215,.22);stroke-width:.8}
 .ov-radar .ra{stroke:rgba(120,170,215,.18);stroke-width:.6}
 .ov-radar .rv{fill:var(--eye,#5fd0ff);fill-opacity:.24;stroke:var(--eye,#5fd0ff);stroke-width:1.1;stroke-linejoin:round}
 .ov-radar .rd{fill:var(--eye,#5fd0ff)}
-.ov-radar .rt{fill:#8095ab;font-size:8.2px;letter-spacing:.4px}
+.ov-radar .rt{fill:#8095ab;font-size:9px;letter-spacing:.3px}
+.ov-radar .rh{fill:transparent}
+.ov-radar .ax{cursor:pointer}
+.ov-radar .ax:hover .rt,.ov-radar .ax.on .rt{fill:#5fd0ff}
+.ov-radar .ax.on .rt{font-weight:700}
 .ov-gear{display:flex;flex-direction:column;gap:5px;margin-top:2px;max-height:246px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:#2d4356 transparent;padding-right:2px}
 .ov-gear::-webkit-scrollbar{width:4px}
 .ov-gear::-webkit-scrollbar-thumb{background:#2d4356;border-radius:3px}
@@ -376,15 +429,40 @@ body.dark main{max-width:1360px}
 .ov-strip::-webkit-scrollbar{display:none}
 .ov-nav{flex:0 0 28px;width:28px;height:74px;border-radius:7px;border:1px solid #243244;background:#0d151d;color:#8ea4bb;font-size:16px;line-height:1;cursor:pointer;transition:.18s}
 .ov-nav:hover{color:#5fd0ff;border-color:#3a6484;box-shadow:0 0 14px rgba(95,208,255,.25)}
+.ov-nav:disabled{opacity:.28;cursor:not-allowed;color:#5b6b7c;border-color:#1b2734;box-shadow:none}
 .ov-av{flex:0 0 58px;height:74px;border-radius:7px;overflow:hidden;position:relative;cursor:pointer;
   border:1px solid #22303f;opacity:.45;filter:saturate(.45);transition:opacity .2s,transform .2s,box-shadow .2s,border-color .2s}
 .ov-av img{width:100%;height:100%;object-fit:cover;object-position:50% 14%}
 .ov-av:hover{opacity:.8;transform:translateY(-1px)}
 .ov-av.on{opacity:1;filter:none;border-color:#e8c072;box-shadow:0 0 0 1px rgba(232,192,114,.9),0 0 18px rgba(232,192,114,.4);transform:translateY(-2px)}
 .ov-av .no{position:absolute;left:0;right:0;bottom:0;text-align:center;font:600 8.5px/1.7 ui-monospace,SFMono-Regular,Consolas,monospace;color:#dfe7f2;background:linear-gradient(transparent,rgba(3,7,11,.9))}
-.ov-namebar{display:flex;align-items:baseline;gap:10px;justify-content:center;margin-top:9px;flex-wrap:wrap}
-.ov-namebar b{font-size:15px;letter-spacing:2.5px;color:#f2f8ff}
-.ov-namebar span{font-size:11px;letter-spacing:1.4px;color:#7f93a9}
+.ov-plate{position:relative;z-index:2;display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap;
+  padding:13px 20px 6px;border-top:1px solid #1b2734;
+  background:linear-gradient(180deg,rgba(13,20,28,.25),rgba(9,14,20,.72))}
+.ov-plate::before{content:"";position:absolute;left:0;top:13px;bottom:8px;width:2px;
+  background:var(--eye,#5fd0ff);box-shadow:0 0 14px var(--eye,#5fd0ff)}
+.ov-plate .nm{min-width:0;flex:1 1 auto}
+.ov-plate .nm b{display:block;font-size:clamp(22px,3.4vw,34px);line-height:1.12;letter-spacing:4px;color:#f6faff;
+  word-break:break-word;overflow-wrap:anywhere;text-shadow:0 0 26px rgba(95,208,255,.22)}
+.ov-plate .nm em{display:block;font-style:normal;font:600 10px/1.8 ui-monospace,SFMono-Regular,Consolas,monospace;
+  letter-spacing:2.4px;color:#7f93a9;margin-top:3px}
+.ov-plate .sub{display:flex;flex-direction:column;gap:2px;font-size:10.5px;color:#8ea4bb;letter-spacing:1px;text-align:right;max-width:52%}
+.ov-plate .sub b{font-size:12px;color:#dfe7f2;letter-spacing:1.4px}
+.ov-plate .ov-goto{align-self:center}
+.ov-nameblk b{display:block;font-size:23px;line-height:1.15;letter-spacing:2px;color:#f6faff;
+  word-break:break-word;overflow-wrap:anywhere}
+.ov-nameblk em{display:block;font-style:normal;font:600 9.5px/1.9 ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:2px;color:#6d8098}
+.ov-cname{display:none}
+.ov-link{display:inline-flex;align-items:center;gap:5px;cursor:pointer}
+.ov-link::after{content:"›";font-size:11px;color:#4e6075;transition:.16s}
+.ov-link:hover{color:#eaf3ff;text-decoration:none}
+.ov-link:hover::after{color:#5fd0ff;transform:translateX(1px)}
+.ov-atip{margin-top:7px;min-height:48px;font-size:11px;line-height:1.55;color:#8ea4bb;
+  border-left:2px solid rgba(95,208,255,.38);padding:5px 9px;background:rgba(24,36,49,.42);border-radius:0 5px 5px 0}
+.ov-atip b{color:#dfe7f2;font-weight:600;margin-right:5px}
+.ov-atip b i{font-style:normal;font:700 12px/1 ui-monospace,SFMono-Regular,Consolas,monospace;color:#5fd0ff;margin-left:5px}
+.ov-glink{display:block;margin-top:8px;padding-top:7px;border-top:1px solid #1b2734;font-size:10.5px;letter-spacing:.9px;color:#8fc6ff}
+.ov-glink:hover{color:#eaf6ff;text-decoration:none}
 .ov-tip{text-align:center;font-size:10.5px;letter-spacing:1.2px;color:#4e6075;margin-top:5px}
 .ov-goto{margin-left:6px;font-size:10.5px;letter-spacing:1px;color:#8fc6ff;border:1px solid rgba(95,208,255,.35);
   border-radius:999px;padding:2px 9px;white-space:nowrap;background:rgba(95,208,255,.08)}
@@ -441,6 +519,11 @@ footer code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:11px}
 }
 @media (max-width:900px){
   .ov-stage{grid-template-columns:minmax(0,1fr)}
+  .ov-cname{display:block;position:absolute;left:0;right:0;bottom:0;z-index:4;padding:34px 14px 10px;text-align:left;
+    background:linear-gradient(180deg,transparent,rgba(5,9,13,.86));pointer-events:none}
+  .ov-cname b{display:block;font-size:clamp(22px,5vw,30px);letter-spacing:3px;color:#f6faff;line-height:1.1;word-break:break-word;overflow-wrap:anywhere}
+  .ov-cname em{display:block;font-style:normal;font:600 9.5px/2 ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:1.8px;color:#8ea4bb;margin-top:2px}
+  .ov-plate{display:none}
   .ov-center{order:1;min-height:400px;padding:8px 0}
   .ov-left{order:2;border-right:0;border-top:1px solid #1b2734;gap:12px 16px;padding:14px 16px}
   .ov-right{order:3;border-left:0;border-top:1px solid #1b2734;gap:14px 18px;padding:14px 16px}
@@ -453,7 +536,15 @@ footer code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:11px}
 }
 @media (max-width:640px){
   body.dark main{padding:10px 10px 40px}
+  .tools{gap:4px}
+  .tool{padding:0 8px;height:26px}
+  .tool .k{display:none}
+  .tool b{font-size:12px}
+  .tool.icon{width:28px}
+  .pop{right:10px;left:10px;width:auto}
   .ov{border-radius:12px}
+  .ov-nameblk b{font-size:21px}
+  .ov-atip{font-size:10.5px;min-height:52px}
   .ov-bar{padding:9px 12px;gap:8px}
   .ov-bar h2{font-size:13.5px;letter-spacing:2px}
   .ov-stats{width:100%;display:grid;grid-template-columns:repeat(4,minmax(0,1fr))}
@@ -469,21 +560,39 @@ footer code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:11px}
   .ov-ring.r3{width:min(70%,252px)}
   .ov-side{padding:12px 12px}
   .ov-left{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 12px}
-  .ov-left .ov-k,.ov-left .ov-id,.ov-left .ov-wide{grid-column:1/-1}
-  .ov-id{font-size:17px}
+  .ov-left .ov-k,.ov-left .ov-nameblk,.ov-left .ov-wide{grid-column:1/-1}
   .ov-right{display:grid;grid-template-columns:minmax(0,1fr);gap:12px}
   .ov-radar{max-width:190px}
   .ov-nav{flex:0 0 26px;width:26px;height:64px}
   .ov-av{flex:0 0 50px;height:64px}
-  .ov-namebar b{font-size:14px;letter-spacing:1.8px}
-  .ov-namebar span{font-size:10.5px;letter-spacing:.8px}
   .ov-tip{font-size:10px;letter-spacing:.6px}
 }
 </style>
 </head>
 <body>
-<header class="top"><div class="top-in">
+<header class="top" id="top">
+  <div class="top-in">
   <div class="brand"><b>玄枢号 · 工作台</b><span>XUANSHU / CREW WORKBENCH</span></div>
+  <div class="tools">
+    <button class="tool" id="worldBtn" type="button" title="玄枢历 · 世界时间流" aria-haspopup="dialog" aria-expanded="false">
+      <span class="k">玄枢历</span><b id="worldYear">41000</b><span class="u">年</span>
+    </button>
+    <button class="tool icon" id="sndBtn" type="button" aria-label="音效开关" aria-pressed="true" title="音效开关">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M4 9h3l4-3v12l-4-3H4z"/>
+        <path class="w1" d="M15.5 8.6a4.8 4.8 0 0 1 0 6.8"/>
+        <path class="w2" d="M18 6.2a8.2 8.2 0 0 1 0 11.6"/>
+        <path class="mute" d="M16 9.5l5 5M21 9.5l-5 5"/>
+      </svg>
+    </button>
+    <button class="tool icon" id="setBtn" type="button" aria-label="设置" aria-haspopup="dialog" aria-expanded="false" title="设置">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="3.2"/>
+        <path d="M12 3v2.3M12 18.7V21M3 12h2.3M18.7 12H21M5.6 5.6l1.7 1.7M16.7 16.7l1.7 1.7M18.4 5.6l-1.7 1.7M7.3 16.7l-1.7 1.7"/>
+      </svg>
+    </button>
+    <button class="tool icon" id="backBtn" type="button" aria-label="返回上一页" title="返回" hidden>←</button>
+  </div>
   <nav class="tabs" id="tabs">
     <a href="#/" data-r="overview">总览</a>
     <a href="#/crew" data-r="crew">舰员详情</a>
@@ -491,7 +600,26 @@ footer code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:11px}
     <a href="#/lib" data-r="lib">素材库</a>
     <a href="#/trash" data-r="trash">垃圾站</a>
   </nav>
-</div></header>
+  </div>
+
+  <div class="pop" id="popWorld" role="dialog" aria-label="玄枢历">
+    <h4>玄枢历 · 世界时间</h4>
+    <div class="ps">时间流与现实同步：1 现实分钟 = 1 世界年，起始 41000 年。关闭页面后仍在走。</div>
+    <div class="row"><span>当前年份</span><b id="pwYear">41000 年</b></div>
+    <div class="row"><span>本次已运行</span><b id="pwRun">0 分 0 秒</b></div>
+    <div class="row"><span>时间流</span><button class="pbtn" id="pwPause" type="button">暂停</button></div>
+  </div>
+
+  <div class="pop" id="popSet" role="dialog" aria-label="设置">
+    <h4>工作台设置</h4>
+    <div class="ps">设置只存在这台设备的本地存储里。</div>
+    <div class="row"><span>音效</span><button class="sw" id="swSnd" type="button" role="switch" aria-checked="true" aria-label="音效"><i></i></button></div>
+    <div class="row"><span>界面动效</span><button class="sw" id="swMotion" type="button" role="switch" aria-checked="true" aria-label="界面动效"><i></i></button></div>
+    <div class="row"><span>时间流</span><button class="sw" id="swTime" type="button" role="switch" aria-checked="true" aria-label="时间流"><i></i></button></div>
+    <div class="row"><span>本地记忆（上次查看 / 时间种子）</span><button class="pbtn danger" id="btnReset" type="button">清除</button></div>
+  </div>
+  <div id="toast" role="status" aria-live="polite"></div>
+</header>
 
 <main id="app"></main>
 <footer id="foot"></footer>
@@ -522,6 +650,161 @@ footer code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:11px}
     if(img.dataset.ph !== '1' && fb){ img.dataset.ph = '1'; img.src = fb; }
     else { img.dataset.ph = '2'; img.src = PH; }
   }, true);
+
+  /* ---------- 音效：WebAudio 合成，无外链音频 ---------- */
+  var SND = (function(){
+    var KEY = 'xs_sound_v1';
+    var on = true;
+    try{ on = localStorage.getItem(KEY) !== '0'; }catch(e){}
+    var ctx = null, armed = false;
+    var AC = window.AudioContext || window.webkitAudioContext;
+    function ready(){
+      if(!on || !armed || !AC) return null;
+      if(!ctx){
+        try{ ctx = new AC(); }catch(e){ return null; }
+      }
+      if(ctx.state === 'suspended' && ctx.resume) ctx.resume();
+      return ctx;
+    }
+    function ping(f, dur, type, vol, to){
+      var a = ready(); if(!a) return;
+      var o = a.createOscillator(), g = a.createGain(), t = a.currentTime;
+      o.type = type;
+      o.frequency.setValueAtTime(f, t);
+      if(to) o.frequency.exponentialRampToValueAtTime(to, t + dur);
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.linearRampToValueAtTime(vol, t + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(g); g.connect(a.destination);
+      o.start(t); o.stop(t + dur + 0.03);
+    }
+    return {
+      isOn: function(){ return on; },
+      supported: !!AC,
+      arm: function(){ armed = true; },
+      set: function(v){
+        on = !!v;
+        try{ localStorage.setItem(KEY, on ? '1' : '0'); }catch(e){}
+        if(!on && ctx && ctx.suspend) ctx.suspend();
+        if(on && ctx && ctx.state === 'suspended' && ctx.resume) ctx.resume();
+      },
+      click: function(){ ping(1180, 0.035, 'triangle', 0.05); },
+      swap: function(){ ping(520, 0.05, 'sine', 0.05, 660); setTimeout(function(){ ping(880, 0.06, 'sine', 0.042); }, 45); },
+      page: function(){ ping(760, 0.06, 'triangle', 0.04, 600); },
+      err: function(){ ping(190, 0.16, 'sawtooth', 0.045, 140); }
+    };
+  })();
+
+  /* ---------- 玄枢历：1 现实分钟 = 1 世界年 ---------- */
+  var WORLD = (function(){
+    var KEY = 'xs_world_v1', START = 41000, YPM = 1 / 60000;
+    var st = {y: START, ts: Date.now(), paused: false};
+    try{
+      var raw = localStorage.getItem(KEY);
+      if(raw){
+        var o = JSON.parse(raw);
+        if(o && typeof o.y === 'number' && isFinite(o.y)){ st.y = Math.max(START, o.y); st.paused = !!o.paused; }
+      }
+    }catch(e){}
+    var saveT = 0;
+    function save(){
+      try{ localStorage.setItem(KEY, JSON.stringify({y: st.y, paused: st.paused})); }catch(e){}
+    }
+    function tick(){
+      var now = Date.now();
+      if(!st.paused){ st.y += Math.max(0, now - st.ts) * YPM; saveT += now - st.ts; if(saveT > 5000){ saveT = 0; save(); } }
+      st.ts = now;
+    }
+    return {
+      now: function(){ tick(); return st.y; },
+      paused: function(){ return st.paused; },
+      pause: function(v){ tick(); st.paused = !!v; st.ts = Date.now(); save(); },
+      reset: function(){ st.y = START; st.paused = false; st.ts = Date.now(); save(); },
+      save: save,
+      START: START
+    };
+  })();
+
+  var toastT = 0;
+  function toast(msg){
+    var t = document.getElementById('toast');
+    if(!t) return;
+    t.textContent = msg;
+    t.classList.add('on');
+    clearTimeout(toastT);
+    toastT = setTimeout(function(){ t.classList.remove('on'); }, 1900);
+  }
+  function fmtNum(n){
+    return String(Math.max(0, Math.floor(n))).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  }
+  function paintWorld(){
+    var y = WORLD.now();
+    var el = document.getElementById('worldYear');
+    if(el) el.textContent = fmtNum(y);
+    var pw = document.getElementById('pwYear');
+    if(pw) pw.textContent = fmtNum(y) + ' 年';
+    var pr = document.getElementById('pwRun');
+    if(pr){
+      var s = Math.max(0, Math.floor((y - WORLD.START) * 60));
+      pr.textContent = Math.floor(s / 60) + ' 分 ' + (s % 60) + ' 秒';
+    }
+    var pauseBtn = document.getElementById('pwPause');
+    if(pauseBtn) pauseBtn.textContent = WORLD.paused() ? '继续' : '暂停';
+    var sw = document.getElementById('swTime');
+    if(sw){
+      sw.classList.toggle('on', !WORLD.paused());
+      sw.setAttribute('aria-checked', WORLD.paused() ? 'false' : 'true');
+    }
+  }
+  function paintSnd(){
+    var b = document.getElementById('sndBtn');
+    if(!b) return;
+    b.classList.toggle('off', !SND.isOn());
+    b.setAttribute('aria-pressed', SND.isOn() ? 'true' : 'false');
+    b.disabled = !SND.supported;
+    b.title = !SND.supported ? '当前浏览器不支持音效' : (SND.isOn() ? '音效：开（点击关闭）' : '音效：关（点击开启）');
+    var sw = document.getElementById('swSnd');
+    if(sw){
+      sw.classList.toggle('on', SND.isOn());
+      sw.setAttribute('aria-checked', SND.isOn() ? 'true' : 'false');
+    }
+  }
+  function toggleSnd(v){
+    if(!SND.supported) return;
+    SND.arm();
+    SND.set(v == null ? !SND.isOn() : v);
+    paintSnd();
+  }
+  var MOTION_KEY = 'xs_motion_v1';
+  function motionOn(){
+    try{ return localStorage.getItem(MOTION_KEY) !== '0'; }catch(e){ return true; }
+  }
+  function setMotion(v){
+    try{ localStorage.setItem(MOTION_KEY, v ? '1' : '0'); }catch(e){}
+    document.body.classList.toggle('no-motion', !v);
+    var sw = document.getElementById('swMotion');
+    if(sw){ sw.classList.toggle('on', v); sw.setAttribute('aria-checked', v ? 'true' : 'false'); }
+  }
+
+  var POP = null;
+  function closePop(){
+    var ps = document.querySelectorAll('.pop');
+    for(var i = 0; i < ps.length; i++) ps[i].classList.remove('on');
+    var a = document.getElementById('worldBtn'), b = document.getElementById('setBtn');
+    if(a) a.setAttribute('aria-expanded', 'false');
+    if(b) b.setAttribute('aria-expanded', 'false');
+    POP = null;
+  }
+  function openPop(id, btn){
+    if(POP === id){ closePop(); return; }
+    closePop();
+    var p = document.getElementById(id);
+    if(!p) return;
+    p.classList.add('on');
+    if(btn) btn.setAttribute('aria-expanded', 'true');
+    POP = id;
+  }
+
   var crewById = {};
   D.crews.forEach(function(c){ crewById[c.id] = c; });
 
@@ -539,76 +822,104 @@ footer code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:11px}
     if(e.target.closest('#lb')) lb.classList.remove('on');
   });
   document.addEventListener('keydown', function(e){
-    if(e.key==='Escape') lb.classList.remove('on');
+    if(e.key==='Escape'){ lb.classList.remove('on'); closePop(); }
+    SND.arm();
     if(!document.getElementById('ov')) return;
     if(e.key==='ArrowLeft'){ e.preventDefault(); ovStep(-1); }
     else if(e.key==='ArrowRight'){ e.preventDefault(); ovStep(1); }
   });
 
   /* ---------- 总览 · 舰桥 ---------- */
-  var MAXV = {done:1, series:1, fields:1, mods:1};
-  D.crews.forEach(function(c){
-    MAXV.done = Math.max(MAXV.done, c.done || 0);
-    MAXV.series = Math.max(MAXV.series, (c.series || []).length);
-    MAXV.fields = Math.max(MAXV.fields, Object.keys(c.profile || {}).length);
-    MAXV.mods = Math.max(MAXV.mods, (c.mods || []).length);
-  });
+  var ATTRS = ['魅力', '统御', '战斗', '智力', '体质', '意志', '技术', '幸运'];
+  var ADESC = {
+    '魅力': '舰内评级的直观项：站定三秒，舱内说话声会自己降一档。',
+    '统御': '看的是下指令后的队列迟滞；没人复述，才算这条指令真的有效。',
+    '战斗': '以近接三招内的收势判断——不看得手，看能不能收住。',
+    '智力': '战术数据板的推演速度：同一组参数，能比别人少试两次。',
+    '体质': '长时值勤后维持姿态的时长，与维生剂消耗成反比。',
+    '意志': '疼痛与失压条件下的指令完成度。不看忍，看是否照做。',
+    '技术': '对舰内管路的熟悉程度：闭眼能指出哪一段该响。',
+    '幸运': '不列入考核。只在事故记录里，总差半格没写到名字。'
+  };
+  var OV_AXIS = 0;
   var OV_IDX = 0;
 
   function ovLeft(c){
     var p = pct(c.done, c.planned);
     var eye = c.accent || '#5fd0ff';
+    var det = '#/crew/' + esc(c.id);
     return '<div class="ov-k">CREW FILE</div>'
-      + '<div class="ov-id">' + esc(c.id) + '</div>'
+      + '<div class="ov-nameblk"><b>' + esc(c.name) + '</b><em>' + esc(c.id) + (c.en ? ' · ' + esc(c.en) : '') + '</em></div>'
       + '<div class="ov-field"><div class="ov-lab">义眼微光 / OPTIC</div>'
       +   '<div class="ov-eye-row"><i style="background:' + esc(eye) + ';box-shadow:0 0 10px ' + esc(eye) + ',0 0 22px ' + esc(eye) + '"></i><b>' + esc(eye.toUpperCase()) + '</b></div></div>'
       + '<div class="ov-field"><div class="ov-lab">机体型号 / MODEL</div><div class="ov-val">' + esc(c.code || '待定') + '</div></div>'
       + '<div class="ov-field"><div class="ov-lab">战术代号 / CALLSIGN</div><div class="ov-val">' + esc(c.en || '—') + '</div></div>'
       + '<div class="ov-field"><div class="ov-lab">战备状态 / STATUS</div><div class="ov-val"><span class="ov-led' + (p < 100 ? ' warn' : '') + '"></span>' + esc(c.status || '在档') + '</div></div>'
-      + '<div class="ov-field"><div class="ov-lab">系列 / SERIES</div><div class="ov-val">' + (c.series || []).length + ' 组</div></div>'
-      + '<div class="ov-field"><div class="ov-lab">立绘 / FRAMES</div><div class="ov-val">' + (c.done || 0) + ' 张已入档</div></div>'
+      + '<div class="ov-field"><div class="ov-lab">系列 / SERIES</div><div class="ov-val"><a class="ov-link" href="' + det + '">' + (c.series || []).length + ' 组</a></div></div>'
+      + '<div class="ov-field"><div class="ov-lab">立绘 / FRAMES</div><div class="ov-val"><a class="ov-link" href="' + det + '">' + (c.done || 0) + ' 张已入档</a></div></div>'
       + '<div class="ov-field ov-wide"><div class="ov-lab">姿势完整度</div>'
       +   '<div class="ov-meter"><i style="width:' + p + '%"></i></div>'
-      +   '<div class="ov-num">' + c.done + ' / ' + c.planned + ' · ' + p + '%' + (c.missing ? ' · 缺 ' + c.missing : '') + '</div></div>';
+      +   '<div class="ov-num"><a class="ov-link" href="#/board" style="color:inherit">' + c.done + ' / ' + c.planned + ' · ' + p + '%' + (c.missing ? ' · 缺 ' + c.missing : '') + '</a></div></div>';
   }
 
   function ovRadar(c){
-    var vals = [
-      ['入档', Math.min(1, (c.done || 0) / MAXV.done)],
-      ['系列', Math.min(1, (c.series || []).length / MAXV.series)],
-      ['档案', Math.min(1, Object.keys(c.profile || {}).length / MAXV.fields)],
-      ['完整', c.planned ? Math.min(1, c.done / c.planned) : 0],
-      ['装备', Math.min(1, (c.mods || []).length / MAXV.mods)]
-    ];
-    var cx = 75, cy = 76, R = 44, n = vals.length, i;
+    var a = c.attrs || {};
+    var vals = ATTRS.map(function(k){
+      var v = Number(a[k]);
+      return [k, isNaN(v) ? 0 : Math.max(0, Math.min(100, v))];
+    });
+    var cx = 120, cy = 112, R = 68, n = vals.length, i;
     function pt(k, r){
-      var a = -Math.PI / 2 + k * 2 * Math.PI / n;
-      return [(cx + r * Math.cos(a)).toFixed(1), (cy + r * Math.sin(a)).toFixed(1)];
+      var ang = -Math.PI / 2 + k * 2 * Math.PI / n;
+      return [cx + r * Math.cos(ang), cy + r * Math.sin(ang), ang];
     }
-    var s = '<svg class="ov-radar" viewBox="0 0 150 152" role="img" aria-label="战备雷达">';
-    [0.34, 0.67, 1].forEach(function(f){
+    var s = '<svg class="ov-radar" viewBox="0 0 240 226" role="img" aria-label="人物属性雷达">';
+    [0.25, 0.5, 0.75, 1].forEach(function(f){
       var p = [];
-      for(var k = 0; k < n; k++) p.push(pt(k, R * f).join(','));
+      for(var k = 0; k < n; k++){ var q = pt(k, R * f); p.push(q[0].toFixed(1) + ',' + q[1].toFixed(1)); }
       s += '<polygon class="rg" points="' + p.join(' ') + '"/>';
     });
     for(i = 0; i < n; i++){
-      var a1 = pt(i, R);
-      s += '<line class="ra" x1="' + cx + '" y1="' + cy + '" x2="' + a1[0] + '" y2="' + a1[1] + '"/>';
+      var e = pt(i, R);
+      s += '<line class="ra" x1="' + cx + '" y1="' + cy + '" x2="' + e[0].toFixed(1) + '" y2="' + e[1].toFixed(1) + '"/>';
     }
     var poly = [];
-    for(i = 0; i < n; i++) poly.push(pt(i, R * Math.max(vals[i][1], 0.06)).join(','));
+    for(i = 0; i < n; i++){
+      var dv = pt(i, R * Math.max(vals[i][1] / 100, 0.04));
+      poly.push(dv[0].toFixed(1) + ',' + dv[1].toFixed(1));
+    }
     s += '<polygon class="rv" points="' + poly.join(' ') + '"/>';
     for(i = 0; i < n; i++){
-      var d = pt(i, R * Math.max(vals[i][1], 0.06)), lp = pt(i, R + 12);
-      s += '<circle class="rd" cx="' + d[0] + '" cy="' + d[1] + '" r="1.8"/>'
-        + '<text class="rt" x="' + lp[0] + '" y="' + (Number(lp[1]) + 2.6).toFixed(1) + '" text-anchor="middle">' + vals[i][0] + '</text>';
+      var d = pt(i, R * Math.max(vals[i][1] / 100, 0.04));
+      s += '<circle class="rd" cx="' + d[0].toFixed(1) + '" cy="' + d[1].toFixed(1) + '" r="1.9"/>';
     }
-    return s + '</svg>';
+    for(i = 0; i < n; i++){
+      var lp = pt(i, R + 17), cos = Math.cos(lp[2]);
+      var anchor = cos > 0.28 ? 'start' : (cos < -0.28 ? 'end' : 'middle');
+      s += '<g class="ax" data-i="' + i + '" role="button" tabindex="0" aria-label="' + esc(vals[i][0]) + '">'
+        + '<circle class="rh" cx="' + lp[0].toFixed(1) + '" cy="' + lp[1].toFixed(1) + '" r="12"/>'
+        + '<text class="rt" x="' + lp[0].toFixed(1) + '" y="' + lp[1].toFixed(1) + '" text-anchor="' + anchor + '" dominant-baseline="middle">' + esc(vals[i][0]) + '</text>'
+        + '</g>';
+    }
+    s += '</svg><div class="ov-atip" id="ovAtip"></div>';
+    return s;
+  }
+
+  function ovTip(i){
+    i = Number(i) || 0;
+    OV_AXIS = i;
+    var c = D.crews[OV_IDX];
+    if(!c) return;
+    var k = ATTRS[i], v = (c.attrs || {})[k];
+    var t = document.getElementById('ovAtip');
+    if(t) t.innerHTML = '<b>' + esc(k) + '<i>' + esc(v == null ? '—' : v) + '</i></b>' + esc(ADESC[k] || '');
+    var axs = document.querySelectorAll('.ov-radar .ax');
+    for(var j = 0; j < axs.length; j++) axs[j].classList.toggle('on', Number(axs[j].getAttribute('data-i')) === i);
   }
 
   function ovRight(c){
     var mods = c.mods || [];
-    var h = '<div class="ov-rbox"><div class="ov-k">战备雷达 / RADAR</div>' + ovRadar(c) + '</div>';
+    var h = '<div class="ov-rbox"><div class="ov-k">人物属性 / ATTRIBUTES</div>' + ovRadar(c) + '</div>';
     h += '<div class="ov-rbox"><div class="ov-k">装备栏 / LOADOUT</div><div class="ov-gear">';
     if(mods.length){
       mods.forEach(function(m, i){
@@ -617,7 +928,8 @@ footer code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:11px}
     } else {
       h += '<div class="ov-grow empty"><span>未登记改装</span></div>';
     }
-    return h + '</div></div>';
+    h += '</div><a class="ov-glink" href="#/lib?cat=eq&amp;owner=' + esc(c.id) + '">素材库 · ' + esc(c.name) + ' 的装备条目 →</a></div>';
+    return h;
   }
 
   function ovBar(m){
@@ -634,7 +946,12 @@ footer code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:11px}
   }
 
   function ovDock(){
-    var h = '<div class="ov-dock"><div class="ov-dockrow">'
+    var h = '<div class="ov-plate">'
+      + '<div class="nm"><b id="ovName"></b><em id="ovNameEn"></em></div>'
+      + '<div class="sub"><b id="ovType"></b><span id="ovSub"></span></div>'
+      + '<a class="ov-goto" id="ovGo" href="#/crew/' + esc(D.crews[0].id) + '">查看档案 →</a>'
+      + '</div>';
+    h += '<div class="ov-dock"><div class="ov-dockrow">'
       + '<button class="ov-nav" id="ovPrev" type="button" aria-label="上一位">‹</button>'
       + '<div class="ov-strip" id="ovStrip">';
     D.crews.forEach(function(c, i){
@@ -643,9 +960,7 @@ footer code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:11px}
         + '<span class="no">' + esc(c.id.replace('CREW-', '')) + '</span></div>';
     });
     h += '</div><button class="ov-nav" id="ovNext" type="button" aria-label="下一位">›</button></div>'
-      + '<div class="ov-namebar"><b id="ovName"></b><span id="ovType"></span>'
-      +   '<a class="ov-goto" id="ovGo" href="#/crew/' + esc(D.crews[0].id) + '">查看档案 →</a></div>'
-      + '<div class="ov-tip">← → 切换 · 点立绘放大</div></div>';
+      + '<div class="ov-tip">← → 切换 · 点立绘放大 · 点属性轴看释义</div></div>';
     return h;
   }
 
@@ -685,9 +1000,24 @@ footer code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:11px}
     ovEl.style.setProperty('--eye', eye);
     document.getElementById('ovLeft').innerHTML = ovLeft(c);
     document.getElementById('ovRight').innerHTML = ovRight(c);
-    document.getElementById('ovName').textContent = c.name;
-    document.getElementById('ovType').textContent = (c.code ? c.code + ' · ' : '') + (c.role || '');
-    document.getElementById('ovGo').setAttribute('href', '#/crew/' + c.id);
+    var nm = document.getElementById('ovName');
+    if(nm) nm.textContent = c.name;
+    var en = document.getElementById('ovNameEn');
+    if(en) en.textContent = (c.en || '') + (c.en ? ' · ' + c.id : c.id);
+    var ty = document.getElementById('ovType');
+    if(ty) ty.textContent = c.code || c.id;
+    var sub = document.getElementById('ovSub');
+    if(sub) sub.textContent = c.id + ' · ' + (c.role || '在档');
+    var go = document.getElementById('ovGo');
+    if(go) go.setAttribute('href', '#/crew/' + c.id);
+    var cn = document.getElementById('ovCN');
+    if(cn) cn.textContent = c.name;
+    var ce = document.getElementById('ovCE');
+    if(ce) ce.textContent = (c.code || c.id) + ' · ' + c.id;
+    var pv = document.getElementById('ovPrev'), nx = document.getElementById('ovNext');
+    if(pv) pv.disabled = OV_IDX <= 0;
+    if(nx) nx.disabled = OV_IDX >= D.crews.length - 1;
+    ovTip(OV_AXIS);
     var avs = document.querySelectorAll('#ovStrip .ov-av');
     for(var k = 0; k < avs.length; k++) avs[k].classList.toggle('on', Number(avs[k].getAttribute('data-i')) === i);
     var strip = document.getElementById('ovStrip');
@@ -744,7 +1074,10 @@ footer code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:11px}
     if(!document.getElementById('ov')) return;
     var n = D.crews.length;
     if(!n) return;
-    ovApply((OV_IDX + d + n) % n, 0);
+    var next = OV_IDX + d;
+    if(next < 0 || next >= n){ SND.err(); return; }
+    ovApply(next, 0);
+    SND.swap();
   }
 
   function viewOverview(){
@@ -758,6 +1091,7 @@ footer code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:11px}
       +   '<div class="ov-ring r1"></div><div class="ov-ring r2"></div><div class="ov-ring r3"></div>'
       +   '<div class="ov-figure" id="ovFig"><span class="ov-aura"></span>'
       +     '<img id="ovImg" alt="" decoding="async"><span class="ov-plinth"></span></div>'
+      +   '<div class="ov-cname"><b id="ovCN"></b><em id="ovCE"></em></div>'
       + '</div>'
       + '<aside class="ov-side ov-right" id="ovRight"></aside>'
       + '</div>';
@@ -767,10 +1101,19 @@ footer code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:11px}
 
     var ovEl = document.getElementById('ov');
     ovEl.addEventListener('click', function(e){
+      var ax = e.target.closest('.ov-radar .ax');
+      if(ax){ ovTip(Number(ax.getAttribute('data-i'))); SND.click(); return; }
       var av = e.target.closest('.ov-av');
-      if(av){ ovApply(Number(av.getAttribute('data-i')), 0); return; }
+      if(av){ ovApply(Number(av.getAttribute('data-i')), 0); SND.swap(); return; }
       if(e.target.closest('#ovPrev')) ovStep(-1);
       else if(e.target.closest('#ovNext')) ovStep(1);
+    });
+    ovEl.addEventListener('mouseover', function(e){
+      var ax = e.target.closest('.ov-radar .ax');
+      if(ax){
+        var i = Number(ax.getAttribute('data-i'));
+        if(i !== OV_AXIS) ovTip(i);
+      }
     });
 
     ovWarm();
@@ -780,15 +1123,16 @@ footer code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:11px}
   function kpi(n,l,sub){ return '<div class="kpi"><div class="n">' + n + '</div><div class="l">' + l + '</div><div class="sub">' + esc(sub) + '</div></div>'; }
 
   /* ---------- 素材库 ---------- */
-  var LIB = null, LIB_BUSY = false;
+  var LIB = null, LIB_BUSY = false, LIB_ERR = false;
   var LIB_CATS = [['all', '全部'], ['out', '服装'], ['pos', '姿势'], ['rm', '房间'], ['eq', '装备']];
-  function libLoad(cb){
-    if(LIB) return cb();
+  function libLoad(cb, force){
+    if(LIB && !force) return cb();
     if(LIB_BUSY) return;
     LIB_BUSY = true;
-    fetch('assets-index.json', {cache: 'no-store'}).then(function(r){ return r.json(); })
-      .then(function(j){ LIB = j.items || []; })
-      .catch(function(){ LIB = []; })
+    fetch('assets-index.json', {cache: 'no-store'})
+      .then(function(r){ if(!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function(j){ LIB = j.items || []; LIB_ERR = false; })
+      .catch(function(e){ LIB = null; LIB_ERR = true; })
       .then(function(){ LIB_BUSY = false; cb(); });
   }
   function libOwner(it){
@@ -806,24 +1150,47 @@ footer code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:11px}
       p[decodeURIComponent(a[0])] = decodeURIComponent(a[1] || '');
     });
     var cat = p.cat || 'all';
+    var owner = p.owner || '';
+    var oCrew = owner && crewById[owner];
     var h = '<div class="crumbs"><a href="#/">总览</a><span>/</span><span>素材库</span></div>';
     h += '<div class="pick-head"><h1>素材库</h1><span class="sub" id="libSub">索引加载中…</span></div><div class="chips">';
     LIB_CATS.forEach(function(t){
       h += '<a class="' + (cat === t[0] ? 'on' : '') + '" href="#/lib' + (t[0] === 'all' ? '' : '?cat=' + t[0]) + '">' + t[1] + '</a>';
     });
-    h += '</div><div id="libBody"><div class="lib-empty">正在读取 assets-index.json…</div></div>';
+    h += '</div>';
+    if(owner){
+      h += '<div class="lib-owner">仅看 <b>' + esc(oCrew ? oCrew.name : owner) + '</b> 的装备 · '
+        + '<a href="#/lib?cat=' + esc(cat === 'all' ? 'eq' : cat) + '">清除筛选</a></div>';
+    }
+    h += '<div id="libBody"><div class="lib-empty">正在读取 assets-index.json…</div></div>';
     app.innerHTML = h;
     libLoad(function(){
       var host = document.getElementById('libBody');
       if(!host) return;
+      if(LIB_ERR || !LIB){
+        host.innerHTML = '<div class="lib-empty">素材索引加载失败，可能是网络中断。 '
+          + '<button class="btn" id="libRetry" type="button">重试</button></div>';
+        var rb = document.getElementById('libRetry');
+        if(rb) rb.addEventListener('click', function(){
+          SND.err();
+          host.innerHTML = '<div class="lib-empty">正在重新读取索引…</div>';
+          libLoad(function(){ viewLib(q); }, true);
+        });
+        return;
+      }
       var sub = document.getElementById('libSub');
       if(sub){
         var n = {out: 0, pos: 0, rm: 0, eq: 0};
         LIB.forEach(function(it){ if(n[it.category] !== undefined) n[it.category]++; });
         sub.textContent = LIB.length + ' 件在库 · 服装 ' + n.out + ' / 姿势 ' + n.pos + ' / 房间 ' + n.rm + ' / 装备 ' + n.eq;
       }
-      var items = LIB.filter(function(it){ return cat === 'all' || it.category === cat; });
-      if(!items.length){ host.innerHTML = '<div class="lib-empty">该类目暂无条目。</div>'; return; }
+      var items = LIB.filter(function(it){
+        return (cat === 'all' || it.category === cat) && (!owner || it.owner === owner);
+      });
+      if(!items.length){
+        host.innerHTML = '<div class="lib-empty">' + (owner ? '该员暂无符合条件的装备条目。' : '该类目暂无条目。') + '</div>';
+        return;
+      }
       var g = '<div class="lib-grid">';
       items.forEach(function(it){
         var href = '#/lib?cat=' + it.category + '&id=' + it.id;
@@ -1068,6 +1435,58 @@ footer code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:11px}
     }
   }
 
+  /* ---------- 顶栏工具 ---------- */
+  var RSTACK = [];
+  function bindTop(){
+    var wb = document.getElementById('worldBtn');
+    var sb = document.getElementById('setBtn');
+    var bb = document.getElementById('backBtn');
+    var sn = document.getElementById('sndBtn');
+    if(wb) wb.addEventListener('click', function(){ SND.click(); openPop('popWorld', wb); paintWorld(); });
+    if(sb) sb.addEventListener('click', function(){ SND.click(); openPop('popSet', sb); });
+    if(sn) sn.addEventListener('click', function(){ toggleSnd(); });
+    if(bb) bb.addEventListener('click', function(){
+      SND.click();
+      RSTACK.pop();
+      var prev = RSTACK[RSTACK.length - 1] || '#/';
+      if(prev === location.hash) prev = '#/';
+      location.hash = prev;
+    });
+    var swS = document.getElementById('swSnd');
+    if(swS) swS.addEventListener('click', function(){ toggleSnd(); });
+    var swM = document.getElementById('swMotion');
+    if(swM) swM.addEventListener('click', function(){ setMotion(!swM.classList.contains('on')); toast(swM.classList.contains('on') ? '界面动效：开' : '界面动效：关'); });
+    function flipTime(){
+      WORLD.pause(!WORLD.paused());
+      paintWorld();
+      toast(WORLD.paused() ? '时间流已暂停' : '时间流已继续');
+    }
+    var swT = document.getElementById('swTime');
+    if(swT) swT.addEventListener('click', flipTime);
+    var pp = document.getElementById('pwPause');
+    if(pp) pp.addEventListener('click', flipTime);
+    var rs = document.getElementById('btnReset');
+    if(rs) rs.addEventListener('click', function(){
+      try{ localStorage.removeItem(LAST_KEY); localStorage.removeItem('xs_world_v1'); }catch(e){}
+      WORLD.reset();
+      paintWorld();
+      toast('已清除本地记忆：上次查看与时间种子');
+      render();
+    });
+    /* 点空白关浮层 */
+    document.addEventListener('click', function(e){
+      if(POP && !e.target.closest('.pop') && !e.target.closest('#worldBtn') && !e.target.closest('#setBtn')) closePop();
+    });
+    /* 全局点击音：链接交给路由音，雷达轴/头像单独处理 */
+    document.addEventListener('click', function(e){
+      if(!SND.isOn() || !SND.supported) return;
+      if(e.target.closest('a')) return;
+      if(e.target.closest('.ov-radar .ax')) return;
+      if(e.target.closest('.ov-av')) return;
+      if(e.target.closest('button, summary, .sw, .ov-link')) SND.click();
+    });
+  }
+
   /* ---------- 路由 ---------- */
   function nav(route){
     var tabs = document.querySelectorAll('#tabs a');
@@ -1075,12 +1494,16 @@ footer code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:11px}
   }
   function render(){
     lb.classList.remove('on');
+    closePop();
     var hash = location.hash || '#/';
+    if(RSTACK[RSTACK.length-1] !== hash) RSTACK.push(hash);
     var isDetail = hash.indexOf('#/crew/') === 0 && hash.length > 7;
     var isCrewRoot = !isDetail && hash.indexOf('#/crew') === 0;
     var isLib = hash.indexOf('#/lib') === 0;
     document.body.classList.toggle('dark', !(isDetail || isCrewRoot || isLib || hash === '#/board' || hash === '#/trash'));
     if(!(isDetail || isCrewRoot)) document.documentElement.style.removeProperty('--accent');
+    var bb = document.getElementById('backBtn');
+    if(bb) bb.hidden = !(isDetail || isCrewRoot || isLib || hash === '#/board' || hash === '#/trash');
     if(isDetail){ viewCrew(hash.slice(7)); nav('crew'); }
     else if(isCrewRoot){ viewCrewPicker(); nav('crew'); }
     else if(isLib){ viewLib(hash.replace(/^#\/lib/, '')); nav('lib'); }
@@ -1095,7 +1518,16 @@ footer code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:11px}
     + '上线范围：<code>01_舰员档案库</code> + <code>03_弃用图区</code>；<code>02_人物示例图库</code>、<code>04_待存档工作稿</code>、<code>05_未归档散稿</code> 仅本地保留。<br>'
     + '数据源：' + esc(m.note);
 
-  window.addEventListener('hashchange', render);
+  window.addEventListener('hashchange', function(){ SND.page(); render(); });
+  ['pointerdown', 'keydown', 'touchstart'].forEach(function(ev){
+    document.addEventListener(ev, function(){ SND.arm(); }, {once: true, capture: true});
+  });
+  bindTop();
+  setMotion(motionOn());
+  paintSnd();
+  paintWorld();
+  setInterval(paintWorld, 1000);
+  window.addEventListener('pagehide', function(){ WORLD.save(); });
   render();
 })();
 </script>
