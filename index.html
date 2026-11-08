@@ -630,13 +630,41 @@ footer code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:11px}
     var src = figSrc(c);
     if(img && src){
       if(img.getAttribute('src') !== src){
-        img.src = src;
+        var warm = OV_WARM[src];
+        if(warm && warm.complete && warm.naturalWidth > 0){
+          img.src = src;
+        } else {
+          /* 大图还在路上：先用底部头像条已缓存的缩略图顶上，避免出现"名字已变、图还是上一张" */
+          if(c.main && c.main.thumb) img.src = c.main.thumb;
+          else img.src = src;
+          ovFill(img, src, i);
+        }
         if(img.decode) img.decode().catch(function(){});
       }
       img.alt = c.name + ' 立绘';
       img.setAttribute('data-full', src);
       img.setAttribute('data-cap', c.id + ' ' + c.name + ' · ' + (c.main ? c.main.title : '立绘'));
     }
+  }
+
+  /* 大图就绪后替换占位图；期间若已切到别人则放弃 */
+  function ovFill(img, full, idx){
+    var im = OV_WARM[full];
+    if(!im){
+      im = new Image();
+      im.decoding = 'async';
+      im.src = full;
+      OV_WARM[full] = im;
+    }
+    function done(){
+      if(OV_IDX !== idx) return;
+      if(img.getAttribute('src') !== full){
+        img.src = full;
+        if(img.decode) img.decode().catch(function(){});
+      }
+    }
+    if(im.complete && im.naturalWidth > 0){ done(); return; }
+    im.addEventListener('load', done);
   }
 
   function ovStep(d){
