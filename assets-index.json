@@ -1,13 +1,19 @@
 {
  "meta": {
-  "count": 27,
+  "count": 17,
   "updated": "2026-11-08",
   "scheme": {
    "out": "OUT-###",
    "pos": "POS-###",
    "rm": "RM-##",
    "eq": "EQ-###"
-  }
+  },
+  "cats": {
+   "out": 3,
+   "pos": 6,
+   "rm": 8
+  },
+  "note": "装备（EQ）已迁至 gear.json；本索引仅保留服装 / 姿势 / 房间。"
  },
  "items": [
   {
@@ -225,136 +231,6 @@
     "核心"
    ],
    "desc": "两列机柜夹出的冷通道，顶部走线槽与地板冷气，主脑算力所在。"
-  },
-  {
-   "id": "EQ-001",
-   "name": "近接战刃「赤喰」",
-   "category": "eq",
-   "owner": "CREW-001",
-   "file": "assets/lib/eq/EQ-001.webp",
-   "tags": [
-    "武器",
-    "近接",
-    "单刃"
-   ],
-   "desc": "哑光黑陶瓷单刃，脊线一道赤红嵌条，分节机械握柄。"
-  },
-  {
-   "id": "EQ-002",
-   "name": "同源能量约束索",
-   "category": "eq",
-   "owner": "CREW-001",
-   "file": "assets/lib/eq/EQ-002.webp",
-   "tags": [
-    "道具",
-    "约束",
-    "能量"
-   ],
-   "desc": "分节链条式约束索，一端赤红发射环、一端重磁夹。"
-  },
-  {
-   "id": "EQ-003",
-   "name": "战术数据板 M-7",
-   "category": "eq",
-   "owner": "CREW-002",
-   "file": "assets/lib/eq/EQ-003.webp",
-   "tags": [
-    "道具",
-    "终端",
-    "数据"
-   ],
-   "desc": "加固石墨外壳战术终端，冷蓝波形屏与实体按键行。"
-  },
-  {
-   "id": "EQ-004",
-   "name": "折叠防护裙甲",
-   "category": "eq",
-   "owner": "CREW-003",
-   "file": "assets/lib/eq/EQ-004.webp",
-   "tags": [
-    "防具",
-    "裙甲",
-    "可折叠"
-   ],
-   "desc": "叠片式防护裙甲，铰接关节可整片折收，礼仪勤务两用。"
-  },
-  {
-   "id": "EQ-005",
-   "name": "流体梭纹长战裙甲",
-   "category": "eq",
-   "owner": "CREW-004",
-   "file": "assets/lib/eq/EQ-005.webp",
-   "tags": [
-    "防具",
-    "裙甲",
-    "长款"
-   ],
-   "desc": "细密叠鳞如织物垂坠的长战裙甲，配重下摆与窄腰轭。"
-  },
-  {
-   "id": "EQ-006",
-   "name": "服务资产识别项圈",
-   "category": "eq",
-   "owner": "CREW-005",
-   "file": "assets/lib/eq/EQ-006.webp",
-   "tags": [
-    "道具",
-    "识别",
-    "服务"
-   ],
-   "desc": "拉丝钢窄环，内衬软垫，方形编号牌与琥珀指示灯。"
-  },
-  {
-   "id": "EQ-007",
-   "name": "情绪共鸣器",
-   "category": "eq",
-   "owner": "CREW-006",
-   "file": "assets/lib/eq/EQ-007.webp",
-   "tags": [
-    "道具",
-    "陪伴",
-    "共鸣"
-   ],
-   "desc": "掌心大小的陶瓷共鸣器，琥珀扩散窗随呼吸缓慢明灭。"
-  },
-  {
-   "id": "EQ-008",
-   "name": "重型破拆锤",
-   "category": "eq",
-   "owner": "CREW-007",
-   "file": "assets/lib/eq/EQ-008.webp",
-   "tags": [
-    "武器",
-    "重型",
-    "破拆"
-   ],
-   "desc": "焊补加固的方头破拆锤，石墨复合柄与液压回冲环。"
-  },
-  {
-   "id": "EQ-009",
-   "name": "战舞祭仪刃",
-   "category": "eq",
-   "owner": "CREW-011",
-   "file": "assets/lib/eq/EQ-009.webp",
-   "tags": [
-    "武器",
-    "礼仪",
-    "战舞"
-   ],
-   "desc": "浅色锻面叶形长刃，刃脊蚀刻几何纹，缠绳柄与赤色系绳。"
-  },
-  {
-   "id": "EQ-010",
-   "name": "超算冷却核心",
-   "category": "eq",
-   "owner": "CREW-002",
-   "file": "assets/lib/eq/EQ-010.webp",
-   "tags": [
-    "超算",
-    "维护",
-    "冷却"
-   ],
-   "desc": "主脑冷却核心模块，肋状换热壳、快拆软管与三粒状态灯。"
   }
  ]
 }

@@ -165,6 +165,33 @@ h2.sec .btn{margin-left:auto;font-weight:400}
 .lib-owner{margin:-6px 0 14px;font-size:12px;color:var(--muted)}
 .lib-owner b{color:var(--text)}
 
+/* ---------- 装备页 #/gear ---------- */
+.gear-tools{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:2px 0 14px}
+.gsearch{display:flex;align-items:center;gap:7px;height:30px;padding:0 10px;border:1px solid var(--line);background:#fff;border-radius:999px;min-width:190px;flex:1 1 190px;max-width:290px}
+.gsearch input{flex:1;min-width:0;background:none;border:0;outline:0;color:var(--text);font:12px/1 -apple-system,BlinkMacSystemFont,'Segoe UI','Microsoft YaHei',sans-serif}
+.gsearch input::placeholder{color:var(--faint)}
+.gsearch svg{width:12px;height:12px;stroke:var(--faint);fill:none;stroke-width:1.8;flex:0 0 auto}
+.gsel{height:30px;border:1px solid var(--line);background:#fff;color:var(--text);border-radius:999px;padding:0 10px;font:12px/1 -apple-system,BlinkMacSystemFont,'Segoe UI','Microsoft YaHei',sans-serif;outline:0;max-width:210px}
+.gcount{margin-left:auto;font:600 10.5px/1 Consolas,monospace;letter-spacing:.8px;color:var(--faint);white-space:nowrap}
+.gear-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px}
+.gcard{background:var(--panel);border:1px solid var(--line);border-radius:8px;overflow:hidden;display:flex;flex-direction:column;transition:border-color .15s ease,box-shadow .15s ease}
+.gcard:hover{border-color:#cdd4de;box-shadow:0 6px 18px rgba(31,35,41,.07)}
+.gcard .im{position:relative;aspect-ratio:4/3;background:#0b0f14;overflow:hidden}
+.gcard .im.can{cursor:zoom-in}
+.gcard .im img{width:100%;height:100%;object-fit:cover}
+.gcard .id{position:absolute;left:7px;top:6px;z-index:2;font:700 9.5px/1 Consolas,monospace;letter-spacing:.6px;color:#cfd8e2;background:rgba(6,10,14,.72);padding:3px 5px;border-radius:4px}
+.gcard .ph{position:relative;display:flex;align-items:flex-end;justify-content:flex-start;height:100%;padding:8px;
+  background:repeating-linear-gradient(135deg,rgba(31,35,41,.055) 0 1px,transparent 1px 9px),#eef1f5}
+.gcard .ph em{font-style:normal;font:700 9px/1 Consolas,monospace;letter-spacing:.4px;color:#8a6d1a;border:1px solid #e2d3ab;padding:2px 4px;border-radius:3px;background:#fffdf6}
+.gcard .ph i{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-style:normal;color:#c9d0d9;font:600 22px/1 Consolas,monospace;letter-spacing:1px}
+.gcard .bd{padding:8px 9px 10px;display:flex;flex-direction:column;gap:5px;flex:1;min-width:0}
+.gcard .nm{font-size:12.5px;line-height:1.45;color:var(--text)}
+.gcard .sp{font:10px/1.55 Consolas,monospace;color:var(--muted);min-height:31px}
+.gcard .ft{display:flex;justify-content:space-between;gap:6px;align-items:baseline;margin-top:auto;padding-top:6px;border-top:1px solid var(--line2);font-size:10px;color:var(--faint)}
+.gcard .ft a{color:var(--blue)}
+.gcard .ft a:hover{text-decoration:none;color:#1a4f96}
+.gcard .ft .cat{font:600 9px/1 Consolas,monospace;letter-spacing:.6px;color:var(--faint);white-space:nowrap}
+
 /* ---------- 舰员选择 ---------- */
 .pick-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:14px}
 .pick-head h1{font-size:20px;margin:0;letter-spacing:.5px}
@@ -203,6 +230,28 @@ h2.sec .btn{margin-left:auto;font-weight:400}
 .hero .info .role{font-size:13px;color:var(--muted);margin-bottom:12px}
 .hero .mods{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
 .hero .mods span{font-size:11.5px;background:#fff;border:1px solid var(--line);border-radius:6px;padding:3px 8px;color:#3d4450}
+
+/* ---------- 克隆体切换 ---------- */
+.hero .clone{border:1px solid var(--line);border-radius:8px;background:var(--panel);margin:0 0 14px;overflow:hidden}
+.clone .cl-h{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;padding:9px 12px;border-bottom:1px solid var(--line2);background:#fbfcfd}
+.clone .cl-h b{font-size:12.5px;letter-spacing:.4px}
+.clone .cl-h span{font-size:11px;color:var(--faint);font-variant-numeric:tabular-nums}
+.clone .cl-tabs{display:flex;border-bottom:1px solid var(--line2)}
+.clone .cl-t{font:inherit;font-size:11.5px;flex:1;padding:7px 4px;border:0;border-right:1px solid var(--line2);background:#fff;
+  color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px}
+.clone .cl-t:last-child{border-right:0}
+.clone .cl-t b{font:700 12px/1 ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:.6px}
+.clone .cl-t em{font-style:normal;font-size:10px;color:var(--faint)}
+.clone .cl-t:hover{background:#f7f9fb;color:var(--text)}
+.clone .cl-t.on{background:var(--accent-soft);color:var(--blue);box-shadow:inset 0 -2px 0 var(--blue)}
+.clone .cl-t.on em{color:var(--blue);opacity:.85}
+.clone .cl-p{display:none;padding:2px 12px 8px}
+.clone .cl-p.on{display:block}
+.clone .cl-p dl{display:grid;grid-template-columns:60px minmax(0,1fr);margin:0}
+.clone .cl-p dt{font-size:11.5px;color:var(--faint);padding:5px 0;border-bottom:1px solid var(--line2)}
+.clone .cl-p dd{margin:0;font-size:12px;padding:5px 0;border-bottom:1px solid var(--line2);font-variant-numeric:tabular-nums;word-break:break-word}
+.clone .cl-p dt:nth-last-of-type(1),.clone .cl-p dd:nth-last-of-type(1){border-bottom:0}
+.clone .cl-note{font-size:11px;color:var(--faint);line-height:1.6;padding:8px 12px;border-top:1px solid var(--line2);background:#fbfcfd}
 dl.profile{display:grid;grid-template-columns:86px minmax(0,1fr);gap:0;margin:0;border-top:1px solid var(--line2)}
 dl.profile dt{padding:7px 0;font-size:12px;color:var(--faint);border-bottom:1px solid var(--line2)}
 dl.profile dd{padding:7px 0;margin:0;font-size:12.5px;line-height:1.6;border-bottom:1px solid var(--line2);word-break:break-word}
@@ -499,6 +548,10 @@ footer code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:11px}
   nav.tabs a{padding:5px 11px;font-size:12.5px}
   .crew-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
   .lib-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+  .gear-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+  .gcard .sp{font-size:9.5px;min-height:29px}
+  .gsel{max-width:100%;flex:1 1 140px}
+  .gsearch{max-width:none}
   .lib-card .tx{padding:7px 7px 0;gap:5px}
   .lib-card .tx a{font-size:11.5px}
   .lib-card .mt{padding:3px 7px 8px;font-size:10px}
@@ -603,6 +656,7 @@ footer code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:11px}
     <a href="#/" data-r="overview">总览</a>
     <a href="#/crew" data-r="crew">舰员详情</a>
     <a href="#/board" data-r="board">完成度看板</a>
+    <a href="#/gear" data-r="gear">装备</a>
     <a href="#/lib" data-r="lib">素材库</a>
     <a href="#/trash" data-r="trash">垃圾站</a>
   </nav>
@@ -1130,7 +1184,7 @@ footer code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:11px}
     } else {
       h += '<div class="ov-grow empty"><span>未登记改装</span></div>';
     }
-    h += '</div><a class="ov-glink" href="#/lib?cat=eq&amp;owner=' + esc(c.id) + '">素材库 · ' + esc(c.name) + ' 的装备条目 →</a></div>';
+    h += '</div><a class="ov-glink" href="#/gear?owner=' + esc(c.id) + '">装备库 · ' + esc(c.name) + ' 的装备条目 →</a></div>';
     return h;
   }
 
@@ -1326,7 +1380,7 @@ footer code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:11px}
 
   /* ---------- 素材库 ---------- */
   var LIB = null, LIB_BUSY = false, LIB_ERR = false;
-  var LIB_CATS = [['all', '全部'], ['out', '服装'], ['pos', '姿势'], ['rm', '房间'], ['eq', '装备']];
+  var LIB_CATS = [['all', '全部'], ['out', '服装'], ['pos', '姿势'], ['rm', '房间']];
   function libLoad(cb, force){
     if(LIB && !force) return cb();
     if(LIB_BUSY) return;
@@ -1384,7 +1438,7 @@ footer code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:11px}
       if(sub){
         var n = {out: 0, pos: 0, rm: 0, eq: 0};
         LIB.forEach(function(it){ if(n[it.category] !== undefined) n[it.category]++; });
-        sub.textContent = LIB.length + ' 件在库 · 服装 ' + n.out + ' / 姿势 ' + n.pos + ' / 房间 ' + n.rm + ' / 装备 ' + n.eq;
+        sub.textContent = LIB.length + ' 件在库 · 服装 ' + n.out + ' / 姿势 ' + n.pos + ' / 房间 ' + n.rm;
       }
       var items = LIB.filter(function(it){
         return (cat === 'all' || it.category === cat) && (!owner || it.owner === owner);
@@ -1413,6 +1467,127 @@ footer code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:11px}
             alt: cur.id + ' ' + cur.name, nw: ar[0], nh: ar[1]});
         }
       }
+    });
+  }
+
+  /* ---------- 装备库 #/gear ---------- */
+  var GEAR = null, GEAR_BUSY = false, GEAR_ERR = false, GCATS = [], GQ = '';
+  function gearLoad(cb){
+    if(GEAR) return cb();
+    if(GEAR_BUSY) return;
+    GEAR_BUSY = true;
+    fetch('gear.json', {cache: 'no-store'})
+      .then(function(r){ if(!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function(j){ GEAR = j.items || []; GCATS = (j.meta && j.meta.cats) || []; GEAR_ERR = false; })
+      .catch(function(){ GEAR = null; GEAR_ERR = true; })
+      .then(function(){ GEAR_BUSY = false; cb(); });
+  }
+  function gearOwner(id){
+    var c = crewById[id];
+    return c ? c.name : (id === 'SHIP' ? '舰内公用' : '未指派');
+  }
+  function gearFilter(items, cat, owner){
+    var k = GQ.trim().toLowerCase();
+    return items.filter(function(it){
+      if(cat !== 'all' && it.cat !== cat) return false;
+      if(owner && it.owner !== owner) return false;
+      if(!k) return true;
+      return (it.id + ' ' + it.name + ' ' + (it.tags || []).join(' ')).toLowerCase().indexOf(k) >= 0;
+    });
+  }
+  function gearCard(it){
+    var catName = '';
+    GCATS.forEach(function(t){ if(t[0] === it.cat) catName = t[1]; });
+    var im = it.file
+      ? '<div class="im can"><span class="id">' + esc(it.id) + '</span><img loading="lazy" decoding="async" src="' + esc(it.file)
+        + '" alt="' + esc(it.id + ' ' + it.name) + '" data-full="' + esc(it.file)
+        + '" data-cap="' + esc(it.id + ' · ' + it.name + ' · ' + (it.desc || '')) + '"></div>'
+      : '<div class="im"><span class="id">' + esc(it.id) + '</span><div class="ph"><i>' + esc((it.cat || '').toUpperCase())
+        + '</i><em>待补图</em></div></div>';
+    return '<div class="gcard" id="g-' + esc(it.id) + '">' + im
+      + '<div class="bd"><div class="nm">' + esc(it.name) + '</div>'
+      +   '<div class="sp">' + esc((it.spec || []).join(' · ')) + '</div>'
+      +   '<div class="ft"><span class="cat">' + esc(catName) + '</span>'
+      +     '<a href="#/crew/' + esc(it.owner) + '">' + esc(gearOwner(it.owner)) + '</a>'
+      +   '</div></div></div>';
+  }
+  function viewGear(q){
+    var p = {};
+    (q || '').replace(/^\?/, '').split('&').forEach(function(kv){
+      if(!kv) return;
+      var a = kv.split('=');
+      p[decodeURIComponent(a[0])] = decodeURIComponent(a[1] || '');
+    });
+    var cat = p.cat || 'all', owner = p.owner || '';
+    var qs = function(o){
+      var a = [];
+      if(o.cat && o.cat !== 'all') a.push('cat=' + encodeURIComponent(o.cat));
+      if(o.owner) a.push('owner=' + encodeURIComponent(o.owner));
+      return a.length ? '?' + a.join('&') : '';
+    };
+    var h = '<div class="crumbs"><a href="#/">总览</a><span>/</span><span>装备库</span></div>';
+    h += '<div class="pick-head"><h1>装备库</h1><span class="sub" id="gearSub">索引加载中…</span></div><div class="chips" id="gearCats"></div>';
+    h += '<div class="gear-tools">'
+      + '<label class="gsearch"><svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/></svg>'
+      + '<input id="gq" type="search" value="' + esc(GQ) + '" placeholder="搜索编号 / 名称 / 标签" aria-label="搜索装备"></label>'
+      + '<select class="gsel" id="gOwner" aria-label="按归属筛选"><option value="">全部归属</option></select>'
+      + '<span class="gcount" id="gearCount"></span></div>';
+    h += '<div id="gearBody"><div class="lib-empty">正在读取 gear.json…</div></div>';
+    app.innerHTML = h;
+    gearLoad(function(){
+      var host = document.getElementById('gearBody');
+      if(!host) return;
+      if(GEAR_ERR || !GEAR){
+        host.innerHTML = '<div class="lib-empty">装备索引加载失败，可能是网络中断。 '
+          + '<button class="btn" id="gearRetry" type="button">重试</button></div>';
+        var rb = document.getElementById('gearRetry');
+        if(rb) rb.addEventListener('click', function(){ SND.err(); viewGear(q); });
+        return;
+      }
+      var cats = '<a class="' + (cat === 'all' ? 'on' : '') + '" href="#/gear' + qs({owner: owner}) + '">全部</a>';
+      GCATS.forEach(function(t){
+        var n = GEAR.filter(function(it){ return it.cat === t[0]; }).length;
+        cats += '<a class="' + (cat === t[0] ? 'on' : '') + '" href="#/gear' + qs({cat: t[0], owner: owner}) + '">'
+          + t[1] + ' <i style="font-style:normal;opacity:.55">' + n + '</i></a>';
+      });
+      document.getElementById('gearCats').innerHTML = cats;
+      var owners = [];
+      GEAR.forEach(function(it){ if(owners.indexOf(it.owner) < 0) owners.push(it.owner); });
+      owners.sort(function(a, b){
+        if(a === 'SHIP') return 1;
+        if(b === 'SHIP') return -1;
+        return a < b ? -1 : 1;
+      });
+      var sel = document.getElementById('gOwner');
+      sel.innerHTML = '<option value="">全部归属</option>' + owners.map(function(o){
+        return '<option value="' + esc(o) + '"' + (o === owner ? ' selected' : '') + '>'
+          + esc(gearOwner(o)) + (o === 'SHIP' ? '' : ' · ' + o) + '</option>';
+      }).join('');
+      sel.addEventListener('change', function(){
+        SND.click();
+        location.hash = '#/gear' + qs({cat: cat, owner: sel.value});
+      });
+      var sub = document.getElementById('gearSub');
+      if(sub){
+        var withImg = GEAR.filter(function(it){ return !!it.file; }).length;
+        sub.textContent = GEAR.length + ' 件在册 · 有图 ' + withImg + ' / 待补 ' + (GEAR.length - withImg);
+      }
+      function paint(){
+        var items = gearFilter(GEAR, cat, owner);
+        document.getElementById('gearCount').textContent = '显示 ' + items.length + ' / ' + GEAR.length + ' 件';
+        if(!items.length){
+          host.innerHTML = '<div class="lib-empty">没有符合条件的装备条目。 <a href="#/gear">清除筛选</a></div>';
+          return;
+        }
+        host.innerHTML = '<div class="gear-grid">' + items.map(gearCard).join('') + '</div>';
+        if(p.id){
+          var el = document.getElementById('g-' + p.id);
+          if(el) el.scrollIntoView({block: 'center'});
+        }
+      }
+      var inp = document.getElementById('gq');
+      inp.addEventListener('input', function(){ GQ = inp.value; paint(); });
+      paint();
     });
   }
 
@@ -1478,6 +1653,30 @@ footer code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:11px}
     h += '<div class="meta">' + esc(c.id) + (c.code ? ' · ' + esc(c.code) : '') + (c.en ? ' · ' + esc(c.en) : '') + '</div>';
     if(c.tagline) h += '<p class="tagline">' + esc(c.tagline) + '</p>';
     h += '<div class="role">' + esc(c.role) + (c.status ? ' ｜ ' + esc(c.status) : '') + '</div>';
+    if(c.clone && c.clone.units && c.clone.units.length){
+      var cl = c.clone;
+      h += '<div class="clone">';
+      h += '<div class="cl-h"><b>在役克隆 ×' + cl.inService + '</b><span>批次 ' + esc(cl.batch || '—') + ' · 共用同一套定稿外形</span></div>';
+      h += '<div class="cl-tabs">';
+      cl.units.forEach(function(u, i){
+        h += '<button type="button" class="cl-t' + (i === 0 ? ' on' : '') + '" data-k="' + esc(u.k) + '" aria-pressed="' + (i === 0) + '">'
+          + '<b>' + esc(u.k) + '</b><em>' + esc(u.status) + '</em></button>';
+      });
+      h += '</div>';
+      cl.units.forEach(function(u, i){
+        h += '<div class="cl-p' + (i === 0 ? ' on' : '') + '" data-k="' + esc(u.k) + '"><dl>'
+          + '<dt>克隆编号</dt><dd>' + esc(u.code) + '</dd>'
+          + '<dt>状态</dt><dd>' + esc(u.status) + '</dd>'
+          + '<dt>身高</dt><dd>' + esc(u.height) + '</dd>'
+          + '<dt>体重</dt><dd>' + esc(u.weight) + '</dd>'
+          + '<dt>发型</dt><dd>' + esc(u.hair) + '</dd>'
+          + '<dt>义眼</dt><dd>' + esc(u.eye) + '</dd>'
+          + '<dt>刻印</dt><dd>' + esc(u.mark) + '</dd>'
+          + '</dl></div>';
+      });
+      if(cl.note) h += '<div class="cl-note">' + esc(cl.note) + '</div>';
+      h += '</div>';
+    }
     if(c.mods && c.mods.length){
       h += '<div class="mods">';
       c.mods.forEach(function(m){ h += '<span>' + esc(m) + '</span>'; });
@@ -1535,6 +1734,22 @@ footer code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:11px}
       h += '</div></section>';
     });
     app.innerHTML = h;
+    var clTabs = app.querySelectorAll('.clone .cl-t');
+    if(clTabs.length){
+      Array.prototype.forEach.call(clTabs, function(t){
+        t.addEventListener('click', function(){
+          var k = t.getAttribute('data-k');
+          Array.prototype.forEach.call(app.querySelectorAll('.clone .cl-t'), function(x){
+            var on = x === t;
+            x.classList.toggle('on', on);
+            x.setAttribute('aria-pressed', on ? 'true' : 'false');
+          });
+          Array.prototype.forEach.call(app.querySelectorAll('.clone .cl-p'), function(p){
+            p.classList.toggle('on', p.getAttribute('data-k') === k);
+          });
+        });
+      });
+    }
     window.scrollTo(0,0);
   }
 
@@ -1711,12 +1926,19 @@ footer code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:11px}
     var isDetail = hash.indexOf('#/crew/') === 0 && hash.length > 7;
     var isCrewRoot = !isDetail && hash.indexOf('#/crew') === 0;
     var isLib = hash.indexOf('#/lib') === 0;
-    document.body.classList.toggle('dark', !(isDetail || isCrewRoot || isLib || hash === '#/board' || hash === '#/trash'));
+    var isGear = hash.indexOf('#/gear') === 0;
+    if(isLib && hash.indexOf('cat=eq') >= 0){
+      var keep = (hash.split('?')[1] || '').split('&').filter(function(kv){ return kv && kv.indexOf('cat=eq') !== 0; });
+      location.replace('#/gear' + (keep.length ? '?' + keep.join('&') : ''));
+      return;
+    }
+    document.body.classList.toggle('dark', !(isDetail || isCrewRoot || isLib || isGear || hash === '#/board' || hash === '#/trash'));
     if(!(isDetail || isCrewRoot)) document.documentElement.style.removeProperty('--accent');
     var bb = document.getElementById('backBtn');
-    if(bb) bb.hidden = !(isDetail || isCrewRoot || isLib || hash === '#/board' || hash === '#/trash');
+    if(bb) bb.hidden = !(isDetail || isCrewRoot || isLib || isGear || hash === '#/board' || hash === '#/trash');
     if(isDetail){ viewCrew(hash.slice(7)); nav('crew'); }
     else if(isCrewRoot){ viewCrewPicker(); nav('crew'); }
+    else if(isGear){ viewGear(hash.replace(/^#\/gear/, '')); nav('gear'); }
     else if(isLib){ viewLib(hash.replace(/^#\/lib/, '')); nav('lib'); }
     else if(hash === '#/board'){ viewBoard(); nav('board'); }
     else if(hash === '#/trash'){ viewTrash(); nav('trash'); }
