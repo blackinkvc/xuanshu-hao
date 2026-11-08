@@ -56,6 +56,162 @@
    "desc": "石墨长外套配单道哑光琥珀滚边，硬肩线，观礼与授衔场合。"
   },
   {
+   "id": "OUT-004",
+   "name": "机动战裙 · 高开叉",
+   "category": "out",
+   "owner": "ALL",
+   "file": "assets/lib/out/OUT-004.webp",
+   "tags": [
+    "机动",
+    "战裙",
+    "高开叉"
+   ],
+   "desc": "无袖亚光黑分节机甲长战裙，深 V 翻边到腰，单侧高开叉露整条腿。"
+  },
+  {
+   "id": "OUT-005",
+   "name": "白瓷胸甲 · 轻装",
+   "category": "out",
+   "owner": "ALL",
+   "file": "assets/lib/out/OUT-005.webp",
+   "tags": [
+    "白瓷",
+    "轻装",
+    "分节"
+   ],
+   "desc": "白色喷砂陶瓷分节胸甲压深色贴体层，肩关节外露，便于快速穿脱。"
+  },
+  {
+   "id": "OUT-006",
+   "name": "石墨长风衣 · 装甲下摆",
+   "category": "out",
+   "owner": "ALL",
+   "file": "assets/lib/out/OUT-006.webp",
+   "tags": [
+    "长风衣",
+    "装甲",
+    "外勤"
+   ],
+   "desc": "石墨灰长风衣，下摆内衬分节甲片，高领可立起挡风。"
+  },
+  {
+   "id": "OUT-007",
+   "name": "技术连体服 · 青线",
+   "category": "out",
+   "owner": "ALL",
+   "file": "assets/lib/out/OUT-007.webp",
+   "tags": [
+    "连体服",
+    "技术",
+    "值班"
+   ],
+   "desc": "浅灰技术连体服，袖口可卷，腰侧青色走线，配磁吸工具腰封。"
+  },
+  {
+   "id": "OUT-008",
+   "name": "单肩甲上衣 · 收腰",
+   "category": "out",
+   "owner": "ALL",
+   "file": "assets/lib/out/OUT-008.webp",
+   "tags": [
+    "单肩",
+    "收腰",
+    "非对称"
+   ],
+   "desc": "非对称单肩甲上衣，肋部罗纹收腰，短款剪裁露腰线。"
+  },
+  {
+   "id": "OUT-009",
+   "name": "医疗罩袍 · 密封",
+   "category": "out",
+   "owner": "ALL",
+   "file": "assets/lib/out/OUT-009.webp",
+   "tags": [
+    "医疗",
+    "罩袍",
+    "密封"
+   ],
+   "desc": "白色医疗罩袍覆深色内层，接缝全密封，前臂护甲可拆洗。"
+  },
+  {
+   "id": "OUT-010",
+   "name": "深蓝战术背心 · 陶瓷插板",
+   "category": "out",
+   "owner": "ALL",
+   "file": "assets/lib/out/OUT-010.webp",
+   "tags": [
+    "战术",
+    "背心",
+    "插板"
+   ],
+   "desc": "深蓝战术背心，前后陶瓷插板，腿侧快拆枪套与弹匣袋。"
+  },
+  {
+   "id": "OUT-011",
+   "name": "骨撑纱裙 · 长摆",
+   "category": "out",
+   "owner": "ALL",
+   "file": "assets/lib/out/OUT-011.webp",
+   "tags": [
+    "礼装",
+    "纱裙",
+    "金属骨撑"
+   ],
+   "desc": "纱层叠压金属骨撑的长摆礼裙，透光分层，走动时骨撑先动。"
+  },
+  {
+   "id": "OUT-012",
+   "name": "工程连体服 · 磨损",
+   "category": "out",
+   "owner": "ALL",
+   "file": "assets/lib/out/OUT-012.webp",
+   "tags": [
+    "工程",
+    "连体服",
+    "耐脏"
+   ],
+   "desc": "磨损明显的工程连体服，袖口卷起，磁吸工具环挂满常用件。"
+  },
+  {
+   "id": "OUT-013",
+   "name": "舰桥制服 · 高领",
+   "category": "out",
+   "owner": "ALL",
+   "file": "assets/lib/out/OUT-013.webp",
+   "tags": [
+    "制服",
+    "舰桥",
+    "高领"
+   ],
+   "desc": "舰桥常勤制服，硬挺高领，肩线加固，袖口一道青色级别条。"
+  },
+  {
+   "id": "OUT-014",
+   "name": "EVA 内层 · 硬腰环",
+   "category": "out",
+   "owner": "ALL",
+   "file": "assets/lib/out/OUT-014.webp",
+   "tags": [
+    "EVA",
+    "内层",
+    "腰环"
+   ],
+   "desc": "舱外作业内层，硬质腰环与软管接口，贴身不易勾挂。"
+  },
+  {
+   "id": "OUT-015",
+   "name": "黑仪典长袍 · 红衬",
+   "category": "out",
+   "owner": "ALL",
+   "file": "assets/lib/out/OUT-015.webp",
+   "tags": [
+    "仪典",
+    "长袍",
+    "红衬"
+   ],
+   "desc": "黑色仪典长袍，宽袖，内衬猩红，前襟一枚金属扣。"
+  },
+  {
    "id": "POS-001",
    "name": "悬浮 · 双臂摊开",
    "category": "pos",
@@ -127,6 +283,78 @@
     "高角度"
    ],
    "desc": "高角度俯拍，头部上仰迎向镜头，用于顶视构图与舱内视线关系。"
+  },
+  {
+   "id": "POS-007",
+   "name": "三分站 · 单手叉腰",
+   "category": "pos",
+   "owner": "ALL",
+   "file": "assets/lib/pos/POS-007.webp",
+   "tags": [
+    "站姿",
+    "三分之面"
+   ],
+   "desc": "重心落在后腿，单手叉腰，肩线放松，适合定妆与服装展示。"
+  },
+  {
+   "id": "POS-008",
+   "name": "坐姿 · 肘支膝",
+   "category": "pos",
+   "owner": "ALL",
+   "file": "assets/lib/pos/POS-008.webp",
+   "tags": [
+    "坐姿",
+    "低机位"
+   ],
+   "desc": "坐在低箱上，双肘支膝，头略低，适合情绪与近景。"
+  },
+  {
+   "id": "POS-009",
+   "name": "倚壁 · 抱臂",
+   "category": "pos",
+   "owner": "ALL",
+   "file": "assets/lib/pos/POS-009.webp",
+   "tags": [
+    "倚靠",
+    "抱臂"
+   ],
+   "desc": "背靠舱壁，一膝微屈，双臂交叠，适合走廊场景。"
+  },
+  {
+   "id": "POS-010",
+   "name": "行进 · 扶门框",
+   "category": "pos",
+   "owner": "ALL",
+   "file": "assets/lib/pos/POS-010.webp",
+   "tags": [
+    "行走",
+    "门框"
+   ],
+   "desc": "正面行进中一手扶门框，衣摆与发梢带出速度。"
+  },
+  {
+   "id": "POS-011",
+   "name": "单膝跪 · 撑地仰视",
+   "category": "pos",
+   "owner": "ALL",
+   "file": "assets/lib/pos/POS-011.webp",
+   "tags": [
+    "跪姿",
+    "仰视"
+   ],
+   "desc": "单膝跪地，一手撑地保持平衡，抬头看向镜头。"
+  },
+  {
+   "id": "POS-012",
+   "name": "背身回望",
+   "category": "pos",
+   "owner": "ALL",
+   "file": "assets/lib/pos/POS-012.webp",
+   "tags": [
+    "背身",
+    "回望"
+   ],
+   "desc": "背对镜头站立，回头越过肩膀，双臂自然下垂。"
   },
   {
    "id": "RM-01",
