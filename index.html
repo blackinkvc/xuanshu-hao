@@ -97,6 +97,31 @@ h2.sec .btn{margin-left:auto;font-weight:400}
 .chips a:hover{text-decoration:none;border-color:#c9cfd8;color:var(--text)}
 .chips a.on:hover{color:#fff}
 
+/* ---------- 舰员选择 ---------- */
+.pick-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.pick-head h1{font-size:20px;margin:0;letter-spacing:.5px}
+.pick-head .sub{font-size:12px;color:var(--muted)}
+.pick-head .btn{margin-left:auto;text-decoration:none}
+.pick-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(272px,1fr));gap:12px}
+.pick-card{display:flex;gap:12px;padding:10px;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+  color:inherit;transition:box-shadow .15s ease,transform .15s ease,border-color .15s ease}
+.pick-card:hover{text-decoration:none;box-shadow:0 6px 20px rgba(31,35,41,.08);transform:translateY(-1px);border-color:#d3d8e0}
+.pick-card .im{flex:0 0 74px;width:74px;aspect-ratio:9/16;border-radius:6px;overflow:hidden;background:#edeff2}
+.pick-card .im img{width:100%;height:100%;object-fit:cover;object-position:50% 18%}
+.pick-card .bd{display:flex;flex-direction:column;gap:5px;min-width:0;flex:1;justify-content:center}
+.pick-card .nm{display:flex;align-items:baseline;gap:7px;flex-wrap:wrap}
+.pick-card .nm b{font-size:15.5px}
+.pick-card .nm em{font-style:normal;font-size:10.5px;letter-spacing:.7px;color:var(--faint);font-variant-numeric:tabular-nums}
+.pick-card .nm .last{font-style:normal;font-size:10px;color:var(--blue);background:var(--accent-soft);border-radius:4px;padding:0 5px;white-space:nowrap}
+.pick-card .rl{font-size:11.5px;color:var(--muted);line-height:1.45;min-height:0}
+.pick-card .pg{display:flex;align-items:center;gap:8px}
+.pick-card .pb{flex:1 1 auto;height:5px;border-radius:4px;background:var(--line);overflow:hidden}
+.pick-card .pb i{display:block;height:100%;border-radius:4px;background:var(--green)}
+.pick-card .pv{font-size:10.5px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.pick-card .ms{font-size:10.5px;color:var(--faint)}
+.pick-card .ms.warn{color:var(--amber)}
+.pick-card.last-on{border-color:#bcd3ee;box-shadow:0 0 0 1px rgba(26,95,180,.12)}
+
 .hero{display:grid;grid-template-columns:340px minmax(0,1fr);gap:22px;align-items:start}
 .hero .photo{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
 .hero .photo img{width:100%;aspect-ratio:9/16;object-fit:cover;cursor:zoom-in;background:#edeff2}
@@ -339,6 +364,9 @@ body.dark main{max-width:1360px}
 .ov-namebar b{font-size:15px;letter-spacing:2.5px;color:#f2f8ff}
 .ov-namebar span{font-size:11px;letter-spacing:1.4px;color:#7f93a9}
 .ov-tip{text-align:center;font-size:10.5px;letter-spacing:1.2px;color:#4e6075;margin-top:5px}
+.ov-goto{margin-left:6px;font-size:10.5px;letter-spacing:1px;color:#8fc6ff;border:1px solid rgba(95,208,255,.35);
+  border-radius:999px;padding:2px 9px;white-space:nowrap;background:rgba(95,208,255,.08)}
+.ov-goto:hover{color:#eaf6ff;border-color:rgba(95,208,255,.7);text-decoration:none}
 
 /* ---------- 灯箱 ---------- */
 #lb{position:fixed;inset:0;background:rgba(18,20,24,.86);display:none;align-items:center;justify-content:center;z-index:90;padding:24px}
@@ -432,7 +460,7 @@ footer code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:11px}
   <div class="brand"><b>玄枢号 · 工作台</b><span>XUANSHU / CREW WORKBENCH</span></div>
   <nav class="tabs" id="tabs">
     <a href="#/" data-r="overview">总览</a>
-    <a href="#/crew/CREW-001" data-r="crew">舰员详情</a>
+    <a href="#/crew" data-r="crew">舰员详情</a>
     <a href="#/board" data-r="board">完成度看板</a>
     <a href="#/trash" data-r="trash">垃圾站</a>
   </nav>
@@ -572,7 +600,8 @@ footer code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:11px}
         + '<span class="no">' + esc(c.id.replace('CREW-', '')) + '</span></div>';
     });
     h += '</div><button class="ov-nav" id="ovNext" type="button" aria-label="下一位">›</button></div>'
-      + '<div class="ov-namebar"><b id="ovName"></b><span id="ovType"></span></div>'
+      + '<div class="ov-namebar"><b id="ovName"></b><span id="ovType"></span>'
+      +   '<a class="ov-goto" id="ovGo" href="#/crew/' + esc(D.crews[0].id) + '">查看档案 →</a></div>'
       + '<div class="ov-tip">← → 切换 · 点立绘放大</div></div>';
     return h;
   }
@@ -615,6 +644,7 @@ footer code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:11px}
     document.getElementById('ovRight').innerHTML = ovRight(c);
     document.getElementById('ovName').textContent = c.name;
     document.getElementById('ovType').textContent = (c.code ? c.code + ' · ' : '') + (c.role || '');
+    document.getElementById('ovGo').setAttribute('href', '#/crew/' + c.id);
     var avs = document.querySelectorAll('#ovStrip .ov-av');
     for(var k = 0; k < avs.length; k++) avs[k].classList.toggle('on', Number(avs[k].getAttribute('data-i')) === i);
     var strip = document.getElementById('ovStrip');
@@ -706,12 +736,52 @@ footer code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:11px}
 
   function kpi(n,l,sub){ return '<div class="kpi"><div class="n">' + n + '</div><div class="l">' + l + '</div><div class="sub">' + esc(sub) + '</div></div>'; }
 
+  /* ---------- 舰员选择 ---------- */
+  var LAST_KEY = 'xs_last_crew';
+  function lastCrewId(){
+    try{ return localStorage.getItem(LAST_KEY) || ''; }catch(e){ return ''; }
+  }
+  function rememberCrew(id){
+    try{ localStorage.setItem(LAST_KEY, id); }catch(e){}
+  }
+
+  function viewCrewPicker(){
+    var last = lastCrewId();
+    var h = '<div class="crumbs"><a href="#/">总览</a><span>/</span><span>舰员选择</span></div>';
+    h += '<div class="pick-head"><h1>选择舰员</h1>'
+      + '<span class="sub">' + D.crews.length + ' 位在档 · 点卡片进入档案</span>';
+    if(last && crewById[last]){
+      h += '<a class="btn" href="#/crew/' + esc(last) + '">继续上次：' + esc(crewById[last].name) + ' →</a>';
+    }
+    h += '</div><div class="pick-grid">';
+    D.crews.forEach(function(c){
+      var p = pct(c.done, c.planned);
+      h += '<a class="pick-card' + (c.id === last ? ' last-on' : '') + '" href="#/crew/' + esc(c.id) + '">'
+        + '<span class="im">' + (c.main ? '<img loading="lazy" decoding="async" src="' + esc(c.main.thumb) + '" alt="' + esc(c.name) + '">' : '') + '</span>'
+        + '<span class="bd">'
+        +   '<span class="nm"><b>' + esc(c.name) + '</b><em>' + esc(c.id) + '</em>'
+        +     (c.id === last ? '<i class="last">上次查看</i>' : '') + '</span>'
+        +   '<span class="rl">' + esc(c.role || '') + '</span>'
+        +   '<span class="pg"><span class="pb"><i style="width:' + p + '%"></i></span>'
+        +     '<span class="pv">' + p + '%</span></span>'
+        +   '<span class="ms' + (c.missing ? ' warn' : '') + '">'
+        +     (c.missing ? '入档 ' + c.done + ' · 待补 ' + c.missing + ' 个姿势位' : '入档 ' + c.done + ' · 姿势齐全')
+        +   '</span>'
+        + '</span></a>';
+    });
+    h += '</div>';
+    app.innerHTML = h;
+  }
+
   /* ---------- 人物详情 ---------- */
   function viewCrew(id){
     var c = crewById[id] || D.crews[0];
+    rememberCrew(c.id);
     document.documentElement.style.setProperty('--accent', c.accent || '#1a5fb4');
     var h = '';
-    h += '<div class="crumbs"><a href="#/">总览</a><span>/</span><span>' + esc(c.id) + ' ' + esc(c.name) + '</span></div>';
+    h += '<div class="crumbs"><a href="#/">总览</a><span>/</span><a href="#/crew">舰员选择</a><span>/</span>'
+      + '<span>' + esc(c.id) + ' ' + esc(c.name) + '</span>'
+      + '<a class="btn" href="#/crew" style="margin-left:auto;text-decoration:none">← 返回选人</a></div>';
     h += '<div class="chips">';
     D.crews.forEach(function(x){
       h += '<a class="' + (x.id===c.id?'on':'') + '" href="#/crew/' + x.id + '">' + esc(x.name) + (x.missing?' <span style="opacity:.7">+' + x.missing + '</span>':'') + '</a>';
@@ -889,10 +959,12 @@ footer code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:11px}
   function render(){
     lb.classList.remove('on');
     var hash = location.hash || '#/';
-    var isCrew = hash.indexOf('#/crew/')===0;
-    document.body.classList.toggle('dark', !(isCrew || hash === '#/board' || hash === '#/trash'));
-    if(!isCrew) document.documentElement.style.removeProperty('--accent');
-    if(isCrew){ viewCrew(hash.slice(7)); nav('crew'); }
+    var isDetail = hash.indexOf('#/crew/') === 0 && hash.length > 7;
+    var isCrewRoot = !isDetail && hash.indexOf('#/crew') === 0;
+    document.body.classList.toggle('dark', !(isDetail || isCrewRoot || hash === '#/board' || hash === '#/trash'));
+    if(!(isDetail || isCrewRoot)) document.documentElement.style.removeProperty('--accent');
+    if(isDetail){ viewCrew(hash.slice(7)); nav('crew'); }
+    else if(isCrewRoot){ viewCrewPicker(); nav('crew'); }
     else if(hash === '#/board'){ viewBoard(); nav('board'); }
     else if(hash === '#/trash'){ viewTrash(); nav('trash'); }
     else { viewOverview(); nav('overview'); }
