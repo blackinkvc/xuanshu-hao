@@ -252,6 +252,11 @@ h2.sec .btn{margin-left:auto;font-weight:400}
 .dt .blk>b{display:flex;align-items:baseline;gap:7px;font-size:12px}
 .dt .blk>b i{font-style:normal;font:600 10px/1 Consolas,monospace;color:var(--faint)}
 .dt .kit{font-size:11px;color:var(--faint);line-height:1.65;margin-top:6px}
+.dt .fn{margin:5px 0 0;padding:0;list-style:none}
+.dt .fn li{position:relative;padding-left:11px;font-size:11.5px;line-height:1.7;color:#454c56}
+.dt .fn li::before{content:"";position:absolute;left:0;top:9px;width:4px;height:4px;border-radius:1px;background:#c3cbd6}
+.dt .blk .eqs{margin-top:6px}
+.gcard.on{outline:2px solid #9dbfe8;outline-offset:-2px}
 .eqc{display:inline-block;font-size:11px;color:var(--blue);background:var(--accent-soft);border:1px solid #d8e6f8;
   border-radius:6px;padding:3px 7px;margin:0 5px 5px 0;white-space:nowrap}
 .eqc b{font:700 9.5px/1 Consolas,monospace;letter-spacing:.4px;margin-right:4px}
@@ -334,6 +339,43 @@ details.more summary{cursor:pointer;font-size:12px;color:var(--blue);list-style:
 details.more summary::-webkit-details-marker{display:none}
 details.more summary::before{content:"▸ "}
 details.more[open] summary::before{content:"▾ "}
+.kink .kbtn{font:inherit;font-size:11px;margin-left:6px;padding:1px 8px;border:1px solid var(--line);background:#fff;border-radius:999px;color:var(--muted);cursor:pointer}
+.kink .kbtn:hover{border-color:#c9cfd8;color:var(--text)}
+.kink .kbtn:disabled{opacity:.45;cursor:not-allowed}
+.kink .kc{font:700 13px/1 ui-monospace,SFMono-Regular,Consolas,monospace;color:var(--text);font-variant-numeric:tabular-nums}
+
+/* ---------- 生命体征 ---------- */
+.vitals,.evlog{margin-top:20px;border:1px solid var(--line);border-radius:var(--radius);background:var(--panel);overflow:hidden}
+.vitals .vh,.evlog .vh{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;padding:9px 14px;border-bottom:1px solid var(--line2);background:#fbfcfd}
+.vitals .vh b,.evlog .vh b{font-size:13px;letter-spacing:.4px}
+.vitals .vh span,.evlog .vh span{font-size:10.5px;color:var(--faint);letter-spacing:.9px;text-transform:uppercase}
+.vitals .vh em,.evlog .vh em{font-style:normal;margin-left:auto;font-size:10px;color:var(--amber);background:#fdf3e3;border-radius:4px;padding:1px 6px;white-space:nowrap}
+.vit-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;padding:12px 14px 14px}
+.vit{border:1px solid var(--line2);border-radius:8px;padding:8px 10px 9px;background:#fff;min-width:0}
+.vit .vt{display:flex;align-items:baseline;justify-content:space-between;gap:6px}
+.vit .vt span{font-size:11.5px;color:var(--muted);white-space:nowrap}
+.vit .vt b{font:700 13px/1 ui-monospace,SFMono-Regular,Consolas,monospace;font-variant-numeric:tabular-nums;white-space:nowrap}
+.vit .vb{display:block;height:4px;border-radius:3px;background:var(--line);margin:7px 0 5px;overflow:hidden}
+.vit .vb s{display:block;height:100%;width:0;border-radius:3px;background:#2f9e63;text-decoration:none;transition:width .9s linear,background .5s}
+.vit .s{display:block;font-size:10.5px;color:var(--faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vit.warn .vb s{background:#d8a72c}
+.vit.warn .vt b{color:#8a6d1a}
+.vit.bad .vb s{background:#c8563d}
+.vit.bad .vt b{color:#b23c2b}
+
+/* ---------- 事件流 ---------- */
+.tl{list-style:none;margin:0;padding:10px 14px 12px 14px}
+.tli{position:relative;margin-left:72px;padding:6px 0 6px 20px;border-left:1px solid var(--line2)}
+.tli time{position:absolute;left:-72px;top:7px;width:60px;text-align:right;font:11.5px/1.4 ui-monospace,SFMono-Regular,Consolas,monospace;color:var(--faint);font-variant-numeric:tabular-nums;white-space:nowrap}
+.tli i{position:absolute;left:-5px;top:11px;width:9px;height:9px;border-radius:50%;border:2px solid #cfd6df;background:#fff;box-sizing:content-box}
+.tli .tx b{display:block;font-size:12.5px;line-height:1.5}
+.tli .tx span{display:block;font-size:11.5px;color:var(--muted);line-height:1.55}
+.tli.past i{background:#2f9e63;border-color:#2f9e63}
+.tli.dead i{background:#c8563d;border-color:#c8563d}
+.tli.future .tx b{color:var(--muted);font-weight:600}
+.tli.now i{background:var(--blue);border-color:var(--blue);box-shadow:0 0 0 3px rgba(26,95,180,.16)}
+.tli.now .tx b{color:var(--blue)}
+.tli.pending time{font-size:10.5px}
 
 .gapbox{background:#fffdf7;border:1px solid #f0e2c4;border-radius:var(--radius);padding:12px 14px;margin:18px 0 4px}
 .gapbox b{color:var(--amber)}
@@ -544,6 +586,34 @@ body.dark main{max-width:1360px}
 .ov-grow span{flex:1 1 auto;min-width:0;line-height:1.5;word-break:break-word}
 .ov-grow b{flex:0 0 auto;margin-top:1px;font:600 9.5px/1 ui-monospace,SFMono-Regular,Consolas,monospace;color:#5fd0ff;letter-spacing:.6px}
 .ov-grow.empty{color:#5f7186;border-left-color:#2b3b4c}
+/* P2 · 装备行可点 + 浮卡 */
+.ov-grow.eq{width:100%;font:inherit;font-size:11.5px;color:#b9c9da;text-align:left;cursor:pointer;
+  border:0;border-left:2px solid rgba(95,208,255,.5);transition:background .16s,color .16s,border-color .16s,box-shadow .16s}
+.ov-grow.eq:hover{background:linear-gradient(90deg,rgba(36,55,74,.95),rgba(30,45,60,.4));color:#eaf6ff;border-left-color:#5fd0ff}
+.ov-grow.eq.on{background:linear-gradient(90deg,rgba(44,68,92,.96),rgba(34,52,70,.55));border-left-color:#a8e6ff;
+  box-shadow:0 0 0 1px rgba(95,208,255,.25) inset}
+.ov-grow.eq i{font-style:normal;font-size:9.5px;color:#6f8aa2;margin-left:6px;letter-spacing:.3px}
+.ov-grow.eq:hover i,.ov-grow.eq.on i{color:#8fb6d4}
+.ov-kc{margin-left:auto;font:600 9px/1 ui-monospace,SFMono-Regular,Consolas,monospace;color:#5f7a92;letter-spacing:.6px}
+#eqPop{position:fixed;z-index:86;width:266px;display:none;padding:11px 13px 12px;border-radius:10px;
+  background:#0c141d;border:1px solid #24374a;box-shadow:0 18px 46px rgba(0,0,0,.6);color:#c6d6e6}
+#eqPop.on{display:block}
+#eqPop .hd{display:flex;align-items:center;gap:7px}
+#eqPop .hd b{font:700 10.5px/1 ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:.7px;color:#5fd0ff}
+#eqPop .hd em{font-style:normal;font-size:9px;color:#8ea4bb;border:1px solid #24374a;border-radius:4px;padding:1px 5px}
+#eqPop .hd .x{margin-left:auto;width:20px;height:20px;border:0;border-radius:5px;background:transparent;color:#7d93a8;
+  font-size:14px;line-height:1;cursor:pointer}
+#eqPop .hd .x:hover{background:#182534;color:#dceaf7}
+#eqPop h4{margin:7px 0 3px;font-size:14px;line-height:1.35;color:#f0f7ff}
+#eqPop .ow{font-size:10.5px;color:#8ea4bb;margin-bottom:7px}
+#eqPop .ow a{color:#9fdcff}
+#eqPop p{margin:0 0 10px;font-size:11.5px;line-height:1.62;color:#a9bccd;
+  display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;overflow:hidden}
+#eqPop .ft{display:flex;align-items:center;justify-content:space-between;gap:8px;padding-top:8px;border-top:1px solid #1b2734}
+#eqPop .spec{font:600 9px/1.4 ui-monospace,SFMono-Regular,Consolas,monospace;color:#74899e;letter-spacing:.2px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+#eqPop a.more{font-size:11.5px;color:#9fdcff;white-space:nowrap;flex:0 0 auto}
+#eqPop a.more:hover{color:#d4f1ff}
 
 .ov-dock{position:relative;z-index:2;border-top:1px solid #1b2734;padding:10px 12px 12px;
   background:linear-gradient(180deg,rgba(13,20,28,.55),rgba(7,11,16,.95))}
@@ -591,32 +661,34 @@ body.dark main{max-width:1360px}
   border-radius:999px;padding:2px 9px;white-space:nowrap;background:rgba(95,208,255,.08)}
 .ov-goto:hover{color:#eaf6ff;border-color:rgba(95,208,255,.7);text-decoration:none}
 
-/* ---------- 总览 · 力场悬浮卡片（P1） ---------- */
-.ov-pcard{position:absolute;left:14px;bottom:14px;z-index:6;width:178px;
+/* ---------- 总览 · 悬浮状态卡（P1） ---------- */
+.ov-pcard{position:absolute;left:14px;bottom:14px;z-index:6;width:196px;
   display:flex;flex-direction:column;gap:7px;padding:9px 10px 11px;
   border:1px solid rgba(95,208,255,.22);border-radius:10px;
   background:linear-gradient(180deg,rgba(11,20,29,.9),rgba(6,11,17,.96));
   box-shadow:0 14px 34px rgba(0,0,0,.5),inset 0 1px 0 rgba(150,200,255,.08)}
-.ov-pcap{display:flex;align-items:center;gap:5px;font:600 8.5px/1 ui-monospace,SFMono-Regular,Consolas,monospace;
-  letter-spacing:1.5px;color:#5fd0ff;opacity:.82;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.ov-pcap i{width:5px;height:5px;border-radius:50%;background:#5fd0ff;box-shadow:0 0 7px #5fd0ff;flex:0 0 auto;animation:led 2.2s ease-in-out infinite}
-.ov-pcol{position:relative;height:116px;border-radius:7px;overflow:hidden;
-  background:radial-gradient(ellipse at 50% 96%,rgba(95,208,255,.16),transparent 60%),
-    linear-gradient(180deg,rgba(9,17,25,.15),rgba(5,10,16,.8))}
+.ov-pcol{position:relative;height:132px;border-radius:7px;overflow:hidden;
+  background:radial-gradient(ellipse at 50% 102%,rgba(95,208,255,.2),transparent 64%)}
 .ov-pbeam{position:absolute;left:50%;top:3px;bottom:4px;width:56px;transform:translateX(-50%);border-radius:28px;
-  background:linear-gradient(180deg,rgba(95,208,255,0) 0%,rgba(95,208,255,.07) 22%,rgba(150,228,255,.2) 50%,rgba(95,208,255,.07) 78%,rgba(95,208,255,0) 100%);
-  box-shadow:inset 0 0 18px rgba(120,215,255,.3),0 0 22px rgba(80,180,255,.12)}
+  background:linear-gradient(0deg,rgba(150,228,255,.32) 0%,rgba(95,208,255,.16) 34%,rgba(95,208,255,.04) 72%,rgba(95,208,255,0) 100%);
+  box-shadow:inset 0 0 18px rgba(120,215,255,.32),0 0 22px rgba(80,180,255,.14)}
 .ov-pflow{position:absolute;left:50%;top:3px;bottom:4px;width:42px;transform:translateX(-50%);opacity:.7;
   background:repeating-linear-gradient(0deg,rgba(180,235,255,0) 0 7px,rgba(190,238,255,.4) 7px 8px,rgba(180,235,255,0) 8px 20px);
   -webkit-mask:linear-gradient(180deg,transparent,#000 20%,#000 80%,transparent);
   mask:linear-gradient(180deg,transparent,#000 20%,#000 80%,transparent);
   animation:pflow 2.2s linear infinite}
 @keyframes pflow{from{background-position:0 0}to{background-position:0 -20px}}
-.ov-pport{position:absolute;left:50%;top:2px;bottom:6px;width:64px;transform:translateX(-50%);
-  display:flex;align-items:center;justify-content:center;animation:pfloat 4.8s ease-in-out infinite}
-.ov-pport img{max-width:100%;max-height:100%;object-fit:contain;border-radius:4px;
-  filter:drop-shadow(0 7px 13px rgba(0,0,0,.6)) drop-shadow(0 0 12px rgba(95,208,255,.35))}
+.ov-pport{position:absolute;left:50%;top:1px;bottom:4px;width:80px;transform:translateX(-50%);
+  display:flex;align-items:flex-end;justify-content:center;animation:pfloat 4.8s ease-in-out infinite}
+.ov-pport img{max-width:100%;max-height:100%;object-fit:contain;
+  -webkit-mask-image:linear-gradient(180deg,#000 0,#000 70%,rgba(0,0,0,.45) 88%,transparent 100%);
+  mask-image:linear-gradient(180deg,#000 0,#000 70%,rgba(0,0,0,.45) 88%,transparent 100%);
+  filter:drop-shadow(0 6px 12px rgba(0,0,0,.55)) drop-shadow(0 0 14px rgba(95,208,255,.5))}
+.ov-pport.ph img{opacity:.6;filter:drop-shadow(0 0 10px rgba(95,208,255,.35))}
 @keyframes pfloat{0%,100%{transform:translateX(-50%) translateY(-3px)}50%{transform:translateX(-50%) translateY(2px)}}
+.ov-pmiss{position:absolute;right:3px;top:3px;z-index:2;font-size:8px;line-height:1.4;padding:0 5px;border-radius:999px;
+  background:rgba(232,182,76,.2);color:#e8c072;letter-spacing:.5px;white-space:nowrap}
+.ov-pmiss[hidden]{display:none}
 .ov-pfoot{position:absolute;left:50%;bottom:1px;width:84px;height:14px;transform:translateX(-50%);border-radius:50%;
   background:radial-gradient(ellipse at 50% 50%,rgba(150,228,255,.55),rgba(95,208,255,.16) 55%,transparent 78%);
   filter:blur(3px);pointer-events:none}
@@ -687,6 +759,10 @@ footer code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:11px}
   .shots{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
   .tgrid{grid-template-columns:repeat(2,minmax(0,1fr))}
   .hero .info h1{font-size:22px}
+  .vit-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;padding:10px}
+  .tl{padding:8px 10px 10px}
+  .tli{margin-left:62px;padding-left:16px}
+  .tli time{left:-62px;width:52px;font-size:10.5px}
   dl.profile{grid-template-columns:70px minmax(0,1fr)}
   .prow{grid-template-columns:64px minmax(0,1fr) 62px}
   .prow .num{font-size:10.5px;white-space:nowrap}
@@ -697,13 +773,18 @@ footer code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:11px}
 @media (max-width:1180px){
   .ov-stage{grid-template-columns:170px minmax(0,1fr) 258px}
   .ov-center{min-height:520px}
-  .ov-pcard{width:150px}
-  .ov-pcol{height:104px}
+  .ov-pcard{width:160px}
+  .ov-pcol{height:112px}
+  .ov-pport{width:68px}
+  .vit-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
   .ov-figure img{max-height:396px}
   .ov-space{width:min(90%,560px)}
   .ov-ring.r1{width:min(94%,520px)}
   .ov-ring.r2{width:min(84%,460px)}
   .ov-ring.r3{width:min(68%,380px)}
+}
+@media (max-width:640px){
+  .vit-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 @media (max-width:900px){
   .ov-stage{grid-template-columns:minmax(0,1fr)}
@@ -716,7 +797,7 @@ footer code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:11px}
   .ov-pcard{position:relative;left:auto;bottom:auto;width:calc(100% - 24px);margin:6px 12px 12px;
     flex-direction:row;align-items:center;gap:12px;padding:9px 11px}
   .ov-pcol{flex:0 0 92px;width:92px;height:86px}
-  .ov-pport{width:54px}
+  .ov-pport{width:62px}
   .ov-pbeam,.ov-pflow{width:48px}
   .ov-pmeta{flex:1 1 auto}
   .ov-pmeta strong{font-size:14px}
@@ -795,6 +876,7 @@ footer code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:11px}
     <a href="#/crew" data-r="crew">舰员详情</a>
     <a href="#/board" data-r="board">完成度看板</a>
     <a href="#/gear" data-r="gear">装备</a>
+    <a href="#/rooms" data-r="rooms">房间</a>
     <a href="#/lib" data-r="lib">素材库</a>
     <a href="#/trash" data-r="trash">垃圾站</a>
   </nav>
@@ -844,6 +926,26 @@ footer code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:11px}
     + '<text x="180" y="308" text-anchor="middle" font-size="30" fill="#a8842f" font-family="sans-serif">待补</text>'
     + '<text x="180" y="344" text-anchor="middle" font-size="13" fill="#9aa1ab" font-family="sans-serif">IMAGE PENDING</text>'
     + '</svg>');
+  /* 悬浮立绘：001–007、011 有真透明底；026–030 无透明底，用同风格剪影占位并标「待补」 */
+  var FLOAT_OK = {'CREW-001':1,'CREW-002':1,'CREW-003':1,'CREW-004':1,'CREW-005':1,'CREW-006':1,'CREW-007':1,'CREW-011':1};
+  var FLOAT_PH = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="180" height="240" viewBox="0 0 120 180">'
+    + '<defs><linearGradient id="fg" x1="0" y1="1" x2="0" y2="0">'
+    + '<stop offset="0" stop-color="#2f6f8f"/><stop offset="1" stop-color="#bfe8ff"/></linearGradient></defs>'
+    + '<g fill="none" stroke="url(#fg)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" opacity=".85">'
+    + '<circle cx="60" cy="30" r="13" fill="url(#fg)" stroke="none" opacity=".72"/>'
+    + '<path d="M60 45v46"/><path d="M60 58 34 72M60 58 86 72"/>'
+    + '<path d="M34 72l-7 13M86 72l7 13"/>'
+    + '<path d="M60 91 47 132M60 91 73 132"/>'
+    + '<path d="M47 132l-3 21M73 132l3 21"/>'
+    + '</g>'
+    + '<g fill="#bfe8ff" opacity=".6"><circle cx="26" cy="87" r="2.4"/><circle cx="94" cy="87" r="2.4"/></g>'
+    + '</svg>');
+  function floatOf(c){
+    if(!FLOAT_OK[c.id]) return '';
+    var n = c.id.replace('CREW-','').toLowerCase();
+    return 'assets/c/crew-' + n + '/crew-' + n + '-float.png';
+  }
   document.addEventListener('error', function(e){
     var img = e.target;
     if(!img || img.tagName !== 'IMG') return;
@@ -1216,7 +1318,7 @@ footer code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:11px}
       if(e.key === 'ArrowLeft'){ e.preventDefault(); lbGo(-1); return; }
       if(e.key === 'ArrowRight'){ e.preventDefault(); lbGo(1); return; }
     }
-    if(e.key==='Escape'){ closePop(); }
+    if(e.key==='Escape'){ closePop(); closeEqPop(); }
     SND.arm();
     if(!document.getElementById('ov')) return;
     if(e.key==='ArrowLeft'){ e.preventDefault(); ovStep(-1); }
@@ -1311,18 +1413,87 @@ footer code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:11px}
     for(var j = 0; j < axs.length; j++) axs[j].classList.toggle('on', Number(axs[j].getAttribute('data-i')) === i);
   }
 
-  function ovRight(c){
-    var mods = c.mods || [];
-    var h = '<div class="ov-rbox"><div class="ov-k">人物属性 / ATTRIBUTES</div>' + ovRadar(c) + '</div>';
-    h += '<div class="ov-rbox"><div class="ov-k">装备栏 / LOADOUT</div><div class="ov-gear">';
-    if(mods.length){
-      mods.forEach(function(m, i){
-        h += '<div class="ov-grow"><b>' + (i < 9 ? '0' : '') + (i + 1) + '</b><span>' + esc(m) + '</span></div>';
-      });
-    } else {
-      h += '<div class="ov-grow empty"><span>未登记改装</span></div>';
+  var EQ_POP = null, EQ_ANCHOR = null;
+
+  function crewGear(id){
+    if(!GEAR) return null;
+    return GEAR.filter(function(it){ return it.owner === id; });
+  }
+
+  function ovLoadoutHTML(c){
+    var list = crewGear(c.id);
+    if(list && list.length){
+      return list.map(function(it){
+        var cn = '';
+        GCATS.forEach(function(t){ if(t[0] === it.cat) cn = t[1]; });
+        return '<button class="ov-grow eq" type="button" data-eq="' + esc(it.id) + '"><b>' + esc(it.id) + '</b>'
+          + '<span>' + esc(it.name) + (cn ? '<i>' + esc(cn) + '</i>' : '') + '</span></button>';
+      }).join('');
     }
-    h += '</div><a class="ov-glink" href="#/gear?owner=' + esc(c.id) + '">装备库 · ' + esc(c.name) + ' 的装备条目 →</a></div>';
+    if(!GEAR) return '<div class="ov-grow empty"><span>装备索引加载中…</span></div>';
+    var mods = c.mods || [];
+    if(mods.length){
+      return mods.map(function(m, i){
+        return '<div class="ov-grow"><b>' + (i < 9 ? '0' : '') + (i + 1) + '</b><span>' + esc(m) + '</span></div>';
+      }).join('');
+    }
+    return '<div class="ov-grow empty"><span>未登记装备</span></div>';
+  }
+
+  function closeEqPop(){
+    if(EQ_POP && EQ_POP.classList.contains('on')) EQ_POP.classList.remove('on');
+    if(EQ_ANCHOR){ EQ_ANCHOR.classList.remove('on'); EQ_ANCHOR = null; }
+  }
+
+  function ovEqPop(id, anchor){
+    if(!EQ_POP){
+      EQ_POP = document.createElement('div');
+      EQ_POP.id = 'eqPop';
+      EQ_POP.setAttribute('role', 'dialog');
+      EQ_POP.addEventListener('click', function(e){
+        if(e.target.closest('#eqPopX')) closeEqPop();
+      });
+      document.body.appendChild(EQ_POP);
+    }
+    var it = null;
+    (GEAR || []).forEach(function(x){ if(x.id === id) it = x; });
+    if(!it) return;
+    var cn = '';
+    GCATS.forEach(function(t){ if(t[0] === it.cat) cn = t[1]; });
+    var own = it.owner === 'SHIP'
+      ? '<span>舰内公用</span>'
+      : '<a href="#/crew/' + esc(it.owner) + '">' + esc(gearOwner(it.owner)) + '</a>';
+    EQ_POP.innerHTML = '<div class="hd"><b>' + esc(it.id) + '</b><em>' + esc(cn || it.cat || '未分类') + '</em>'
+      + '<button class="x" type="button" id="eqPopX" aria-label="关闭">×</button></div>'
+      + '<h4>' + esc(it.name) + '</h4>'
+      + '<div class="ow">归属：' + own + '</div>'
+      + '<p>' + esc(it.desc || '暂无简介。') + '</p>'
+      + '<div class="ft"><span class="spec">' + esc((it.spec || []).join(' · ')) + '</span>'
+      + '<a class="more" href="#/gear?owner=' + encodeURIComponent(it.owner) + '">查看全部 →</a></div>';
+    EQ_POP.classList.add('on');
+    if(EQ_ANCHOR) EQ_ANCHOR.classList.remove('on');
+    EQ_ANCHOR = anchor;
+    if(anchor) anchor.classList.add('on');
+    var r = anchor.getBoundingClientRect();
+    var w = EQ_POP.offsetWidth, h = EQ_POP.offsetHeight;
+    var left = r.left - w - 12;
+    if(left < 8) left = Math.min(r.right + 12, window.innerWidth - w - 8);
+    if(left < 8) left = Math.max(8, (window.innerWidth - w) / 2);
+    var top = r.top - 10;
+    if(top + h > window.innerHeight - 8) top = window.innerHeight - h - 8;
+    if(top < 8) top = 8;
+    EQ_POP.style.left = Math.round(left) + 'px';
+    EQ_POP.style.top = Math.round(top) + 'px';
+  }
+
+  function ovRight(c){
+    var list = crewGear(c.id);
+    var cnt = list ? list.length : 0;
+    var h = '<div class="ov-rbox"><div class="ov-k">人物属性 / ATTRIBUTES</div>' + ovRadar(c) + '</div>';
+    h += '<div class="ov-rbox"><div class="ov-k">装备栏 / LOADOUT'
+      + (cnt ? '<span class="ov-kc">' + cnt + ' 件</span>' : '') + '</div>'
+      + '<div class="ov-gear" id="ovLoadout">' + ovLoadoutHTML(c) + '</div>'
+      + '<a class="ov-glink" href="#/gear?owner=' + esc(c.id) + '">装备库 · ' + esc(c.name) + ' 的装备条目 →</a></div>';
     return h;
   }
 
@@ -1387,6 +1558,7 @@ footer code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:11px}
     var c = D.crews[i];
     if(!c) return;
     OV_IDX = i;
+    closeEqPop();
     var ovEl = document.getElementById('ov');
     var fig = document.getElementById('ovFig');
     var img = document.getElementById('ovImg');
@@ -1412,9 +1584,14 @@ footer code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:11px}
     if(pc){
       var mini = document.getElementById('ovPMini');
       if(mini){
-        var ms = (c.main && c.main.thumb) || figSrc(c);
-        if(ms && mini.getAttribute('src') !== ms) mini.src = ms;
-        mini.alt = c.name + ' 力场托举缩略';
+        var fs = floatOf(c);
+        var ms = fs || FLOAT_PH;
+        if(mini.getAttribute('src') !== ms) mini.src = ms;
+        mini.alt = c.name + (fs ? ' 悬浮立绘' : ' 悬浮立绘占位');
+        var port = document.getElementById('ovPPort');
+        if(port) port.classList.toggle('ph', !fs);
+        var miss = document.getElementById('ovPMiss');
+        if(miss) miss.hidden = !!fs;
       }
       var pno = document.getElementById('ovPNo');
       if(pno) pno.textContent = c.id;
@@ -1510,12 +1687,12 @@ footer code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:11px}
       +   '<div class="ov-figure" id="ovFig"><span class="ov-aura"></span>'
       +     '<img id="ovImg" alt="" decoding="async"><span class="ov-plinth"></span></div>'
       +   '<div class="ov-cname"><b id="ovCN"></b><em id="ovCE"></em></div>'
-      +   '<aside class="ov-pcard" id="ovPcard" aria-label="力场托举状态卡">'
-      +     '<div class="ov-pcap"><i></i>FIELD LIFT · 力场托举</div>'
+      +   '<aside class="ov-pcard" id="ovPcard" aria-label="当前人物状态卡">'
       +     '<div class="ov-pcol">'
       +       '<span class="ov-pbeam"></span><span class="ov-pflow"></span><span class="ov-pfoot"></span>'
-      +       '<span class="ov-pport"><img id="ovPMini" alt="" decoding="async"></span>'
+      +       '<span class="ov-pport" id="ovPPort"><img id="ovPMini" alt="" decoding="async"></span>'
       +       '<span class="ov-pring r1"></span><span class="ov-pring r2"></span>'
+      +       '<span class="ov-pmiss" id="ovPMiss" hidden>待补</span>'
       +     '</div>'
       +     '<div class="ov-pmeta">'
       +       '<span class="no" id="ovPNo">CREW-001</span>'
@@ -1539,7 +1716,10 @@ footer code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:11px}
       var ax = e.target.closest('.ov-radar .ax');
       if(ax){ ovTip(Number(ax.getAttribute('data-i'))); SND.click(); return; }
       var av = e.target.closest('.ov-av');
-      if(av){ ovApply(Number(av.getAttribute('data-i')), 0); SND.swap(); return; }
+      if(av){ closeEqPop(); ovApply(Number(av.getAttribute('data-i')), 0); SND.swap(); return; }
+      var eq = e.target.closest('.ov-grow.eq');
+      if(eq){ ovEqPop(eq.getAttribute('data-eq'), eq); SND.click(); return; }
+      if(!e.target.closest('#eqPop')) closeEqPop();
       if(e.target.closest('#ovPrev')) ovStep(-1);
       else if(e.target.closest('#ovNext')) ovStep(1);
     });
@@ -1553,6 +1733,15 @@ footer code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:11px}
 
     ovWarm();
     ovApply(OV_IDX % D.crews.length, 1);
+    gearLoad(function(){
+      var host = document.getElementById('ovLoadout');
+      var cur = D.crews[OV_IDX];
+      if(!host || !cur) return;
+      host.innerHTML = ovLoadoutHTML(cur);
+      var kc = document.querySelector('.ov-right .ov-kc');
+      var list = crewGear(cur.id) || [];
+      if(kc) kc.textContent = list.length ? list.length + ' 件' : '';
+    });
   }
 
   function kpi(n,l,sub){ return '<div class="kpi"><div class="n">' + n + '</div><div class="l">' + l + '</div><div class="sub">' + esc(sub) + '</div></div>'; }
@@ -1684,12 +1873,18 @@ footer code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:11px}
         + '" data-cap="' + esc(it.id + ' · ' + it.name + ' · ' + (it.desc || '')) + '"></div>'
       : '<div class="im"><span class="id">' + esc(it.id) + '</span><div class="ph"><i>' + esc((it.cat || '').toUpperCase())
         + '</i><em>待补图</em></div></div>';
+    var loc = '';
+    if(it.loc){
+      var rm = roomById(it.loc);
+      loc = '<div class="loc">所在：<a href="#/rooms' + roomQuery({seg: rm ? rm.seg : 'all', id: it.loc}) + '">'
+        + esc(it.loc + ' ' + (rm ? rm.name : '')) + '</a></div>';
+    }
     return '<div class="gcard" id="g-' + esc(it.id) + '">' + im
       + '<div class="bd"><div class="nm">' + esc(it.name) + '</div>'
       +   '<div class="sp">' + esc((it.spec || []).join(' · ')) + '</div>'
       +   '<div class="ft"><span class="cat">' + esc(catName) + '</span>'
       +     '<a href="#/crew/' + esc(it.owner) + '">' + esc(gearOwner(it.owner)) + '</a>'
-      +   '</div></div></div>';
+      +   '</div>' + loc + '</div></div>';
   }
   function viewGear(q){
     var p = {};
@@ -1698,7 +1893,9 @@ footer code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:11px}
       var a = kv.split('=');
       p[decodeURIComponent(a[0])] = decodeURIComponent(a[1] || '');
     });
-    var cat = p.cat || 'all', owner = p.owner || '';
+    var eqId = p.eq || '';
+    var cat = eqId ? 'all' : (p.cat || 'all');
+    var owner = eqId ? '' : (p.owner || '');
     var qs = function(o){
       var a = [];
       if(o.cat && o.cat !== 'all') a.push('cat=' + encodeURIComponent(o.cat));
@@ -1760,14 +1957,21 @@ footer code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:11px}
           return;
         }
         host.innerHTML = '<div class="gear-grid">' + items.map(gearCard).join('') + '</div>';
-        if(p.id){
-          var el = document.getElementById('g-' + p.id);
-          if(el) el.scrollIntoView({block: 'center'});
+        if(eqId){
+          var el = document.getElementById('g-' + eqId);
+          if(el){
+            el.classList.add('on');
+            el.scrollIntoView({block: 'center'});
+          }
+        } else if(p.id){
+          var el2 = document.getElementById('g-' + p.id);
+          if(el2) el2.scrollIntoView({block: 'center'});
         }
       }
       var inp = document.getElementById('gq');
       inp.addEventListener('input', function(){ GQ = inp.value; paint(); });
       paint();
+      roomsLoad(function(){ if(document.getElementById('gearBody')) paint(); });
     });
   }
 
@@ -1806,6 +2010,160 @@ footer code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:11px}
     });
     h += '</div>';
     app.innerHTML = h;
+  }
+
+  /* ---------- 体征推演 / 事件流 / 性癖计数（站内补写） ---------- */
+  var KINK_KEY = 'xs_kink_v1';
+  function seedOf(s){
+    var h = 2166136261;
+    s = String(s || '');
+    for(var i = 0; i < s.length; i++){ h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+    return ((h >>> 0) % 10000) / 10000;
+  }
+  function fracOf(t, p){ var x = t / p; return x - Math.floor(x); }
+  function triOf(t, p){ var x = fracOf(t, p); return x < .5 ? x * 2 : 2 - x * 2; }
+  function clampV(v, a, b){ return Math.max(a, Math.min(b, v)); }
+  function ageOf(c){
+    var s = (c.profile && c.profile['年龄']) || '';
+    var m = /(\d+(?:\.\d+)?)\s*岁/.exec(s);
+    var a = m ? parseFloat(m[1]) : 24;
+    var mm = /岁\s*(\d+)\s*个月/.exec(s);
+    if(mm) a += parseInt(mm[1], 10) / 12;
+    return a;
+  }
+  function ageKnown(c){ return /(\d+(?:\.\d+)?)\s*岁/.test((c.profile && c.profile['年龄']) || ''); }
+  function heightOf(c){
+    var m = /(\d{3})\s*cm/.exec((c.profile && c.profile['身高']) || '');
+    return m ? parseInt(m[1], 10) : 165;
+  }
+  function baseWeightOf(c){
+    var con = (c.attrs && c.attrs.体质) || 50;
+    return Math.round(((heightOf(c) - 100) * 0.72 + (con - 50) * 0.12 + seedOf(c.id) * 3) * 10) / 10;
+  }
+  function lifespanOf(c){
+    var con = (c.attrs && c.attrs.体质) || 50;
+    return Math.round(60 + con * 0.3 + seedOf(c.id + 'life') * 5);
+  }
+  function vitalsFor(c){
+    var y = WORLD.now(), t = Math.max(0, y - WORLD.START), ph = seedOf(c.id) * 3;
+    var age = ageOf(c) + t, life = lifespanOf(c);
+    var con = (c.attrs && c.attrs.体质) || 50;
+    var hunger = clampV(16 + 84 * triOf(t + ph, 0.62), 0, 100);
+    var thirst = clampV(14 + 86 * triOf(t + ph * 1.7, 0.47), 0, 100);
+    var urine  = clampV(10 + 90 * triOf(t + ph * 2.3, 0.53), 0, 100);
+    var stool  = clampV(8 + 92 * triOf(t + ph * 0.7, 0.86), 0, 100);
+    var sleepy = clampV(12 + 88 * triOf(t + ph * 1.3, 1.15), 0, 100);
+    var disease = clampV(4 + 60 * Math.pow(triOf(t + ph * 2.9, 6.4), 3), 0, 100);
+    var pain   = clampV(disease * 0.72 + 18 * triOf(t + ph * 3.1, 1.9), 0, 100);
+    var irrit  = clampV(hunger * 0.22 + thirst * 0.2 + sleepy * 0.24 + pain * 0.25 + 8 * triOf(t + ph, 0.37), 0, 100);
+    var sanity = clampV(100 - irrit * 0.55 - pain * 0.45 + (con - 50) * 0.25, 0, 100);
+    var mood   = clampV(52 + (con - 50) * 0.3 - irrit * 0.3 + 10 * (triOf(t + ph * 2, 2.7) - .5), 0, 100);
+    var weight = baseWeightOf(c) + Math.sin((t + ph) * 2 * Math.PI / 1.6) * 0.6;
+    function tone(v){ return v >= 75 ? 'bad' : (v >= 50 ? 'warn' : ''); }
+    function toneUp(v){ return v < 30 ? 'bad' : (v < 50 ? 'warn' : ''); }
+    return [
+      {k:'age', label:'岁数', text:(age < 1 ? age.toFixed(2) : age.toFixed(1)) + ' 岁', pct:clampV(age / life * 100, 0, 100), tone:age / life > .92 ? 'warn' : '', sub:(ageKnown(c) ? '' : '推定 · ') + '寿命推演 ~' + life + ' 岁'},
+      {k:'weight', label:'体重', text:weight.toFixed(1) + ' kg', pct:clampV(weight / (baseWeightOf(c) * 1.28) * 100, 0, 100), tone:'', sub:'基准 ' + baseWeightOf(c).toFixed(1) + ' kg'},
+      {k:'hunger', label:'饥饿', text:Math.round(hunger) + ' / 100', pct:hunger, tone:tone(hunger), sub:hunger < 20 ? '饱腹' : hunger < 45 ? '正常' : hunger < 70 ? '空腹' : '饥饿'},
+      {k:'thirst', label:'口渴', text:Math.round(thirst) + ' / 100', pct:thirst, tone:tone(thirst), sub:thirst < 20 ? '充足' : thirst < 45 ? '正常' : thirst < 70 ? '口干' : '干渴'},
+      {k:'urine', label:'尿意', text:Math.round(urine) + ' / 100', pct:urine, tone:tone(urine), sub:urine < 25 ? '无感' : urine < 50 ? '轻微' : urine < 75 ? '明显' : '憋胀'},
+      {k:'stool', label:'便意', text:Math.round(stool) + ' / 100', pct:stool, tone:tone(stool), sub:stool < 25 ? '无感' : stool < 50 ? '轻微' : stool < 75 ? '明显' : '紧迫'},
+      {k:'irrit', label:'烦躁', text:Math.round(irrit) + ' / 100', pct:irrit, tone:tone(irrit), sub:irrit < 25 ? '平静' : irrit < 50 ? '略躁' : irrit < 75 ? '烦躁' : '易怒'},
+      {k:'sanity', label:'理智', text:Math.round(sanity) + ' / 100', pct:sanity, tone:toneUp(sanity), sub:sanity >= 80 ? '清明' : sanity >= 60 ? '稳定' : sanity >= 40 ? '恍惚' : '涣散'},
+      {k:'mood', label:'心情', text:Math.round(mood) + ' / 100', pct:mood, tone:toneUp(mood), sub:mood >= 75 ? '愉快' : mood >= 55 ? '平稳' : mood >= 35 ? '低落' : '消沉'},
+      {k:'sleepy', label:'困意', text:Math.round(sleepy) + ' / 100', pct:sleepy, tone:tone(sleepy), sub:sleepy < 25 ? '清醒' : sleepy < 50 ? '一般' : sleepy < 75 ? '困倦' : '嗜睡'},
+      {k:'disease', label:'疾病', text:Math.round(disease) + ' / 100', pct:disease, tone:tone(disease), sub:disease < 10 ? '健康' : disease < 30 ? '轻微' : disease < 55 ? '不适' : '患病'},
+      {k:'pain', label:'痛苦', text:Math.round(pain) + ' / 100', pct:pain, tone:tone(pain), sub:pain < 10 ? '无痛' : pain < 30 ? '轻微' : pain < 55 ? '酸痛' : '剧痛'}
+    ];
+  }
+  function vitalsHTML(c){
+    var vs = vitalsFor(c);
+    var h = '<section class="vitals" id="vitals" data-id="' + esc(c.id) + '">'
+      + '<div class="vh"><b>生命体征</b><span>VITALS · 随玄枢历实时推演</span><em>站内补写</em></div><div class="vit-grid">';
+    vs.forEach(function(v){
+      h += '<div class="vit' + (v.tone ? ' ' + v.tone : '') + '" data-k="' + v.k + '">'
+        + '<div class="vt"><span>' + v.label + '</span><b>' + v.text + '</b></div>'
+        + '<i class="vb"><s style="width:' + Math.round(v.pct) + '%"></s></i>'
+        + '<em class="s">' + esc(v.sub) + '</em></div>';
+    });
+    return h + '</div></section>';
+  }
+  function paintVitals(){
+    var box = document.getElementById('vitals');
+    if(!box) return;
+    var c = crewById[box.getAttribute('data-id')];
+    if(!c) return;
+    vitalsFor(c).forEach(function(v){
+      var row = box.querySelector('.vit[data-k="' + v.k + '"]');
+      if(!row) return;
+      var b = row.querySelector('b'), s = row.querySelector('.s'), bar = row.querySelector('.vb s');
+      if(b) b.textContent = v.text;
+      if(s) s.textContent = v.sub;
+      if(bar) bar.style.width = Math.round(v.pct) + '%';
+      row.className = 'vit' + (v.tone ? ' ' + v.tone : '');
+    });
+    var ny = document.getElementById('evNowY');
+    if(ny) ny.textContent = fmtNum(WORLD.now());
+  }
+  function eventsFor(c){
+    var now = WORLD.now(), birth = WORLD.START - ageOf(c), life = lifespanOf(c), death = birth + life;
+    var evs = [];
+    function push(y, tt, dd, k){ evs.push({y:y, t:tt, d:dd, k:k}); }
+    push(WORLD.START, '玄枢号启航', '世界时钟起点 41000 年；此后 1 现实分钟 = 1 世界年', now >= WORLD.START ? 'past' : 'future');
+    push(birth, c.clone ? '首次下线' : (ageKnown(c) ? '出生' : '推测出生'), c.clone ? ('批次 ' + (c.clone.batch || '—') + (c.clone.units && c.clone.units[0] ? ' · ' + c.clone.units[0].code : '')) : (ageKnown(c) ? '档案记载出生年' : '年龄待补 · 按 24 岁推定'), birth <= now ? 'past' : 'future');
+    if(c.clone && c.clone.units){
+      c.clone.units.forEach(function(u, i){
+        var yy = birth + i * 0.02;
+        push(yy, '克隆 ' + u.k + ' 上线', u.code + ' · ' + u.status + ' · ' + (u.mark || '—'), yy <= now ? 'past' : 'future');
+      });
+      push(null, '补员计划', '待补 · 是否补员取决于测试结果，原卷未写死', 'pending');
+    }
+    var join = birth + Math.max(18, ageOf(c));
+    push(join, '入役登记', '岗位：' + (c.role || '待补'), join <= now ? 'past' : 'future');
+    push(death, '寿命终点', '按体质推演 ' + life + ' 岁 · ' + (death <= now ? '已记为死亡事件' : '预计未发生'), death <= now ? 'dead' : 'future');
+    return evs;
+  }
+  function eventLogHTML(c){
+    var now = WORLD.now(), evs = eventsFor(c);
+    evs.push({y:now, t:'现在', d:'玄枢历 ' + fmtNum(now) + ' 年 · 年龄 ' + (ageOf(c) + Math.max(0, now - WORLD.START)).toFixed(1) + ' 岁', k:'now'});
+    evs.sort(function(a, b){
+      if(a.y == null) return 1;
+      if(b.y == null) return -1;
+      return a.y - b.y;
+    });
+    var h = '<section class="evlog"><div class="vh"><b>事件流</b><span>EVENT LOG · 41000 起</span><em>站内补写 · 推演</em></div><ol class="tl">';
+    evs.forEach(function(e){
+      var isNow = e.k === 'now';
+      h += '<li class="tli ' + e.k + '"><time' + (isNow ? ' id="evNowY"' : '') + '>' + (e.y == null ? '待定' : fmtNum(e.y)) + '</time><i></i>'
+        + '<div class="tx"><b>' + esc(e.t) + '</b><span>' + esc(e.d) + '</span></div></li>';
+    });
+    return h + '</ol></section>';
+  }
+  function kinkDefault(c){ return Math.max(1, Math.min(5, Math.round(((c.attrs && c.attrs.体质) || 50) / 20))); }
+  function kinkGet(c){
+    try{
+      var o = JSON.parse(localStorage.getItem(KINK_KEY) || '{}');
+      if(o && typeof o[c.id] === 'number') return o[c.id];
+    }catch(e){}
+    return kinkDefault(c);
+  }
+  function kinkSet(c, v){
+    var o = {};
+    try{ o = JSON.parse(localStorage.getItem(KINK_KEY) || '{}') || {}; }catch(e){}
+    o[c.id] = v;
+    try{ localStorage.setItem(KINK_KEY, JSON.stringify(o)); }catch(e){}
+  }
+  function kinkHTML(c){
+    var pf = c.profile || {}, n = kinkGet(c), max = kinkDefault(c);
+    return '<details class="more kink"><summary>性癖与剩余次数（站内补写）</summary>'
+      + '<dl class="profile" style="margin-top:8px">'
+      + '<dt>性癖</dt><dd>' + esc(pf['性癖'] || '待补') + '</dd>'
+      + '<dt>因缘</dt><dd>' + esc(pf['因缘'] || '待补 · 原卷未载') + '</dd>'
+      + '<dt>生育次数</dt><dd>' + esc(pf['生育次数'] || '待补') + '</dd>'
+      + '<dt>剩余次数</dt><dd><span class="kc" id="kinkN">' + n + '</span> / ' + max + ' 次'
+      + '<button type="button" class="kbtn" id="kinkUse"' + (n <= 0 ? ' disabled' : '') + '>使用一次</button>'
+      + '<button type="button" class="kbtn" id="kinkRst">重置</button></dd>'
+      + '</dl><div class="tiny" style="margin-top:6px">剩余次数为站内补写的互动计数，存于本机；刷新不丢。</div></details>';
   }
 
   /* ---------- 人物详情 ---------- */
@@ -1868,7 +2226,7 @@ footer code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:11px}
       + '<span>完成度 <b style="color:var(--text)">' + pct(c.done,c.planned) + '%</b></span></div>';
 
     var keys = Object.keys(c.profile || {});
-    var first = keys.slice(0,6), rest = keys.slice(6);
+    var first = keys.slice(0,6), rest = keys.slice(6).filter(function(k){ return k !== '性癖' && k !== '生育次数'; });
     h += '<dl class="profile">';
     first.forEach(function(k){ h += '<dt>' + esc(k) + '</dt><dd>' + esc(c.profile[k]) + '</dd>'; });
     h += '</dl>';
@@ -1877,7 +2235,10 @@ footer code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:11px}
       rest.forEach(function(k){ h += '<dt>' + esc(k) + '</dt><dd>' + esc(c.profile[k]) + '</dd>'; });
       h += '</dl></details>';
     }
+    h += kinkHTML(c);
     h += '</div></div>';
+    h += vitalsHTML(c);
+    h += eventLogHTML(c);
 
     var gaps = [];
     c.series.forEach(function(s){ s.slots.forEach(function(x){ gaps.push(s.id + ' · ' + x.no + ' ' + x.title); }); });
@@ -1930,6 +2291,30 @@ footer code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:11px}
         });
       });
     }
+    var ku = document.getElementById('kinkUse'), kr = document.getElementById('kinkRst');
+    if(ku){
+      ku.addEventListener('click', function(){
+        var n = kinkGet(c);
+        if(n <= 0) return;
+        kinkSet(c, n - 1);
+        var el = document.getElementById('kinkN');
+        if(el) el.textContent = String(n - 1);
+        if(n - 1 <= 0) ku.disabled = true;
+        toast('已记录一次 · 剩余 ' + (n - 1) + ' 次');
+        SND.click();
+      });
+    }
+    if(kr){
+      kr.addEventListener('click', function(){
+        kinkSet(c, kinkDefault(c));
+        var el = document.getElementById('kinkN');
+        if(el) el.textContent = String(kinkDefault(c));
+        if(ku) ku.disabled = false;
+        toast('剩余次数已重置');
+        SND.click();
+      });
+    }
+    paintVitals();
     window.scrollTo(0,0);
   }
 
@@ -2084,6 +2469,170 @@ footer code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:11px}
     });
   }
 
+  /* ---------- 舱室页 #/rooms ---------- */
+  var ROOMS = null, ROOMS_META = null, ROOMS_BUSY = false, ROOMS_ERR = false, ROOM_BY = {}, RQ = '', ROOMS_Q = [];
+
+  function roomsLoad(cb){
+    if(ROOMS) return cb();
+    ROOMS_Q.push(cb);
+    if(ROOMS_BUSY) return;
+    ROOMS_BUSY = true;
+    fetch('rooms.json', {cache: 'no-store'})
+      .then(function(r){ if(!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function(j){
+        ROOMS = j.rooms || [];
+        ROOMS_META = j.meta || {};
+        ROOM_BY = {};
+        ROOMS.forEach(function(x){ ROOM_BY[x.id] = x; });
+        ROOMS_ERR = false;
+      })
+      .catch(function(){ ROOMS = null; ROOMS_ERR = true; })
+      .then(function(){
+        ROOMS_BUSY = false;
+        var q = ROOMS_Q; ROOMS_Q = [];
+        q.forEach(function(f){ try{ f(); }catch(e){} });
+      });
+  }
+
+  function roomById(id){ return ROOM_BY[id] || null; }
+  function roomSegMeta(k){
+    var segs = (ROOMS_META && ROOMS_META.segs) || [];
+    for(var i = 0; i < segs.length; i++) if(segs[i].k === k) return segs[i];
+    return null;
+  }
+  function roomStatusCls(s){ return s === '在用' ? 'st-ok' : (s === '检修' ? 'st-warn' : 'st-off'); }
+  function roomPhoto(r){
+    if(r.photo){
+      return '<img loading="lazy" decoding="async" src="' + esc(r.photo) + '" alt="' + esc(r.id + ' ' + r.name) + '"'
+        + ' data-full="' + esc(r.photo) + '" data-cap="' + esc(r.id + ' · ' + r.name + ' · ' + (r.desc || '')) + '">';
+    }
+    return '<div class="ph"><i>' + esc(r.id) + '</i><em>待补图</em></div>';
+  }
+  function roomQuery(o){
+    var a = [];
+    if(o.seg && o.seg !== 'all') a.push('seg=' + encodeURIComponent(o.seg));
+    if(o.id) a.push('id=' + encodeURIComponent(o.id));
+    return a.length ? '?' + a.join('&') : '';
+  }
+  function roomCard(r, active){
+    return '<a class="rcard' + (active ? ' on' : '') + '" href="#/rooms' + roomQuery({seg: r.seg, id: r.id}) + '">'
+      + '<div class="im">' + roomPhoto(r)
+      +   '<span class="id">' + esc(r.id) + '</span>'
+      +   '<span class="st' + (r.status === '在用' ? '' : (r.status === '检修' ? ' warn' : ' off')) + '">' + esc(r.status) + '</span>'
+      + '</div>'
+      + '<div class="bd">'
+      +   '<div class="r1"><b>' + esc(r.id) + '</b><em>' + esc(r.en) + '</em></div>'
+      +   '<div class="nm">' + esc(r.name) + '</div>'
+      +   '<div class="ds">' + esc(r.desc) + '</div>'
+      +   '<div class="ft"><span>' + esc(r.deck) + ' · ' + esc(r.zone) + '</span><span>' + esc(r.cap) + '</span></div>'
+      + '</div></a>';
+  }
+  function roomDetail(r){
+    var seg = roomSegMeta(r.seg);
+    var eqs = (r.equip || []).map(function(id){
+      var it = null;
+      (GEAR || []).forEach(function(x){ if(x.id === id) it = x; });
+      return '<a class="eqc" href="#/gear?eq=' + encodeURIComponent(id) + '"><b>' + esc(id) + '</b>' + esc(it ? it.name : '待补条目') + '</a>';
+    }).join('');
+    var nbs = (r.links || []).map(function(l){
+      var t = roomById(l.id);
+      return '<a class="nb" href="#/rooms' + roomQuery({seg: (t || {}).seg || r.seg, id: l.id}) + '">'
+        + '<em>' + esc(l.id) + '</em><span>' + esc((t || {}).name || '—') + '</span>'
+        + '<span class="md">' + esc(l.modeName || l.mode) + '</span>'
+        + '<span class="tm">' + esc(l.dir || '双向') + ' · ' + esc(l.sec) + ' s</span></a>';
+    }).join('');
+    return '<div class="dt">'
+      + '<div class="im">' + roomPhoto(r) + '</div>'
+      + '<div class="bd">'
+      +   '<div class="cr">' + esc(r.id) + ' · ' + esc(r.deck) + ' · ' + esc(r.zone) + '</div>'
+      +   '<h2>' + esc(r.name) + '<span class="pill ' + roomStatusCls(r.status) + '">' + esc(r.status) + '</span>'
+      +     '<span class="pill blue">' + esc(seg ? seg.mark + ' ' + seg.label : r.seg) + '</span></h2>'
+      +   '<p class="ds">' + esc(r.desc) + '</p>'
+      +   '<dl>'
+      +     '<dt>容量</dt><dd>' + esc(r.cap) + '</dd>'
+      +     '<dt>门制</dt><dd>' + esc(r.doorName || r.door) + '</dd>'
+      +     '<dt>气压</dt><dd>' + esc(r.pressure ? (r.pressure.label + (r.pressure.pa ? ' · ' + (r.pressure.pa > 0 ? '+' : '') + r.pressure.pa + ' Pa' : '')) : '—') + '</dd>'
+      +     '<dt>避险</dt><dd>' + (r.shelter ? '是 · 本舱为避险点' : '否') + '</dd>'
+      +     '<dt>撤离</dt><dd>' + esc(r.evac || '—') + '</dd>'
+      +   '</dl>'
+      +   '<div class="blk"><b>功能 <i>FUNCTIONS</i></b><ul class="fn">' + (r.func || []).map(function(f){ return '<li>' + esc(f) + '</li>'; }).join('') + '</ul></div>'
+      +   '<div class="blk"><b>设备挂接 <i>EQUIPMENT · ' + (r.equip || []).length + '</i></b><div class="eqs">'
+      +     (eqs || '<span class="tiny">本舱未挂接装备条目。</span>') + '</div></div>'
+      +   '<div class="blk"><b>邻接动线 <i>ADJACENCY · ' + (r.links || []).length + '</i></b>' + nbs + '</div>'
+      + '</div></div>';
+  }
+  function viewRooms(q){
+    var p = {};
+    (q || '').replace(/^\?/, '').split('&').forEach(function(kv){
+      if(!kv) return;
+      var a = kv.split('=');
+      p[decodeURIComponent(a[0])] = decodeURIComponent(a[1] || '');
+    });
+    var seg = p.seg || 'all', id = p.id || '';
+    var h = '<div class="crumbs"><a href="#/">总览</a><span>/</span><span>舱室与动线</span></div>';
+    h += '<div class="pick-head"><h1>舱室与动线</h1><span class="sub" id="roomSub">索引加载中…</span></div>';
+    h += '<div class="chips" id="roomChips"></div>';
+    h += '<div class="gear-tools">'
+      + '<label class="gsearch"><svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/></svg>'
+      + '<input id="rq" type="search" value="' + esc(RQ) + '" placeholder="搜索编号 / 房间名 / 功能" aria-label="搜索舱室"></label>'
+      + '<span class="gcount" id="roomCount"></span></div>';
+    h += '<div id="roomDetail"></div><div id="roomBody"><div class="lib-empty">正在读取 rooms.json…</div></div>';
+    app.innerHTML = h;
+    roomsLoad(function(){
+      var host = document.getElementById('roomBody');
+      if(!host) return;
+      if(ROOMS_ERR || !ROOMS){
+        host.innerHTML = '<div class="lib-empty">舱室索引读取失败。<button class="btn" type="button" onclick="location.reload()">重试</button></div>';
+        return;
+      }
+      var sub = document.getElementById('roomSub');
+      if(sub){
+        var pairs = 0, mounts = 0;
+        ROOMS.forEach(function(r){ pairs += (r.links || []).length; mounts += (r.equip || []).length; });
+        sub.textContent = ROOMS.length + ' 间舱室 · ' + Math.round(pairs / 2) + ' 组邻接 · ' + mounts + ' 处设备挂接';
+      }
+      var chips = document.getElementById('roomChips');
+      chips.innerHTML = '<a class="' + (seg === 'all' ? 'on' : '') + '" href="#/rooms">全部 ' + ROOMS.length + '</a>'
+        + ((ROOMS_META && ROOMS_META.segs) || []).map(function(s){
+            var n = ROOMS.filter(function(r){ return r.seg === s.k; }).length;
+            return '<a class="' + (seg === s.k ? 'on' : '') + '" href="#/rooms' + roomQuery({seg: s.k}) + '">'
+              + esc(s.mark + ' ' + s.label) + ' <i style="font-style:normal;opacity:.55">' + n + '</i></a>';
+          }).join('');
+      var det = document.getElementById('roomDetail');
+      var cur = id ? roomById(id) : null;
+      det.innerHTML = cur ? roomDetail(cur) : '';
+      function paint(){
+        var k = RQ.trim().toLowerCase();
+        var list = ROOMS.filter(function(r){
+          if(seg !== 'all' && r.seg !== seg) return false;
+          if(!k) return true;
+          return (r.id + ' ' + r.name + ' ' + (r.en || '') + ' ' + (r.func || []).join(' ') + ' ' + r.desc).toLowerCase().indexOf(k) >= 0;
+        });
+        var cnt = document.getElementById('roomCount');
+        if(cnt) cnt.textContent = '显示 ' + list.length + ' / ' + ROOMS.length + ' 间';
+        if(!list.length){
+          host.innerHTML = '<div class="lib-empty">没有符合条件的舱室。 <a href="#/rooms">清除筛选</a></div>';
+          return;
+        }
+        var segs = (ROOMS_META && ROOMS_META.segs) || [];
+        var html = '';
+        segs.forEach(function(s){
+          var rows = list.filter(function(r){ return r.seg === s.k; });
+          if(!rows.length) return;
+          html += '<section class="rseg"><div class="rseg-h"><span class="mk">' + esc(s.mark) + '</span><b>'
+            + esc(s.label) + '</b><span class="wh">' + esc(s.where || '') + '</span>'
+            + '<span class="ct">' + rows.length + ' 间</span></div><div class="rgrid">'
+            + rows.map(function(r){ return roomCard(r, r.id === id); }).join('') + '</div></section>';
+        });
+        host.innerHTML = html;
+      }
+      var inp = document.getElementById('rq');
+      inp.addEventListener('input', function(){ RQ = inp.value; paint(); });
+      paint();
+      if(cur) window.scrollTo(0, 0);
+    });
+  }
+
   /* ---------- 路由 ---------- */
   function nav(route){
     var tabs = document.querySelectorAll('#tabs a');
@@ -2101,23 +2650,30 @@ footer code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:11px}
       lbImg.removeAttribute('src');
     }
     closePop();
+    closeEqPop();
     var hash = location.hash || '#/';
     if(RSTACK[RSTACK.length-1] !== hash) RSTACK.push(hash);
     var isDetail = hash.indexOf('#/crew/') === 0 && hash.length > 7;
     var isCrewRoot = !isDetail && hash.indexOf('#/crew') === 0;
     var isLib = hash.indexOf('#/lib') === 0;
     var isGear = hash.indexOf('#/gear') === 0;
+    var isRooms = hash.indexOf('#/rooms') === 0;
+    if(isLib && hash.indexOf('cat=rm') >= 0){
+      location.replace('#/rooms');
+      return;
+    }
     if(isLib && hash.indexOf('cat=eq') >= 0){
       var keep = (hash.split('?')[1] || '').split('&').filter(function(kv){ return kv && kv.indexOf('cat=eq') !== 0; });
       location.replace('#/gear' + (keep.length ? '?' + keep.join('&') : ''));
       return;
     }
-    document.body.classList.toggle('dark', !(isDetail || isCrewRoot || isLib || isGear || hash === '#/board' || hash === '#/trash'));
+    document.body.classList.toggle('dark', !(isDetail || isCrewRoot || isLib || isGear || isRooms || hash === '#/board' || hash === '#/trash'));
     if(!(isDetail || isCrewRoot)) document.documentElement.style.removeProperty('--accent');
     var bb = document.getElementById('backBtn');
-    if(bb) bb.hidden = !(isDetail || isCrewRoot || isLib || isGear || hash === '#/board' || hash === '#/trash');
+    if(bb) bb.hidden = !(isDetail || isCrewRoot || isLib || isGear || isRooms || hash === '#/board' || hash === '#/trash');
     if(isDetail){ viewCrew(hash.slice(7)); nav('crew'); }
     else if(isCrewRoot){ viewCrewPicker(); nav('crew'); }
+    else if(isRooms){ viewRooms(hash.replace(/^#\/rooms/, '')); nav('rooms'); }
     else if(isGear){ viewGear(hash.replace(/^#\/gear/, '')); nav('gear'); }
     else if(isLib){ viewLib(hash.replace(/^#\/lib/, '')); nav('lib'); }
     else if(hash === '#/board'){ viewBoard(); nav('board'); }
@@ -2139,7 +2695,7 @@ footer code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:11px}
   setMotion(motionOn());
   paintSnd();
   paintWorld();
-  setInterval(paintWorld, 1000);
+  setInterval(function(){ paintWorld(); paintVitals(); }, 1000);
   window.addEventListener('pagehide', function(){ WORLD.save(); });
   render();
 })();
