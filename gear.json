@@ -785,7 +785,8 @@
     "菌株",
     "制药"
    ],
-   "loc": "RM-03"
+   "loc": "RM-03",
+   "file": "assets/lib/eq/EQ-041.webp"
   },
   {
    "id": "EQ-042",
@@ -803,7 +804,8 @@
     "回收",
     "闭环"
    ],
-   "loc": "RM-16"
+   "loc": "RM-16",
+   "file": "assets/lib/eq/EQ-042.webp"
   },
   {
    "id": "EQ-043",
@@ -821,7 +823,8 @@
     "义体",
     "诊断"
    ],
-   "loc": "RM-03"
+   "loc": "RM-03",
+   "file": "assets/lib/eq/EQ-043.webp"
   },
   {
    "id": "EQ-044",
@@ -839,7 +842,8 @@
     "长航",
     "单人"
    ],
-   "loc": "RM-05"
+   "loc": "RM-05",
+   "file": "assets/lib/eq/EQ-044.webp"
   },
   {
    "id": "EQ-045",
@@ -857,7 +861,8 @@
     "急救",
     "限时"
    ],
-   "loc": "RM-03"
+   "loc": "RM-03",
+   "file": "assets/lib/eq/EQ-045.webp"
   },
   {
    "id": "EQ-046",
@@ -875,7 +880,8 @@
     "主动力",
     "堆芯"
    ],
-   "loc": "RM-15"
+   "loc": "RM-15",
+   "file": "assets/lib/eq/EQ-046.webp"
   },
   {
    "id": "EQ-047",
@@ -893,7 +899,8 @@
     "机柜",
     "主脑"
    ],
-   "loc": "RM-08"
+   "loc": "RM-08",
+   "file": "assets/lib/eq/EQ-047.webp"
   },
   {
    "id": "EQ-048",
@@ -911,7 +918,8 @@
     "飞轮",
     "缓冲"
    ],
-   "loc": "RM-15"
+   "loc": "RM-15",
+   "file": "assets/lib/eq/EQ-048.webp"
   },
   {
    "id": "EQ-049",
@@ -929,7 +937,8 @@
     "维生",
     "切载"
    ],
-   "loc": "RM-15"
+   "loc": "RM-15",
+   "file": "assets/lib/eq/EQ-049.webp"
   },
   {
    "id": "EQ-050",
@@ -946,7 +955,8 @@
     "配电",
     "双路",
     "母线"
-   ]
+   ],
+   "file": "assets/lib/eq/EQ-050.webp"
   }
  ]
 }
