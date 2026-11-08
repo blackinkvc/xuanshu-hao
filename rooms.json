@@ -607,7 +607,6 @@
    ],
    "shelter": true,
    "evac": "本舱为 C 甲板失压时的避险点，独立供氧 30 min",
-   "photo": null,
    "links": [
     {
      "id": "RM-02",
@@ -634,7 +633,8 @@
      "dir": "双向"
     }
    ],
-   "doorName": "气密门"
+   "doorName": "气密门",
+   "photo": "assets/lib/rm/RM-09.webp"
   },
   {
    "id": "RM-10",
@@ -667,7 +667,6 @@
    "equip": [],
    "shelter": false,
    "evac": "经 RM-09 上撤 B 甲板，或经 RM-04 撤向机库",
-   "photo": null,
    "links": [
     {
      "id": "RM-04",
@@ -702,7 +701,8 @@
      "dir": "双向"
     }
    ],
-   "doorName": "气密门"
+   "doorName": "气密门",
+   "photo": "assets/lib/rm/RM-10.webp"
   },
   {
    "id": "RM-11",
@@ -735,7 +735,6 @@
    "equip": [],
    "shelter": false,
    "evac": "起火时关闭 G2，人员撤向 RM-04",
-   "photo": null,
    "links": [
     {
      "id": "RM-04",
@@ -770,7 +769,8 @@
      "dir": "双向"
     }
    ],
-   "doorName": "双门互锁"
+   "doorName": "双门互锁",
+   "photo": "assets/lib/rm/RM-11.webp"
   },
   {
    "id": "RM-12",
@@ -803,7 +803,6 @@
    "equip": [],
    "shelter": false,
    "evac": "失压时气闸与内门同时锁闭，平台人员经 RM-04 回收",
-   "photo": null,
    "links": [
     {
      "id": "RM-04",
@@ -830,7 +829,8 @@
      "dir": "双向"
     }
    ],
-   "doorName": "气闸"
+   "doorName": "气闸",
+   "photo": "assets/lib/rm/RM-12.webp"
   },
   {
    "id": "RM-13",
@@ -863,7 +863,6 @@
    "equip": [],
    "shelter": false,
    "evac": "生物污染时原地封闭，门禁锁死，人员不撤出",
-   "photo": null,
    "links": [
     {
      "id": "RM-02",
@@ -890,7 +889,8 @@
      "dir": "双向"
     }
    ],
-   "doorName": "隔离门"
+   "doorName": "隔离门",
+   "photo": "assets/lib/rm/RM-13.webp"
   },
   {
    "id": "RM-14",
@@ -923,7 +923,6 @@
    "equip": [],
    "shelter": false,
    "evac": "双授权解锁后经 RM-10 撤离，押解顺序优先",
-   "photo": null,
    "links": [
     {
      "id": "RM-06",
@@ -950,7 +949,8 @@
      "dir": "双向"
     }
    ],
-   "doorName": "双门互锁"
+   "doorName": "双门互锁",
+   "photo": "assets/lib/rm/RM-14.webp"
   },
   {
    "id": "RM-15",
@@ -989,7 +989,6 @@
    ],
    "shelter": false,
    "evac": "剂量超标即停堆锁舱，人员经 E3 上撤至 RM-04 洗消",
-   "photo": null,
    "links": [
     {
      "id": "RM-04",
@@ -1016,7 +1015,8 @@
      "dir": "双向"
     }
    ],
-   "doorName": "双门互锁"
+   "doorName": "双门互锁",
+   "photo": "assets/lib/rm/RM-15.webp"
   },
   {
    "id": "RM-16",
@@ -1053,7 +1053,6 @@
    ],
    "shelter": false,
    "evac": "生物污染时关闭对外 G1，人员经 RM-15 上撤",
-   "photo": null,
    "links": [
     {
      "id": "RM-03",
@@ -1088,7 +1087,8 @@
      "dir": "双向"
     }
    ],
-   "doorName": "维护通道"
+   "doorName": "维护通道",
+   "photo": "assets/lib/rm/RM-16.webp"
   }
  ]
 }
