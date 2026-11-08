@@ -845,6 +845,188 @@ footer code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:11px}
   .ov-av{flex:0 0 50px;height:64px}
   .ov-tip{font-size:10px;letter-spacing:.6px}
 }
+
+/* ===================== 主页视觉重做 · 舰桥终端（覆盖上方旧规则） ===================== */
+body.dark main{max-width:1440px}
+.ov{--hud:#63d7ff;--hud-soft:rgba(99,215,255,.34);--hud-line:#16293a;--amber:#f0b45c;
+  border-radius:2px;border-color:#1b3042;
+  background:radial-gradient(130% 90% at 50% -18%,#0e1d2a 0%,#071019 55%,#04090e 100%);
+  box-shadow:0 0 0 1px rgba(99,215,255,.04)}
+.ov::before{opacity:.5;
+  background:repeating-linear-gradient(90deg,rgba(120,190,230,.045) 0 1px,transparent 1px 80px),
+    repeating-linear-gradient(0deg,rgba(120,190,230,.035) 0 1px,transparent 1px 40px)}
+.ov::after{content:"";position:absolute;inset:0;z-index:9;pointer-events:none;opacity:.055;mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)' opacity='.5'/%3E%3C/svg%3E")}
+.ov-brk{position:absolute;z-index:8;width:16px;height:16px;pointer-events:none;border:0 solid var(--hud);opacity:.75}
+.ov-brk.tl{left:7px;top:7px;border-left-width:1px;border-top-width:1px}
+.ov-brk.tr{right:7px;top:7px;border-right-width:1px;border-top-width:1px}
+.ov-brk.bl{left:7px;bottom:7px;border-left-width:1px;border-bottom-width:1px}
+.ov-brk.br{right:7px;bottom:7px;border-right-width:1px;border-bottom-width:1px}
+
+.ov-bar{padding:13px 20px;border-bottom:1px solid var(--hud-line);background:rgba(6,13,20,.6)}
+.ov-bar .k{color:var(--hud);font-size:8.5px;letter-spacing:3.2px}
+.ov-bar h2{font-size:12.5px;letter-spacing:4.5px;font-weight:600;color:#e8f4ff;margin-top:6px}
+.led{background:var(--hud);box-shadow:0 0 8px var(--hud)}
+.ov-stat{padding:0 15px;border-left:1px solid #142535}
+.ov-stat .n{font-size:15px}
+.ov-stat .l{font-size:8.5px;letter-spacing:1.6px;color:#5c7488}
+
+.ov-stage{grid-template-columns:184px minmax(0,1fr) 300px}
+.ov-side{padding:18px 16px;gap:15px}
+.ov-left{background:linear-gradient(90deg,rgba(6,13,20,.7),transparent);border-right:1px solid var(--hud-line)}
+.ov-right{background:linear-gradient(270deg,rgba(6,13,20,.7),transparent);border-left:1px solid var(--hud-line)}
+.ov-k{font-size:8.5px;letter-spacing:2.6px;color:#6f8fa6}
+.ov-k::before{content:"// ";color:var(--hud);opacity:.9}
+.ov-nameblk{padding-bottom:10px;border-bottom:1px solid var(--hud-line)}
+.ov-nameblk b{font-size:26px;letter-spacing:3px;color:#f2f9ff;font-weight:600}
+.ov-nameblk em{font-size:9px;letter-spacing:2.2px;color:#6f8fa6;margin-top:3px}
+.ov-field{padding-top:8px;border-top:1px solid #122130}
+.ov-lab{font-size:8.5px;letter-spacing:1.8px;color:#577086}
+.ov-val{font-size:12.5px;color:#b9cede}
+.ov-meter{height:3px;border-radius:0;background:#101f2b;border:0}
+.ov-meter i{background:var(--hud);box-shadow:0 0 8px rgba(99,215,255,.55)}
+.ov-num{font-size:9.5px;color:#7d97ac}
+
+.ov-center{min-height:600px;padding:26px 0 18px}
+.ov-space{top:46%;width:min(86%,700px);
+  background:radial-gradient(circle at 50% 42%,#122c40 0%,#081725 46%,#040a10 74%);
+  box-shadow:inset 0 0 110px 34px rgba(2,6,10,.96),0 0 0 1px #193145,0 0 70px rgba(60,150,220,.1)}
+.ov-space i{opacity:.55}
+.ov-ring.r1{border-color:rgba(99,215,255,.16);box-shadow:inset 0 0 40px rgba(99,215,255,.07)}
+.ov-ring.r2{border-color:rgba(99,215,255,.22);opacity:.5}
+.ov-ring.r3{background:conic-gradient(from 0deg,transparent 0deg,rgba(99,215,255,.38) 36deg,transparent 92deg,transparent 214deg,rgba(240,180,92,.24) 250deg,transparent 300deg);opacity:.7}
+
+.ov-hud{position:absolute;z-index:5;font:600 8.5px/1.7 ui-monospace,SFMono-Regular,Consolas,monospace;
+  letter-spacing:1.8px;color:rgba(99,215,255,.7);pointer-events:none;white-space:nowrap}
+.ov-hud.tl{left:20px;top:16px}
+.ov-hud.br{right:20px;bottom:14px;text-align:right;color:rgba(126,163,186,.55)}
+.ov-hud b{color:#bfeaff;font-weight:600}
+
+.ov-figure{padding-bottom:8px}
+.ov-figure img{max-height:min(520px,64vh);border-radius:0;box-shadow:none;
+  -webkit-mask-image:linear-gradient(180deg,#000 0,#000 84%,rgba(0,0,0,.4) 96%,transparent 100%);
+  mask-image:linear-gradient(180deg,#000 0,#000 84%,rgba(0,0,0,.4) 96%,transparent 100%);
+  filter:saturate(.9) brightness(.97) contrast(1.03) drop-shadow(0 18px 30px rgba(0,0,0,.55))}
+.ov-figure.cut img{max-height:min(540px,66vh);
+  filter:saturate(.9) brightness(.96) contrast(1.04)
+    drop-shadow(0 0 1px rgba(140,225,255,.55))
+    drop-shadow(0 0 18px rgba(80,190,245,.28))
+    drop-shadow(0 24px 34px rgba(0,0,0,.55))}
+.ov-figure.soft img{max-height:min(500px,62vh);
+  -webkit-mask-image:radial-gradient(ellipse 76% 92% at 50% 42%,#000 54%,rgba(0,0,0,.62) 76%,transparent 100%);
+  mask-image:radial-gradient(ellipse 76% 92% at 50% 42%,#000 54%,rgba(0,0,0,.62) 76%,transparent 100%);
+  filter:saturate(.86) brightness(.95) contrast(1.02) drop-shadow(0 18px 30px rgba(0,0,0,.5))}
+.ov-aura{opacity:.55;background:radial-gradient(58% 52% at 50% 48%,rgba(95,200,255,.2),rgba(95,200,255,.05) 58%,transparent 74%)}
+.ov-plinth{opacity:.55;bottom:-2px;width:68%;height:20px;filter:blur(8px);
+  background:radial-gradient(ellipse at 50% 50%,rgba(99,215,255,.35),rgba(99,215,255,.08) 58%,transparent 78%)}
+.ov-figure.cut .ov-plinth{opacity:.6}
+.ov-figure::after{content:"";position:absolute;z-index:4;left:4%;right:4%;bottom:0;height:26%;pointer-events:none;
+  background:radial-gradient(ellipse 62% 100% at 50% 100%,rgba(5,12,18,.72),rgba(5,12,18,.26) 54%,transparent 78%)}
+
+.ov-pcard{width:206px;left:16px;bottom:16px;padding:0;border-radius:2px;
+  border:1px solid rgba(99,215,255,.26);background:rgba(6,13,20,.84);box-shadow:none}
+.ov-pcard::before,.ov-pcard::after{content:"";position:absolute;z-index:2;width:9px;height:9px;border:0 solid var(--hud);pointer-events:none}
+.ov-pcard::before{left:-1px;top:-1px;border-left-width:1px;border-top-width:1px}
+.ov-pcard::after{right:-1px;bottom:-1px;border-right-width:1px;border-bottom-width:1px}
+.ov-pcol{height:140px;border-radius:0;border-bottom:1px solid #122130}
+.ov-pmeta{padding:8px 10px 10px;gap:4px 6px}
+.ov-pmeta strong{font-size:15px;letter-spacing:1.6px}
+.ov-ptag{border-radius:0;background:transparent;border:1px solid rgba(99,215,255,.35);color:#9fdcff;font-size:8.5px;letter-spacing:.8px}
+.ov-ptag.warn{border-color:rgba(240,180,92,.5);color:var(--amber);background:transparent}
+.ov-preads{border-top-color:#122130}
+.ov-preads div{font-size:9px;color:#5f7a90}
+.ov-preads b{font-size:9.5px;color:#cfe4f6}
+
+.ov-dock{padding:10px 16px 12px;border-top:1px solid var(--hud-line);background:transparent}
+.ov-plate{padding:14px 20px 8px;background:transparent}
+.ov-plate::before{width:1px;background:var(--hud);box-shadow:0 0 10px rgba(99,215,255,.6)}
+.ov-plate .nm b{font-size:clamp(24px,3.2vw,36px);letter-spacing:6px}
+.ov-plate .nm em{letter-spacing:2.8px;color:#6f8fa6}
+.ov-goto{border-radius:0;border-color:rgba(99,215,255,.4);background:transparent;color:#9fdcff;letter-spacing:1.4px}
+.ov-av{border-radius:0;border-color:#1c3040;opacity:.5;filter:saturate(.35);transition:opacity .15s,border-color .15s}
+.ov-av.on{border-color:var(--hud);box-shadow:inset 0 0 0 1px var(--hud),0 0 14px rgba(99,215,255,.35);filter:none}
+.ov-av .no{color:#9fb8cb;background:linear-gradient(transparent,rgba(3,8,12,.92))}
+.ov-nav{border-radius:0;border-color:#1c3040;background:transparent}
+.ov-tip{color:#4b6377}
+
+.ov-radar{max-width:246px}
+.ov-radar .rt{fill:#6f8fa6;font-size:8.5px}
+.ov-radar .ax.on .rt,.ov-radar .ax:hover .rt{fill:var(--hud)}
+.ov-atip{border-radius:0;background:rgba(99,215,255,.045);border-left:1px solid rgba(99,215,255,.45);font-size:10.5px}
+.ov-gear{gap:4px;max-height:260px}
+.ov-grow{border-radius:0;background:transparent;border-left:1px solid rgba(99,215,255,.32);padding:6px 8px;font-size:11px}
+.ov-grow.eq:hover{background:rgba(99,215,255,.06);border-left-color:var(--hud)}
+.ov-grow.empty{border-left-color:#22384a}
+.ov-glink{font-size:10px;letter-spacing:1px;color:#8fc6ff}
+
+@media (max-width:1180px){
+  .ov-stage{grid-template-columns:160px minmax(0,1fr) 268px}
+  .ov-center{min-height:540px}
+  .ov-figure img{max-height:440px}
+  .ov-figure.cut img{max-height:460px}
+  .ov-pcard{width:166px}
+  .ov-pcol{height:118px}
+}
+@media (max-width:900px){
+  .ov-stage{grid-template-columns:minmax(0,1fr)}
+  .ov-center{order:1;min-height:420px;padding:14px 0 6px;flex-direction:column;justify-content:flex-start}
+  .ov-hud.tl{left:14px;top:12px}
+  .ov-hud.tl span{display:none}
+  .ov-hud.br{display:none}
+  .ov-figure{height:auto;flex:0 0 auto;width:100%;padding-bottom:2px}
+  .ov-figure img{max-height:310px}
+  .ov-figure.cut img{max-height:320px}
+  .ov-figure.soft img{max-height:300px}
+  .ov-space{width:min(90%,380px)}
+  .ov-ring.r1{width:min(94%,392px)}
+  .ov-ring.r2{width:min(84%,344px)}
+  .ov-ring.r3{width:min(68%,280px)}
+  .ov-cname{display:block;position:relative;left:auto;right:auto;bottom:auto;z-index:4;padding:2px 16px 0;text-align:left;
+    background:none;pointer-events:none}
+  .ov-cname b{display:block;font-size:clamp(22px,5vw,30px);letter-spacing:3px;color:#f6faff;line-height:1.1;word-break:break-word;overflow-wrap:anywhere}
+  .ov-cname em{display:block;font-style:normal;font:600 9.5px/2 ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:1.8px;color:#8ea4bb;margin-top:2px}
+  .ov-plate{display:none}
+  .ov-pcard{position:relative;left:auto;bottom:auto;width:calc(100% - 32px);margin:8px 16px 14px;
+    flex-direction:row;align-items:center;gap:12px;padding:0}
+  .ov-pcol{flex:0 0 96px;width:96px;height:92px;border-bottom:0;border-right:1px solid #122130}
+  .ov-pport{width:64px}
+  .ov-pbeam,.ov-pflow{width:48px}
+  .ov-pmeta{flex:1 1 auto;padding:8px 10px}
+  .ov-pmeta strong{font-size:14px}
+  .ov-preads{margin-top:2px;padding-top:4px}
+  .ov-left{order:2;border-right:0;border-top:1px solid var(--hud-line);gap:12px 16px;padding:14px 16px;background:transparent}
+  .ov-right{order:3;border-left:0;border-top:1px solid var(--hud-line);gap:14px 18px;padding:14px 16px;background:transparent}
+  .ov-gear{max-height:none;overflow:visible}
+}
+@media (max-width:640px){
+  .ov{border-radius:2px}
+  .ov-nameblk b{font-size:21px}
+  .ov-bar{padding:9px 12px;gap:8px}
+  .ov-bar h2{font-size:13px;letter-spacing:2px}
+  .ov-stats{width:100%;display:grid;grid-template-columns:repeat(4,minmax(0,1fr))}
+  .ov-stat{padding:0 4px;text-align:center;border-left:1px solid #223142}
+  .ov-stat:first-child{border-left:0}
+  .ov-stat .n{font-size:14px}
+  .ov-stat .l{font-size:8px;letter-spacing:.2px;white-space:normal;line-height:1.3}
+  .ov-center{min-height:380px}
+  .ov-figure img{max-height:292px}
+  .ov-figure.cut img{max-height:300px}
+  .ov-space{width:min(94%,344px)}
+  .ov-ring.r1{width:min(98%,360px)}
+  .ov-ring.r2{width:min(88%,320px)}
+  .ov-ring.r3{width:min(70%,252px)}
+  .ov-side{padding:12px}
+  .ov-left{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 12px}
+  .ov-left .ov-k,.ov-left .ov-nameblk,.ov-left .ov-wide{grid-column:1/-1}
+  .ov-right{display:grid;grid-template-columns:minmax(0,1fr);gap:12px}
+  .ov-radar{max-width:190px}
+  .ov-nav{flex:0 0 26px;width:26px;height:64px}
+  .ov-av{flex:0 0 50px;height:64px}
+  .ov-pcard{margin:6px 12px 12px;width:calc(100% - 24px)}
+  .ov-pcol{flex:0 0 88px;width:88px;height:84px}
+  .ov-pport{width:58px}
+  .ov-pmeta strong{font-size:13.5px}
+}
 </style>
 </head>
 <body>
@@ -1539,12 +1721,17 @@ footer code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:11px}
     }
     return c.main ? c.main.src : '';
   }
+  /* 舞台用图：有透明底悬浮图优先，直接融进舷窗；没有的走软边蒙版 */
+  function stageSrc(c){
+    var f = floatOf(c);
+    return f || figSrc(c);
+  }
 
   /* 立绘预热：进总览即把全部立绘拉进内存并解码，点选时直接命中缓存 */
   var OV_WARM = {};
   function ovWarm(){
     D.crews.forEach(function(c){
-      var s = figSrc(c);
+      var s = stageSrc(c);
       if(!s || OV_WARM[s]) return;
       var im = new Image();
       im.decoding = 'async';
@@ -1624,8 +1811,10 @@ footer code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:11px}
       else if(strip.scrollTo) strip.scrollTo({left: target, behavior: 'smooth'});
       else strip.scrollLeft = target;
     }
-    fig.classList.toggle('cut', CUT.on);
-    var src = figSrc(c);
+    var cut = !!floatOf(c);
+    fig.classList.toggle('cut', cut);
+    fig.classList.toggle('soft', !cut);
+    var src = stageSrc(c);
     if(img && src){
       if(img.getAttribute('src') !== src){
         var warm = OV_WARM[src];
@@ -1640,8 +1829,17 @@ footer code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:11px}
         if(img.decode) img.decode().catch(function(){});
       }
       img.alt = c.name + ' 立绘';
-      img.setAttribute('data-full', src);
+      img.setAttribute('data-full', (c.main && c.main.src) || src);
       img.setAttribute('data-cap', c.id + ' ' + c.name + ' · ' + (c.main ? c.main.title : '立绘'));
+    }
+    var hudNo = document.getElementById('ovHudNo');
+    if(hudNo) hudNo.textContent = c.id;
+    var hudRole = document.getElementById('ovHudRole');
+    if(hudRole) hudRole.textContent = (c.en || c.code || '—') + ' · ' + (c.role || '待补');
+    var hudEye = document.getElementById('ovHudEye');
+    if(hudEye){
+      var eye = (c.main && c.main.eye) || (c.profile && c.profile['瞳色']) || c.accent || '—';
+      hudEye.textContent = String(eye).replace(/[，,].*$/, '').toUpperCase();
     }
   }
 
@@ -1677,11 +1875,14 @@ footer code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:11px}
 
   function viewOverview(){
     var m = D.meta;
-    var h = '<section class="ov" id="ov">';
+    var h = '<section class="ov" id="ov">'
+      + '<span class="ov-brk tl"></span><span class="ov-brk tr"></span><span class="ov-brk bl"></span><span class="ov-brk br"></span>';
     h += ovBar(m);
     h += '<div class="ov-stage">'
       + '<aside class="ov-side ov-left" id="ovLeft"></aside>'
       + '<div class="ov-center">'
+      +   '<div class="ov-hud tl">SUBJECT LOCK · <b id="ovHudNo">CREW-001</b><br><span id="ovHudRole">—</span></div>'
+      +   '<div class="ov-hud br">AZ 118.4 / EL 06.2<br>OPTIC <b id="ovHudEye">—</b></div>'
       +   '<div class="ov-space"><i></i></div>'
       +   '<div class="ov-ring r1"></div><div class="ov-ring r2"></div><div class="ov-ring r3"></div>'
       +   '<div class="ov-figure" id="ovFig"><span class="ov-aura"></span>'
