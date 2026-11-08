@@ -184,14 +184,18 @@ details.more[open] summary::before{content:"▾ "}
 .shot-card .tags{display:flex;flex-wrap:wrap;gap:3px;padding:0 8px 8px}
 .shot-card .tags i{font-style:normal;font-size:10px;color:#7a828d;background:var(--line2);border-radius:4px;padding:1px 5px}
 
-.slot{
-  border:1px dashed #d6c294;border-radius:8px;background:repeating-linear-gradient(135deg,#fffdf7,#fffdf7 9px,#fdf8ec 9px,#fdf8ec 18px);
-  padding:10px 10px;min-height:100%;display:flex;flex-direction:column;gap:6px;
+/* 缺图占位：用该人物主图顶替 + 编号与「待补」角标，不留空框 */
+.shot-card.ph{border-style:dashed;border-color:#d9c9a4}
+.shot-card.ph .im{position:relative}
+.shot-card.ph .im img{filter:saturate(.5) brightness(.94) contrast(.96)}
+.shot-card.ph .im::after{content:"";position:absolute;inset:0;background:rgba(37,32,20,.16)}
+.ph-tag{
+  position:absolute;left:6px;top:6px;z-index:2;display:flex;align-items:center;gap:4px;
+  font:700 10px/1 Consolas,monospace;letter-spacing:.4px;color:#3b2f12;
+  background:rgba(255,247,224,.94);border:1px solid #e0c893;border-radius:4px;padding:3px 5px;
 }
-.slot .no{font-size:10.5px;letter-spacing:.6px;color:#a8842f;font-weight:700}
-.slot .tt{font-size:11.5px;color:#4d4128;line-height:1.4;font-weight:600}
-.slot .rs{font-size:10.5px;color:#8b7440;line-height:1.45;margin-top:auto}
-.slot .badge{font-size:10px;color:#a8842f;border:1px solid #e2cfa2;border-radius:4px;padding:0 5px;align-self:flex-start}
+.ph-tag em{font-style:normal;color:#a8842f;font-weight:400;letter-spacing:0}
+.shot-card.ph .t em{color:#a8842f}
 
 /* ---------- 看板 ---------- */
 .board-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}
@@ -502,6 +506,22 @@ footer code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:11px}
   var esc = function(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){
     return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); };
   var pct = function(a,b){ return b ? Math.round(a/b*1000)/10 : 0; };
+  /* 统一缺图占位：任何图加载失败都不留空框 */
+  var PH = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="360" height="640">'
+    + '<rect width="360" height="640" fill="#edeff2"/>'
+    + '<rect x="18" y="18" width="324" height="604" fill="none" stroke="#d6c294" stroke-dasharray="8 6"/>'
+    + '<text x="180" y="308" text-anchor="middle" font-size="30" fill="#a8842f" font-family="sans-serif">待补</text>'
+    + '<text x="180" y="344" text-anchor="middle" font-size="13" fill="#9aa1ab" font-family="sans-serif">IMAGE PENDING</text>'
+    + '</svg>');
+  document.addEventListener('error', function(e){
+    var img = e.target;
+    if(!img || img.tagName !== 'IMG') return;
+    if(img.dataset.ph === '2') return;
+    var fb = img.getAttribute('data-fb');
+    if(img.dataset.ph !== '1' && fb){ img.dataset.ph = '1'; img.src = fb; }
+    else { img.dataset.ph = '2'; img.src = PH; }
+  }, true);
   var crewById = {};
   D.crews.forEach(function(c){ crewById[c.id] = c; });
 
@@ -914,7 +934,7 @@ footer code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:11px}
     var gaps = [];
     c.series.forEach(function(s){ s.slots.forEach(function(x){ gaps.push(s.id + ' · ' + x.no + ' ' + x.title); }); });
     if(gaps.length){
-      h += '<div class="gapbox"><b>待补 ' + gaps.length + ' 个姿势位</b> <span class="cnt">图位留空，换模型或确认存档后补齐</span><ul>';
+      h += '<div class="gapbox"><b>待补 ' + gaps.length + ' 个姿势位</b> <span class="cnt">图位已用该人物主图占位，编号保留；补齐后原地替换</span><ul>';
       gaps.forEach(function(g){ h += '<li>' + esc(g) + '</li>'; });
       h += '</ul></div>';
     }
@@ -923,7 +943,7 @@ footer code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:11px}
       var n = s.items.length + s.slots.length;
       h += '<section class="series">';
       h += '<div class="series-h"><span class="sid">' + esc(s.id) + '</span><b>' + esc(s.name) + '</b>'
-        + '<span class="cnt">' + s.items.length + ' / ' + n + (s.slots.length ? ' · 待补 ' + s.slots.length : '') + '</span></div>';
+        + '<span class="cnt">' + s.items.length + ' / ' + n + (s.slots.length ? ' · 占位 ' + s.slots.length : '') + '</span></div>';
       if(s.note) h += '<div class="series-note">' + esc(s.note) + '</div>';
       h += '<div class="shots">';
       s.items.forEach(function(it){
@@ -934,8 +954,14 @@ footer code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:11px}
           + '</div>';
       });
       s.slots.forEach(function(x){
-        h += '<div class="slot"><span class="badge">待补位</span><div class="no">' + esc(x.no) + '</div>'
-          + '<div class="tt">' + esc(x.title) + '</div><div class="rs">' + esc(x.reason) + '</div></div>';
+        /* 缺位不留空框：以该人物主图占位，保留编号与「待补」角标 */
+        var ps = (c.main && c.main.thumb) ? c.main.thumb : PH;
+        var pf = (c.main && c.main.src) ? c.main.src : PH;
+        h += '<div class="shot-card ph"><div class="im">'
+          + '<img loading="lazy" decoding="async" src="' + esc(ps) + '" alt="' + esc(x.no + ' ' + x.title) + '" data-full="' + esc(pf) + '" data-fb="' + esc(pf) + '" data-cap="' + esc(c.id + ' · ' + s.id + ' · ' + x.no + ' ' + x.title + '（待补 · 现以主图占位）') + '">'
+          + '<span class="ph-tag">' + esc(x.no) + '<em>· 待补</em></span></div>'
+          + '<div class="t">' + esc(x.no + ' ' + x.title) + '<em>主图占位</em></div>'
+          + '<div class="tags"><i>待补位</i></div></div>';
       });
       h += '</div></section>';
     });
