@@ -596,7 +596,8 @@
     "机库",
     "缆桩"
    ],
-   "loc": "RM-04"
+   "loc": "RM-04",
+   "file": "assets/lib/eq/EQ-031.webp"
   },
   {
    "id": "EQ-032",
@@ -614,7 +615,8 @@
     "限时",
     "回抽"
    ],
-   "loc": "RM-09"
+   "loc": "RM-09",
+   "file": "assets/lib/eq/EQ-032.webp"
   },
   {
    "id": "EQ-033",
@@ -632,7 +634,8 @@
     "回收",
     "蒸馏"
    ],
-   "loc": "RM-16"
+   "loc": "RM-16",
+   "file": "assets/lib/eq/EQ-033.webp"
   },
   {
    "id": "EQ-034",
@@ -650,7 +653,8 @@
     "循环",
     "四台并联"
    ],
-   "loc": "RM-16"
+   "loc": "RM-16",
+   "file": "assets/lib/eq/EQ-034.webp"
   },
   {
    "id": "EQ-035",
@@ -668,7 +672,8 @@
     "合成",
     "食堂"
    ],
-   "loc": "RM-09"
+   "loc": "RM-09",
+   "file": "assets/lib/eq/EQ-035.webp"
   },
   {
    "id": "EQ-036",
@@ -686,7 +691,8 @@
     "负压",
     "密闭"
    ],
-   "loc": "RM-09"
+   "loc": "RM-09",
+   "file": "assets/lib/eq/EQ-036.webp"
   },
   {
    "id": "EQ-037",
@@ -704,7 +710,8 @@
     "洗涤",
     "再生"
    ],
-   "loc": "RM-09"
+   "loc": "RM-09",
+   "file": "assets/lib/eq/EQ-037.webp"
   },
   {
    "id": "EQ-038",
@@ -722,7 +729,8 @@
     "双温区",
     "食堂"
    ],
-   "loc": "RM-09"
+   "loc": "RM-09",
+   "file": "assets/lib/eq/EQ-038.webp"
   },
   {
    "id": "EQ-039",
@@ -739,7 +747,8 @@
     "照明",
     "节律",
     "舱壁"
-   ]
+   ],
+   "file": "assets/lib/eq/EQ-039.webp"
   },
   {
    "id": "EQ-040",
@@ -757,7 +766,8 @@
     "实验室",
     "封闭"
    ],
-   "loc": "RM-03"
+   "loc": "RM-03",
+   "file": "assets/lib/eq/EQ-040.webp"
   },
   {
    "id": "EQ-041",
