@@ -1,0 +1,521 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>玄枢号 · 工作台</title>
+<meta name="description" content="玄枢号项目工作台：舰员档案总览、人物详情与姿势缺位、完成度看板、弃用图区。">
+<style>
+:root{
+  --bg:#f7f8fa; --panel:#fff; --line:#e3e6eb; --line2:#eef1f6;
+  --text:#1f2329; --muted:#6b7280; --faint:#9aa1ab;
+  --green:#0a7d3c; --amber:#8a6d1a; --red:#c62828; --blue:#1a5fb4;
+  --accent:#1a5fb4; --accent-soft:#eaf1fb;
+  --radius:10px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  font:14px/1.65 -apple-system,BlinkMacSystemFont,'Segoe UI','Microsoft YaHei','PingFang SC',sans-serif;
+  background:var(--bg); color:var(--text);
+  overflow-x:hidden;
+  -webkit-text-size-adjust:100%;
+}
+a{color:var(--blue);text-decoration:none}
+a:hover{text-decoration:underline}
+img{display:block;max-width:100%}
+
+/* ---------- 顶栏 ---------- */
+header.top{
+  position:sticky; top:0; z-index:40; background:rgba(255,255,255,.94);
+  backdrop-filter:saturate(180%) blur(8px);
+  border-bottom:1px solid var(--line);
+}
+.top-in{
+  max-width:1240px; margin:0 auto; padding:10px 20px;
+  display:flex; align-items:center; gap:18px; flex-wrap:wrap;
+}
+.brand{display:flex;align-items:baseline;gap:10px;min-width:0}
+.brand b{font-size:17px;letter-spacing:.5px;white-space:nowrap}
+.brand span{font-size:11px;color:var(--faint);letter-spacing:1.2px;white-space:nowrap}
+nav.tabs{display:flex;gap:4px;margin-left:auto;overflow-x:auto;scrollbar-width:none;max-width:100%}
+nav.tabs::-webkit-scrollbar{display:none}
+nav.tabs a{
+  padding:6px 13px;border-radius:999px;color:var(--muted);font-size:13px;white-space:nowrap;
+}
+nav.tabs a:hover{background:var(--line2);text-decoration:none;color:var(--text)}
+nav.tabs a.on{background:var(--text);color:#fff}
+
+main{max-width:1240px;margin:0 auto;padding:22px 20px 64px}
+
+/* ---------- 通用块 ---------- */
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:22px}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px}
+.kpi .n{font-size:26px;font-weight:700;line-height:1.2;font-variant-numeric:tabular-nums}
+.kpi .l{font-size:12px;color:var(--muted);margin-top:2px}
+.kpi .sub{font-size:11px;color:var(--faint);margin-top:6px}
+h2.sec{font-size:15px;margin:26px 0 12px;display:flex;align-items:center;gap:10px}
+h2.sec .hint{font-size:12px;color:var(--faint);font-weight:400}
+.btn{font:inherit;font-size:12px;padding:3px 11px;border:1px solid var(--line);background:#fff;border-radius:999px;color:var(--muted);cursor:pointer}
+.btn:hover{border-color:#c9cfd8;color:var(--text)}
+h2.sec .btn{margin-left:auto;font-weight:400}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius)}
+.muted{color:var(--muted)}
+.tiny{font-size:11.5px;color:var(--faint)}
+.bar{background:var(--line);height:8px;border-radius:5px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--green);border-radius:5px}
+.bar.amber i{background:#c99a1a}
+.pill{display:inline-block;font-size:11px;padding:1px 7px;border-radius:999px;background:var(--line2);color:var(--muted);white-space:nowrap}
+.pill.warn{background:#fdf3e3;color:var(--amber)}
+.pill.ok{background:#e8f5ec;color:var(--green)}
+.pill.blue{background:var(--accent-soft);color:var(--blue)}
+
+/* ---------- 总览 ---------- */
+.crew-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px}
+.crew-card{
+  background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+  overflow:hidden;display:flex;flex-direction:column;color:inherit;
+  transition:box-shadow .15s ease,transform .15s ease,border-color .15s ease;
+}
+.crew-card:hover{text-decoration:none;box-shadow:0 6px 20px rgba(31,35,41,.08);transform:translateY(-1px);border-color:#d3d8e0}
+.crew-card .shot{position:relative;aspect-ratio:9/16;background:#edeff2;overflow:hidden}
+.crew-card .shot img{width:100%;height:100%;object-fit:cover;object-position:50% 18%}
+.crew-card .shot .tag{position:absolute;left:8px;top:8px;background:rgba(255,255,255,.9);border-radius:6px;font-size:11px;padding:2px 6px;color:var(--muted)}
+.crew-card .shot .miss{position:absolute;right:8px;top:8px;background:#fdf3e3;color:var(--amber);border-radius:6px;font-size:11px;padding:2px 6px;font-weight:600}
+.crew-card .body{padding:11px 12px 13px;display:flex;flex-direction:column;gap:6px;flex:1}
+.crew-card .nm{display:flex;align-items:baseline;gap:7px}
+.crew-card .nm b{font-size:15px}
+.crew-card .nm em{font-style:normal;font-size:11px;color:var(--faint);letter-spacing:.6px}
+.crew-card .role{font-size:11.5px;color:var(--muted);line-height:1.45;min-height:32px}
+.crew-card .stat{display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+
+/* ---------- 人物详情 ---------- */
+.crumbs{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted);margin-bottom:14px;flex-wrap:wrap}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:18px}
+.chips a{font-size:12.5px;padding:4px 11px;border:1px solid var(--line);border-radius:999px;color:var(--muted);background:#fff;white-space:nowrap}
+.chips a.on{color:#fff;background:var(--text);border-color:var(--text)}
+.chips a:hover{text-decoration:none;border-color:#c9cfd8;color:var(--text)}
+.chips a.on:hover{color:#fff}
+
+.hero{display:grid;grid-template-columns:340px minmax(0,1fr);gap:22px;align-items:start}
+.hero .photo{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+.hero .photo img{width:100%;aspect-ratio:9/16;object-fit:cover;cursor:zoom-in;background:#edeff2}
+.hero .photo .cap{padding:8px 11px;font-size:11.5px;color:var(--faint);border-top:1px solid var(--line2)}
+.hero .info h1{font-size:26px;margin:0 0 2px;letter-spacing:.5px}
+.hero .info .meta{font-size:12px;color:var(--faint);letter-spacing:1px;margin-bottom:10px;text-transform:uppercase}
+.hero .info .tagline{
+  font-size:14px;color:#333a44;background:var(--panel);border-left:3px solid var(--accent);
+  padding:9px 13px;border-radius:0 8px 8px 0;margin:0 0 14px;
+}
+.hero .info .role{font-size:13px;color:var(--muted);margin-bottom:12px}
+.hero .mods{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+.hero .mods span{font-size:11.5px;background:#fff;border:1px solid var(--line);border-radius:6px;padding:3px 8px;color:#3d4450}
+dl.profile{display:grid;grid-template-columns:86px minmax(0,1fr);gap:0;margin:0;border-top:1px solid var(--line2)}
+dl.profile dt{padding:7px 0;font-size:12px;color:var(--faint);border-bottom:1px solid var(--line2)}
+dl.profile dd{padding:7px 0;margin:0;font-size:12.5px;line-height:1.6;border-bottom:1px solid var(--line2);word-break:break-word}
+details.more{margin-top:10px}
+details.more summary{cursor:pointer;font-size:12px;color:var(--blue);list-style:none}
+details.more summary::-webkit-details-marker{display:none}
+details.more summary::before{content:"▸ "}
+details.more[open] summary::before{content:"▾ "}
+
+.gapbox{background:#fffdf7;border:1px solid #f0e2c4;border-radius:var(--radius);padding:12px 14px;margin:18px 0 4px}
+.gapbox b{color:var(--amber)}
+.gapbox ul{margin:8px 0 0;padding-left:18px}
+.gapbox li{font-size:12.5px;margin:3px 0;color:#54462a}
+.gapbox .cnt{font-size:12px;color:var(--muted)}
+
+.series{margin-top:26px}
+.series-h{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;margin-bottom:4px}
+.series-h b{font-size:15px}
+.series-h .sid{font-size:11px;letter-spacing:1px;color:var(--faint);font-variant-numeric:tabular-nums}
+.series-h .cnt{margin-left:auto;font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+.series-note{font-size:12px;color:var(--muted);background:#fff;border:1px solid var(--line);border-left:3px solid #d9dee6;border-radius:0 6px 6px 0;padding:7px 11px;margin:6px 0 12px;line-height:1.65}
+.shots{display:grid;grid-template-columns:repeat(auto-fill,minmax(126px,1fr));gap:10px}
+.shot-card{background:var(--panel);border:1px solid var(--line);border-radius:8px;overflow:hidden;display:flex;flex-direction:column}
+.shot-card .im{aspect-ratio:9/16;background:#edeff2;overflow:hidden}
+.shot-card .im img{width:100%;height:100%;object-fit:cover;cursor:zoom-in;transition:transform .25s ease}
+.shot-card:hover .im img{transform:scale(1.03)}
+.shot-card .t{padding:6px 8px 7px;font-size:11px;line-height:1.35;color:#3d4450}
+.shot-card .t em{display:block;font-style:normal;color:var(--faint);font-size:10.5px;margin-top:2px}
+.shot-card .tags{display:flex;flex-wrap:wrap;gap:3px;padding:0 8px 8px}
+.shot-card .tags i{font-style:normal;font-size:10px;color:#7a828d;background:var(--line2);border-radius:4px;padding:1px 5px}
+
+.slot{
+  border:1px dashed #d6c294;border-radius:8px;background:repeating-linear-gradient(135deg,#fffdf7,#fffdf7 9px,#fdf8ec 9px,#fdf8ec 18px);
+  padding:10px 10px;min-height:100%;display:flex;flex-direction:column;gap:6px;
+}
+.slot .no{font-size:10.5px;letter-spacing:.6px;color:#a8842f;font-weight:700}
+.slot .tt{font-size:11.5px;color:#4d4128;line-height:1.4;font-weight:600}
+.slot .rs{font-size:10.5px;color:#8b7440;line-height:1.45;margin-top:auto}
+.slot .badge{font-size:10px;color:#a8842f;border:1px solid #e2cfa2;border-radius:4px;padding:0 5px;align-self:flex-start}
+
+/* ---------- 看板 ---------- */
+.board-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:15px 16px}
+.panel h3{margin:0 0 3px;font-size:14px}
+.panel .sub{font-size:11.5px;color:var(--faint);margin-bottom:12px}
+.prow{display:grid;grid-template-columns:76px minmax(0,1fr) 74px;gap:10px;align-items:center;margin:9px 0;font-size:12.5px}
+.prow .nm b{font-weight:600}
+.prow .nm{display:flex;align-items:baseline;gap:5px}
+.prow .nm span{font-size:10.5px;color:var(--faint)}
+.prow .num{text-align:right;font-variant-numeric:tabular-nums;color:var(--muted);font-size:11.5px}
+.heat{display:flex;flex-direction:column;gap:7px;margin-top:4px}
+.hrow{display:grid;grid-template-columns:70px minmax(0,1fr);gap:9px;align-items:center}
+.hrow .nm{font-size:12px;white-space:nowrap}
+.hcells{display:flex;gap:3px;flex-wrap:wrap}
+.hcell{width:26px;height:22px;border-radius:4px;font-size:9.5px;display:flex;align-items:center;justify-content:center;color:#fff;font-variant-numeric:tabular-nums;cursor:default}
+.hcell.p0{background:#eceff3;color:#9aa1ab}
+.hcell.part{background:#e3b23c}
+.hcell.full{background:#2f9e63}
+.legend{display:flex;gap:14px;font-size:11px;color:var(--muted);margin-top:12px;flex-wrap:wrap}
+.legend i{display:inline-block;width:11px;height:11px;border-radius:3px;vertical-align:-1px;margin-right:4px}
+
+table.q{width:100%;border-collapse:collapse;font-size:12px}
+table.q th,table.q td{border:1px solid var(--line);padding:5px 8px;text-align:left;vertical-align:top}
+table.q th{background:var(--line2);position:sticky;top:0;font-weight:600}
+table.q tr:nth-child(even) td{background:#fbfcfd}
+.done{color:var(--green);font-weight:600}
+.failed{color:var(--red);font-weight:600}
+.pending{color:var(--amber)}
+.running{color:var(--blue);font-weight:600}
+.scrollbox{max-height:360px;overflow:auto;border:1px solid var(--line);border-radius:8px}
+.scrollbox table.q th{position:sticky;top:0;z-index:1}
+.scrollbox table.q{min-width:520px}
+.qgroups{display:flex;flex-direction:column;gap:10px}
+.qg{font-size:12px}
+.qg .top{display:flex;justify-content:space-between;margin-bottom:4px;color:var(--muted)}
+.qg .top b{color:var(--text);font-weight:600}
+
+/* ---------- 垃圾站 ---------- */
+.quotes{width:100%;border-collapse:collapse;font-size:12.5px}
+.quotes td{border-bottom:1px solid var(--line2);padding:6px 8px;vertical-align:top}
+.quotes td:first-child{color:var(--muted);width:44%}
+.tgroup{border:1px solid var(--line);border-radius:var(--radius);background:var(--panel);margin-bottom:10px;overflow:hidden}
+.tgroup summary{cursor:pointer;padding:11px 14px;display:flex;align-items:center;gap:10px;list-style:none;font-size:13.5px}
+.tgroup summary::-webkit-details-marker{display:none}
+.tgroup summary .arrow{color:var(--faint);font-size:11px;transition:transform .15s}
+.tgroup[open] summary .arrow{transform:rotate(90deg)}
+.tgroup summary b{font-weight:600}
+.tgroup summary .c{margin-left:auto;font-size:11.5px;color:var(--faint);font-variant-numeric:tabular-nums}
+.tgroup .inner{padding:0 14px 14px;border-top:1px solid var(--line2)}
+.tgroup .reason{font-size:12px;color:#5b6472;background:#fbfcfd;border:1px solid var(--line2);border-radius:6px;padding:8px 10px;margin:11px 0}
+.tgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(128px,1fr));gap:9px}
+.tcell{border:1px solid var(--line2);border-radius:7px;overflow:hidden;background:#fff}
+.tcell .im{aspect-ratio:1/1;background:#edeff2;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.tcell .im img{width:100%;height:100%;object-fit:cover;cursor:zoom-in}
+.tcell .t{padding:5px 7px 6px;font-size:10.5px;line-height:1.35;color:#4a515c;word-break:break-all}
+.tcell .t em{display:block;font-style:normal;color:#a8842f;margin-top:2px}
+
+/* ---------- 灯箱 ---------- */
+#lb{position:fixed;inset:0;background:rgba(18,20,24,.86);display:none;align-items:center;justify-content:center;z-index:90;padding:24px}
+#lb.on{display:flex}
+#lb img{max-width:min(94vw,900px);max-height:88vh;width:auto;height:auto;border-radius:8px;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+#lb .x{position:absolute;right:18px;top:12px;color:#fff;font-size:26px;cursor:pointer;line-height:1;opacity:.8}
+#lb .cap{position:absolute;left:0;right:0;bottom:14px;text-align:center;color:#cfd4dc;font-size:12.5px;padding:0 20px}
+
+footer{max-width:1240px;margin:0 auto;padding:0 20px 40px;color:var(--faint);font-size:11.5px;line-height:1.8}
+footer code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:11px}
+
+@media (max-width:900px){
+  .kpis{grid-template-columns:repeat(2,1fr)}
+  .hero{grid-template-columns:minmax(0,1fr)}
+  .hero .photo{max-width:340px}
+  .board-grid{grid-template-columns:minmax(0,1fr)}
+}
+@media (max-width:640px){
+  main{padding:16px 14px 56px}
+  .top-in{padding:9px 14px;gap:8px}
+  .brand b{font-size:15px}
+  .brand span{display:none}
+  nav.tabs{margin-left:0;width:100%;order:3}
+  nav.tabs a{padding:5px 11px;font-size:12.5px}
+  .crew-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .crew-card .role{min-height:0;font-size:11px}
+  .crew-card .nm b{font-size:14px}
+  .shots{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .tgrid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .hero .info h1{font-size:22px}
+  dl.profile{grid-template-columns:70px minmax(0,1fr)}
+  .prow{grid-template-columns:64px minmax(0,1fr) 62px}
+  .prow .num{font-size:10.5px;white-space:nowrap}
+  .hrow{grid-template-columns:56px minmax(0,1fr)}
+  .hcell{width:23px;height:20px;font-size:9px}
+  .quotes td:first-child{width:50%}
+}
+</style>
+</head>
+<body>
+<header class="top"><div class="top-in">
+  <div class="brand"><b>玄枢号 · 工作台</b><span>XUANSHU / CREW WORKBENCH</span></div>
+  <nav class="tabs" id="tabs">
+    <a href="#/" data-r="overview">总览</a>
+    <a href="#/crew/CREW-001" data-r="crew">舰员详情</a>
+    <a href="#/board" data-r="board">完成度看板</a>
+    <a href="#/trash" data-r="trash">垃圾站</a>
+  </nav>
+</div></header>
+
+<main id="app"></main>
+<footer id="foot"></footer>
+
+<div id="lb"><span class="x">×</span><img alt=""><div class="cap"></div></div>
+
+<script src="data.js"></script>
+<script>
+(function(){
+  var D = window.XS_DATA;
+  var app = document.getElementById('app');
+  var esc = function(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); };
+  var pct = function(a,b){ return b ? Math.round(a/b*1000)/10 : 0; };
+  var crewById = {};
+  D.crews.forEach(function(c){ crewById[c.id] = c; });
+
+  /* ---------- 灯箱 ---------- */
+  var lb = document.getElementById('lb');
+  var lbImg = lb.querySelector('img'), lbCap = lb.querySelector('.cap');
+  document.addEventListener('click', function(e){
+    var img = e.target.closest('img[data-full]');
+    if(img){
+      lbImg.src = img.getAttribute('data-full');
+      lbCap.textContent = img.getAttribute('data-cap') || '';
+      lb.classList.add('on');
+      return;
+    }
+    if(e.target.closest('#lb')) lb.classList.remove('on');
+  });
+  document.addEventListener('keydown', function(e){ if(e.key==='Escape') lb.classList.remove('on'); });
+
+  /* ---------- 总览 ---------- */
+  function viewOverview(){
+    var m = D.meta;
+    var h = '';
+    h += '<div class="kpis">'
+      + kpi(m.crewCount, '在档舰员', 'CREW-001…007 / 011')
+      + kpi(m.artwork, '已入档立绘', '168 张核心 + 17 张补拍')
+      + kpi(m.missing, '待补姿势位', '失败占位 + 未入档成稿')
+      + kpi(pct(m.artwork, m.planned) + '%', '整体完成度', m.artwork + ' / ' + m.planned + ' 个姿势位')
+      + '</div>';
+    h += '<h2 class="sec">舰员总览<span class="hint">点卡片进入人物详情 · 缩略图仅用于列表，点开看大图</span></h2>';
+    h += '<div class="crew-grid">';
+    D.crews.forEach(function(c){
+      var p = pct(c.done, c.planned);
+      h += '<a class="crew-card" href="#/crew/' + c.id + '">'
+        + '<div class="shot">'
+        + (c.main ? '<img loading="lazy" decoding="async" src="' + esc(c.main.thumb) + '" alt="' + esc(c.name) + '" data-full="' + esc(c.main.src) + '" data-cap="' + esc(c.id + ' ' + c.name + ' · ' + c.main.title) + '">' : '')
+        + '<span class="tag">' + esc(c.id) + '</span>'
+        + (c.missing ? '<span class="miss">待补 ' + c.missing + '</span>' : '')
+        + '</div><div class="body">'
+        + '<div class="nm"><b>' + esc(c.name) + '</b><em>' + esc(c.en || c.code) + '</em></div>'
+        + '<div class="role">' + esc(c.role) + '</div>'
+        + '<div class="bar' + (p<100?' amber':'') + '"><i style="width:' + p + '%"></i></div>'
+        + '<div class="stat"><span>' + c.done + ' / ' + c.planned + ' 姿势</span><span>' + p + '%</span></div>'
+        + '</div></a>';
+    });
+    h += '</div>';
+    app.innerHTML = h;
+  }
+  function kpi(n,l,sub){ return '<div class="kpi"><div class="n">' + n + '</div><div class="l">' + l + '</div><div class="sub">' + esc(sub) + '</div></div>'; }
+
+  /* ---------- 人物详情 ---------- */
+  function viewCrew(id){
+    var c = crewById[id] || D.crews[0];
+    document.documentElement.style.setProperty('--accent', c.accent || '#1a5fb4');
+    var h = '';
+    h += '<div class="crumbs"><a href="#/">总览</a><span>/</span><span>' + esc(c.id) + ' ' + esc(c.name) + '</span></div>';
+    h += '<div class="chips">';
+    D.crews.forEach(function(x){
+      h += '<a class="' + (x.id===c.id?'on':'') + '" href="#/crew/' + x.id + '">' + esc(x.name) + (x.missing?' <span style="opacity:.7">+' + x.missing + '</span>':'') + '</a>';
+    });
+    h += '</div>';
+
+    h += '<div class="hero">';
+    h += '<div class="photo">'
+      + (c.main ? '<img src="' + esc(c.main.src) + '" alt="' + esc(c.name) + ' 主图" data-full="' + esc(c.main.src) + '" data-cap="' + esc(c.id + ' ' + c.name + ' · ' + c.main.title) + '">' : '')
+      + '<div class="cap">主图 · ' + esc(c.main ? c.main.title : '待定') + ' · 点击放大</div></div>';
+
+    h += '<div class="info">';
+    h += '<h1>' + esc(c.name) + '</h1>';
+    h += '<div class="meta">' + esc(c.id) + (c.code ? ' · ' + esc(c.code) : '') + (c.en ? ' · ' + esc(c.en) : '') + '</div>';
+    if(c.tagline) h += '<p class="tagline">' + esc(c.tagline) + '</p>';
+    h += '<div class="role">' + esc(c.role) + (c.status ? ' ｜ ' + esc(c.status) : '') + '</div>';
+    if(c.mods && c.mods.length){
+      h += '<div class="mods">';
+      c.mods.forEach(function(m){ h += '<span>' + esc(m) + '</span>'; });
+      h += '</div>';
+    }
+    h += '<div class="stat" style="display:flex;gap:16px;font-size:12.5px;color:var(--muted);margin-bottom:10px">'
+      + '<span>入档 <b style="color:var(--text)">' + c.done + '</b> 张</span>'
+      + '<span>待补 <b style="color:var(--amber)">' + c.missing + '</b> 个姿势位</span>'
+      + '<span>完成度 <b style="color:var(--text)">' + pct(c.done,c.planned) + '%</b></span></div>';
+
+    var keys = Object.keys(c.profile || {});
+    var first = keys.slice(0,6), rest = keys.slice(6);
+    h += '<dl class="profile">';
+    first.forEach(function(k){ h += '<dt>' + esc(k) + '</dt><dd>' + esc(c.profile[k]) + '</dd>'; });
+    h += '</dl>';
+    if(rest.length){
+      h += '<details class="more"><summary>展开完整档案（' + rest.length + ' 项）</summary><dl class="profile" style="margin-top:8px">';
+      rest.forEach(function(k){ h += '<dt>' + esc(k) + '</dt><dd>' + esc(c.profile[k]) + '</dd>'; });
+      h += '</dl></details>';
+    }
+    h += '</div></div>';
+
+    var gaps = [];
+    c.series.forEach(function(s){ s.slots.forEach(function(x){ gaps.push(s.id + ' · ' + x.no + ' ' + x.title); }); });
+    if(gaps.length){
+      h += '<div class="gapbox"><b>待补 ' + gaps.length + ' 个姿势位</b> <span class="cnt">图位留空，换模型或确认存档后补齐</span><ul>';
+      gaps.forEach(function(g){ h += '<li>' + esc(g) + '</li>'; });
+      h += '</ul></div>';
+    }
+
+    c.series.forEach(function(s){
+      var n = s.items.length + s.slots.length;
+      h += '<section class="series">';
+      h += '<div class="series-h"><span class="sid">' + esc(s.id) + '</span><b>' + esc(s.name) + '</b>'
+        + '<span class="cnt">' + s.items.length + ' / ' + n + (s.slots.length ? ' · 待补 ' + s.slots.length : '') + '</span></div>';
+      if(s.note) h += '<div class="series-note">' + esc(s.note) + '</div>';
+      h += '<div class="shots">';
+      s.items.forEach(function(it){
+        h += '<div class="shot-card"><div class="im">'
+          + '<img loading="lazy" decoding="async" src="' + esc(it.thumb) + '" alt="' + esc(it.title) + '" data-full="' + esc(it.src) + '" data-cap="' + esc(c.id + ' · ' + s.id + ' · ' + it.no + ' ' + it.title) + '">'
+          + '</div><div class="t">' + esc(it.no + ' ' + it.title) + '<em>' + esc(it.aspect) + (it.seed!=null?' · seed '+it.seed:'') + '</em></div>'
+          + (it.tags && it.tags.length ? '<div class="tags">' + it.tags.slice(0,4).map(function(t){return '<i>' + esc(t) + '</i>';}).join('') + '</div>' : '')
+          + '</div>';
+      });
+      s.slots.forEach(function(x){
+        h += '<div class="slot"><span class="badge">待补位</span><div class="no">' + esc(x.no) + '</div>'
+          + '<div class="tt">' + esc(x.title) + '</div><div class="rs">' + esc(x.reason) + '</div></div>';
+      });
+      h += '</div></section>';
+    });
+    app.innerHTML = h;
+    window.scrollTo(0,0);
+  }
+
+  /* ---------- 看板 ---------- */
+  function viewBoard(){
+    var m = D.meta;
+    var h = '';
+    h += '<div class="kpis">'
+      + kpi(m.crewCount, '总人数', '全部在档舰员')
+      + kpi(m.artwork, '已完成立绘', '已入档、计入档案')
+      + kpi(m.missing, '待生成 / 待入档', '5 失败占位 + 10 战舞待入档')
+      + kpi(pct(m.artwork, m.planned) + '%', '整体完成度', m.planned + ' 个姿势位')
+      + '</div>';
+
+    h += '<div class="board-grid">';
+    /* 每人进度 */
+    h += '<div class="panel"><h3>每人姿势完成情况</h3><div class="sub">按「已入档 / 规划姿势位」统计，含待补位</div>';
+    D.crews.forEach(function(c){
+      var p = pct(c.done, c.planned);
+      h += '<div class="prow"><div class="nm"><b>' + esc(c.name) + '</b><span>' + esc(c.id.replace('CREW-','')) + '</span></div>'
+        + '<div class="bar' + (p<100?' amber':'') + '"><i style="width:' + p + '%"></i></div>'
+        + '<div class="num">' + c.done + '/' + c.planned + ' · ' + p + '%</div></div>';
+    });
+    h += '</div>';
+
+    /* 系列热力 */
+    h += '<div class="panel"><h3>系列完成热力</h3><div class="sub">每格一个系列，绿＝齐、黄＝有缺位、灰＝未开始</div><div class="heat">';
+    D.crews.forEach(function(c){
+      h += '<div class="hrow"><div class="nm">' + esc(c.name) + '</div><div class="hcells">';
+      c.series.forEach(function(s){
+        var n = s.items.length + s.slots.length;
+        var cls = !n ? 'p0' : (s.slots.length ? 'part' : 'full');
+        h += '<div class="hcell ' + cls + '" title="' + esc(c.name + ' · ' + s.id + ' ' + s.name + '（' + s.items.length + '/' + n + '）') + '">' + esc(s.id) + '</div>';
+      });
+      h += '</div></div>';
+    });
+    h += '</div><div class="legend"><span><i style="background:#2f9e63"></i>已齐</span><span><i style="background:#e3b23c"></i>有缺位</span><span><i style="background:#eceff3"></i>无条目</span></div></div>';
+    h += '</div>';
+
+    /* 队列 */
+    var q = D.queue, qp = pct(q.done, q.total);
+    h += '<h2 class="sec">重绘队列<span class="hint">沿用 status.html 的数据结构 · ' + q.total + ' 条任务</span></h2>';
+    h += '<div class="panel"><h3>队列进度 <span class="pill ok">完成 ' + q.done + '</span> <span class="pill warn">待跑 ' + q.pending + '</span></h3>'
+      + '<div class="bar"><i style="width:' + qp + '%"></i></div>'
+      + '<div class="tiny" style="margin:6px 0 14px">' + qp + '% · 共 ' + q.total + ' 条</div>'
+      + '<div class="qgroups">';
+    q.groups.forEach(function(g){
+      var gp = pct(g.done, g.total);
+      h += '<div class="qg"><div class="top"><b>' + esc(g.name) + '</b><span>' + g.done + ' / ' + g.total + '</span></div>'
+        + '<div class="bar' + (gp<100?' amber':'') + '"><i style="width:' + gp + '%"></i></div></div>';
+    });
+    h += '</div>';
+    h += '<div class="scrollbox" style="margin-top:16px"><table class="q"><thead><tr><th>#</th><th>状态</th><th>分组</th><th>标题</th></tr></thead><tbody>';
+    q.rows.forEach(function(r,i){
+      h += '<tr><td>' + (i+1) + '</td><td class="' + esc(r.status) + '">' + esc(r.status) + '</td><td>' + esc(r.group) + '</td><td>' + esc(r.title) + '</td></tr>';
+    });
+    h += '</tbody></table></div></div>';
+    app.innerHTML = h;
+  }
+
+  /* ---------- 垃圾站 ---------- */
+  function viewTrash(){
+    var t = D.trash, total = 0;
+    t.groups.forEach(function(g){ total += g.count; });
+    var h = '';
+    h += '<div class="kpis">'
+      + kpi(total, '废稿件数', '全部保留、不进档案')
+      + kpi(t.groups.length, '分组', '按作废原因分目录')
+      + kpi('0', '进入档案', '不写 manifest、不上展示页')
+      + kpi('折叠', '默认展示', '展开后才加载图片')
+      + '</div>';
+
+    h += '<h2 class="sec">用户点名判退<span class="hint">原话留档，作为弃用原因依据</span></h2>';
+    h += '<div class="panel"><table class="quotes"><tbody>';
+    t.quotes.forEach(function(q){ h += '<tr><td>' + esc(q[0]) + '</td><td>' + esc(q[1]) + '</td></tr>'; });
+    h += '</tbody></table></div>';
+
+    h += '<h2 class="sec">废稿分组<span class="hint">点标题展开 · 图片按需懒加载</span>'
+      + '<button class="btn" id="tall" type="button">全部展开</button></h2>';
+    t.groups.forEach(function(g){
+      h += '<details class="tgroup"><summary><span class="arrow">▶</span><b>' + esc(g.title) + '</b>'
+        + '<span class="pill">' + esc(g.id) + '</span><span class="c">' + g.count + ' 件</span></summary>'
+        + '<div class="inner"><div class="reason">' + esc(g.reason) + '</div><div class="tgrid">';
+      g.files.forEach(function(f){
+        h += '<div class="tcell"><div class="im"><img loading="lazy" decoding="async" src="' + esc(f.src) + '" alt="' + esc(f.label) + '" data-full="' + esc(f.src) + '" data-cap="' + esc(f.label) + '"></div>'
+          + '<div class="t">' + esc(f.label) + (f.note ? '<em>' + esc(f.note) + '</em>' : '') + '</div></div>';
+      });
+      h += '</div></div></details>';
+    });
+    app.innerHTML = h;
+    var btn = document.getElementById('tall');
+    if(btn){
+      btn.addEventListener('click', function(){
+        var open = btn.getAttribute('data-open') !== '1';
+        var ds = document.querySelectorAll('.tgroup');
+        for(var i=0;i<ds.length;i++) ds[i].open = open;
+        btn.setAttribute('data-open', open ? '1' : '0');
+        btn.textContent = open ? '全部收起' : '全部展开';
+      });
+    }
+  }
+
+  /* ---------- 路由 ---------- */
+  function nav(route){
+    var tabs = document.querySelectorAll('#tabs a');
+    for(var i=0;i<tabs.length;i++) tabs[i].classList.toggle('on', tabs[i].getAttribute('data-r')===route);
+  }
+  function render(){
+    lb.classList.remove('on');
+    var hash = location.hash || '#/';
+    if(hash.indexOf('#/crew/')===0){ viewCrew(hash.slice(7)); nav('crew'); }
+    else if(hash === '#/board'){ viewBoard(); nav('board'); }
+    else if(hash === '#/trash'){ viewTrash(); nav('trash'); }
+    else { viewOverview(); nav('overview'); }
+  }
+
+  var m = D.meta;
+  document.getElementById('foot').innerHTML =
+    '玄枢号项目 · 工作台 &nbsp;|&nbsp; ' + m.crewCount + ' 位舰员 / ' + m.artwork + ' 张入档 / ' + m.missing + ' 个待补姿势位 / ' + m.trash + ' 件废稿<br>'
+    + '上线范围：<code>01_舰员档案库</code> + <code>03_弃用图区</code>；<code>02_人物示例图库</code>、<code>04_待存档工作稿</code>、<code>05_未归档散稿</code> 仅本地保留。<br>'
+    + '数据源：' + esc(m.note);
+
+  window.addEventListener('hashchange', render);
+  render();
+})();
+</script>
+</body>
+</html>
