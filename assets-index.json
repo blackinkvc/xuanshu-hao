@@ -1,0 +1,360 @@
+{
+ "meta": {
+  "count": 27,
+  "updated": "2026-11-08",
+  "scheme": {
+   "out": "OUT-###",
+   "pos": "POS-###",
+   "rm": "RM-##",
+   "eq": "EQ-###"
+  }
+ },
+ "items": [
+  {
+   "id": "OUT-001",
+   "name": "常服 · 舰内常勤",
+   "category": "out",
+   "owner": "ALL",
+   "file": "assets/lib/out/OUT-001.webp",
+   "tags": [
+    "常服",
+    "全员",
+    "常勤"
+   ],
+   "desc": "深蓝灰技术夹克＋石墨长裤，磁吸高领与工具腰封，舰内日常与值班通用。"
+  },
+  {
+   "id": "OUT-002",
+   "name": "装甲内衬 · 分节承力",
+   "category": "out",
+   "owner": "ALL",
+   "file": "assets/lib/out/OUT-002.webp",
+   "tags": [
+    "装甲内衬",
+    "战斗",
+    "中性"
+   ],
+   "desc": "碳纤维分节内衬，肩肋承力板暴露冷却槽，外挂式护甲接口。"
+  },
+  {
+   "id": "OUT-003",
+   "name": "礼服 · 观礼编制",
+   "category": "out",
+   "owner": "ALL",
+   "file": "assets/lib/out/OUT-003.webp",
+   "tags": [
+    "礼服",
+    "军官",
+    "礼仪"
+   ],
+   "desc": "石墨长外套配单道哑光琥珀滚边，硬肩线，观礼与授衔场合。"
+  },
+  {
+   "id": "POS-001",
+   "name": "悬浮 · 双臂摊开",
+   "category": "pos",
+   "owner": "ALL",
+   "file": "assets/lib/pos/POS-001.webp",
+   "tags": [
+    "漂浮",
+    "零重力",
+    "展示"
+   ],
+   "desc": "双手向两侧摊开、掌心向上，身体微离地漂浮并后仰数度。"
+  },
+  {
+   "id": "POS-002",
+   "name": "站立 · 中立基准",
+   "category": "pos",
+   "owner": "ALL",
+   "file": "assets/lib/pos/POS-002.webp",
+   "tags": [
+    "站姿",
+    "基准"
+   ],
+   "desc": "标准中立站姿，双臂自然垂落，用于比例与服装对位基准。"
+  },
+  {
+   "id": "POS-003",
+   "name": "坐姿 · 舱内待命",
+   "category": "pos",
+   "owner": "ALL",
+   "file": "assets/lib/pos/POS-003.webp",
+   "tags": [
+    "坐姿",
+    "待命"
+   ],
+   "desc": "在低矮金属长凳上正坐，双手置于膝上，脊柱直立。"
+  },
+  {
+   "id": "POS-004",
+   "name": "战斗准备 · 低姿",
+   "category": "pos",
+   "owner": "ALL",
+   "file": "assets/lib/pos/POS-004.webp",
+   "tags": [
+    "战斗",
+    "低姿"
+   ],
+   "desc": "屈膝压低重心、躯干侧转，一臂格挡一臂后引的接战预备。"
+  },
+  {
+   "id": "POS-005",
+   "name": "侧身 · 回望",
+   "category": "pos",
+   "owner": "ALL",
+   "file": "assets/lib/pos/POS-005.webp",
+   "tags": [
+    "站姿",
+    "侧身"
+   ],
+   "desc": "侧身站立、越过肩部回望镜头，一手扶胯，重心落在后腿。"
+  },
+  {
+   "id": "POS-006",
+   "name": "俯视 · 仰头",
+   "category": "pos",
+   "owner": "ALL",
+   "file": "assets/lib/pos/POS-006.webp",
+   "tags": [
+    "俯视",
+    "高角度"
+   ],
+   "desc": "高角度俯拍，头部上仰迎向镜头，用于顶视构图与舱内视线关系。"
+  },
+  {
+   "id": "RM-01",
+   "name": "舰桥",
+   "category": "rm",
+   "owner": "SHIP",
+   "file": "assets/lib/rm/RM-01.webp",
+   "tags": [
+    "指挥",
+    "控制",
+    "前向视窗"
+   ],
+   "desc": "分级指挥甲板、三组操作台与前向观察窗，全舰指挥中枢。"
+  },
+  {
+   "id": "RM-02",
+   "name": "居住舱",
+   "category": "rm",
+   "owner": "SHIP",
+   "file": "assets/lib/rm/RM-02.webp",
+   "tags": [
+    "生活",
+    "舱室",
+    "双人"
+   ],
+   "desc": "嵌入舱壁的上下铺、折叠写字台与个人储物柜，单人标准居住单元。"
+  },
+  {
+   "id": "RM-03",
+   "name": "医疗舱",
+   "category": "rm",
+   "owner": "SHIP",
+   "file": "assets/lib/rm/RM-03.webp",
+   "tags": [
+    "医疗",
+    "手术",
+    "单舱"
+   ],
+   "desc": "密封治疗舱＋顶轨手术臂与器械台，全舰唯一的无菌手术单元。"
+  },
+  {
+   "id": "RM-04",
+   "name": "机库",
+   "category": "rm",
+   "owner": "SHIP",
+   "file": "assets/lib/rm/RM-04.webp",
+   "tags": [
+    "载具",
+    "维修",
+    "大型"
+   ],
+   "desc": "吊轨与折叠维修架位，远端为停靠中的穿梭艇，舰载机与地面载具的母港。"
+  },
+  {
+   "id": "RM-05",
+   "name": "生体维护舱",
+   "category": "rm",
+   "owner": "SHIP",
+   "file": "assets/lib/rm/RM-05.webp",
+   "tags": [
+    "生体",
+    "维护",
+    "筒舱"
+   ],
+   "desc": "三座立式培养筒与冷却管路，义体与生体组织的维护、再生与校准。"
+  },
+  {
+   "id": "RM-06",
+   "name": "禁闭室",
+   "category": "rm",
+   "owner": "SHIP",
+   "file": "assets/lib/rm/RM-06.webp",
+   "tags": [
+    "约束",
+    "单人",
+    "低级"
+   ],
+   "desc": "单人格位、固定钢凳与门侧约束力场，全舰最低安全等级的隔离舱。"
+  },
+  {
+   "id": "RM-07",
+   "name": "观测舱",
+   "category": "rm",
+   "owner": "SHIP",
+   "file": "assets/lib/rm/RM-07.webp",
+   "tags": [
+    "观测",
+    "全景",
+    "公共"
+   ],
+   "desc": "弧形装甲玻璃全景窗与低矮观景长凳，用于星图校核与轮值休息。"
+  },
+  {
+   "id": "RM-08",
+   "name": "超算机房",
+   "category": "rm",
+   "owner": "SHIP",
+   "file": "assets/lib/rm/RM-08.webp",
+   "tags": [
+    "超算",
+    "机柜",
+    "核心"
+   ],
+   "desc": "两列机柜夹出的冷通道，顶部走线槽与地板冷气，主脑算力所在。"
+  },
+  {
+   "id": "EQ-001",
+   "name": "近接战刃「赤喰」",
+   "category": "eq",
+   "owner": "CREW-001",
+   "file": "assets/lib/eq/EQ-001.webp",
+   "tags": [
+    "武器",
+    "近接",
+    "单刃"
+   ],
+   "desc": "哑光黑陶瓷单刃，脊线一道赤红嵌条，分节机械握柄。"
+  },
+  {
+   "id": "EQ-002",
+   "name": "同源能量约束索",
+   "category": "eq",
+   "owner": "CREW-001",
+   "file": "assets/lib/eq/EQ-002.webp",
+   "tags": [
+    "道具",
+    "约束",
+    "能量"
+   ],
+   "desc": "分节链条式约束索，一端赤红发射环、一端重磁夹。"
+  },
+  {
+   "id": "EQ-003",
+   "name": "战术数据板 M-7",
+   "category": "eq",
+   "owner": "CREW-002",
+   "file": "assets/lib/eq/EQ-003.webp",
+   "tags": [
+    "道具",
+    "终端",
+    "数据"
+   ],
+   "desc": "加固石墨外壳战术终端，冷蓝波形屏与实体按键行。"
+  },
+  {
+   "id": "EQ-004",
+   "name": "折叠防护裙甲",
+   "category": "eq",
+   "owner": "CREW-003",
+   "file": "assets/lib/eq/EQ-004.webp",
+   "tags": [
+    "防具",
+    "裙甲",
+    "可折叠"
+   ],
+   "desc": "叠片式防护裙甲，铰接关节可整片折收，礼仪勤务两用。"
+  },
+  {
+   "id": "EQ-005",
+   "name": "流体梭纹长战裙甲",
+   "category": "eq",
+   "owner": "CREW-004",
+   "file": "assets/lib/eq/EQ-005.webp",
+   "tags": [
+    "防具",
+    "裙甲",
+    "长款"
+   ],
+   "desc": "细密叠鳞如织物垂坠的长战裙甲，配重下摆与窄腰轭。"
+  },
+  {
+   "id": "EQ-006",
+   "name": "服务资产识别项圈",
+   "category": "eq",
+   "owner": "CREW-005",
+   "file": "assets/lib/eq/EQ-006.webp",
+   "tags": [
+    "道具",
+    "识别",
+    "服务"
+   ],
+   "desc": "拉丝钢窄环，内衬软垫，方形编号牌与琥珀指示灯。"
+  },
+  {
+   "id": "EQ-007",
+   "name": "情绪共鸣器",
+   "category": "eq",
+   "owner": "CREW-006",
+   "file": "assets/lib/eq/EQ-007.webp",
+   "tags": [
+    "道具",
+    "陪伴",
+    "共鸣"
+   ],
+   "desc": "掌心大小的陶瓷共鸣器，琥珀扩散窗随呼吸缓慢明灭。"
+  },
+  {
+   "id": "EQ-008",
+   "name": "重型破拆锤",
+   "category": "eq",
+   "owner": "CREW-007",
+   "file": "assets/lib/eq/EQ-008.webp",
+   "tags": [
+    "武器",
+    "重型",
+    "破拆"
+   ],
+   "desc": "焊补加固的方头破拆锤，石墨复合柄与液压回冲环。"
+  },
+  {
+   "id": "EQ-009",
+   "name": "战舞祭仪刃",
+   "category": "eq",
+   "owner": "CREW-011",
+   "file": "assets/lib/eq/EQ-009.webp",
+   "tags": [
+    "武器",
+    "礼仪",
+    "战舞"
+   ],
+   "desc": "浅色锻面叶形长刃，刃脊蚀刻几何纹，缠绳柄与赤色系绳。"
+  },
+  {
+   "id": "EQ-010",
+   "name": "超算冷却核心",
+   "category": "eq",
+   "owner": "CREW-002",
+   "file": "assets/lib/eq/EQ-010.webp",
+   "tags": [
+    "超算",
+    "维护",
+    "冷却"
+   ],
+   "desc": "主脑冷却核心模块，肋状换热壳、快拆软管与三粒状态灯。"
+  }
+ ]
+}

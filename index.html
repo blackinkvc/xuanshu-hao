@@ -97,6 +97,24 @@ h2.sec .btn{margin-left:auto;font-weight:400}
 .chips a:hover{text-decoration:none;border-color:#c9cfd8;color:var(--text)}
 .chips a.on:hover{color:#fff}
 
+/* ---------- 素材库 ---------- */
+.lib-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(196px,1fr));gap:12px}
+.lib-card{display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--line);border-radius:8px;overflow:hidden;
+  transition:border-color .15s ease,box-shadow .15s ease}
+.lib-card:hover{border-color:#cdd4de;box-shadow:0 6px 18px rgba(31,35,41,.07)}
+.lib-card .im{display:block;background:#0b0f14;overflow:hidden}
+.lib-card .im img{width:100%;height:100%;object-fit:cover}
+.lib-card .im.out,.lib-card .im.pos{aspect-ratio:3/4}
+.lib-card .im.rm{aspect-ratio:16/9}
+.lib-card .im.eq{aspect-ratio:1/1}
+.lib-card .tx{display:flex;align-items:baseline;gap:7px;padding:8px 9px 0;min-width:0}
+.lib-card .tx b{font:700 10.5px/1 Consolas,monospace;letter-spacing:.6px;color:var(--blue)}
+.lib-card .tx a{font-size:12.5px;color:#2b3138;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lib-card .tx a:hover{text-decoration:none;color:var(--blue)}
+.lib-card .mt{font-size:10.5px;color:var(--faint);padding:4px 9px 9px}
+.lib-card .mt a{color:var(--muted)}
+.lib-empty{padding:26px 0;color:var(--muted);font-size:13px}
+
 /* ---------- 舰员选择 ---------- */
 .pick-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:14px}
 .pick-head h1{font-size:20px;margin:0;letter-spacing:.5px}
@@ -392,6 +410,10 @@ footer code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:11px}
   nav.tabs{margin-left:0;width:100%;order:3}
   nav.tabs a{padding:5px 11px;font-size:12.5px}
   .crew-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .lib-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+  .lib-card .tx{padding:7px 7px 0;gap:5px}
+  .lib-card .tx a{font-size:11.5px}
+  .lib-card .mt{padding:3px 7px 8px;font-size:10px}
   .crew-card .role{min-height:0;font-size:11px}
   .crew-card .nm b{font-size:14px}
   .shots{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
@@ -462,6 +484,7 @@ footer code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:11px}
     <a href="#/" data-r="overview">总览</a>
     <a href="#/crew" data-r="crew">舰员详情</a>
     <a href="#/board" data-r="board">完成度看板</a>
+    <a href="#/lib" data-r="lib">素材库</a>
     <a href="#/trash" data-r="trash">垃圾站</a>
   </nav>
 </div></header>
@@ -736,6 +759,74 @@ footer code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:11px}
 
   function kpi(n,l,sub){ return '<div class="kpi"><div class="n">' + n + '</div><div class="l">' + l + '</div><div class="sub">' + esc(sub) + '</div></div>'; }
 
+  /* ---------- 素材库 ---------- */
+  var LIB = null, LIB_BUSY = false;
+  var LIB_CATS = [['all', '全部'], ['out', '服装'], ['pos', '姿势'], ['rm', '房间'], ['eq', '装备']];
+  function libLoad(cb){
+    if(LIB) return cb();
+    if(LIB_BUSY) return;
+    LIB_BUSY = true;
+    fetch('assets-index.json', {cache: 'no-store'}).then(function(r){ return r.json(); })
+      .then(function(j){ LIB = j.items || []; })
+      .catch(function(){ LIB = []; })
+      .then(function(){ LIB_BUSY = false; cb(); });
+  }
+  function libOwner(it){
+    if(it.category === 'eq'){
+      var c = crewById[it.owner];
+      return c ? '<a href="#/crew/' + it.owner + '">' + esc(c.name) + '</a>' : (it.owner === 'SHIP' ? '舰船固定' : '未指派');
+    }
+    return it.category === 'rm' ? '舰内固定区域' : '全员通用';
+  }
+  function viewLib(q){
+    var p = {};
+    (q || '').replace(/^\?/, '').split('&').forEach(function(kv){
+      if(!kv) return;
+      var a = kv.split('=');
+      p[decodeURIComponent(a[0])] = decodeURIComponent(a[1] || '');
+    });
+    var cat = p.cat || 'all';
+    var h = '<div class="crumbs"><a href="#/">总览</a><span>/</span><span>素材库</span></div>';
+    h += '<div class="pick-head"><h1>素材库</h1><span class="sub" id="libSub">索引加载中…</span></div><div class="chips">';
+    LIB_CATS.forEach(function(t){
+      h += '<a class="' + (cat === t[0] ? 'on' : '') + '" href="#/lib' + (t[0] === 'all' ? '' : '?cat=' + t[0]) + '">' + t[1] + '</a>';
+    });
+    h += '</div><div id="libBody"><div class="lib-empty">正在读取 assets-index.json…</div></div>';
+    app.innerHTML = h;
+    libLoad(function(){
+      var host = document.getElementById('libBody');
+      if(!host) return;
+      var sub = document.getElementById('libSub');
+      if(sub){
+        var n = {out: 0, pos: 0, rm: 0, eq: 0};
+        LIB.forEach(function(it){ if(n[it.category] !== undefined) n[it.category]++; });
+        sub.textContent = LIB.length + ' 件在库 · 服装 ' + n.out + ' / 姿势 ' + n.pos + ' / 房间 ' + n.rm + ' / 装备 ' + n.eq;
+      }
+      var items = LIB.filter(function(it){ return cat === 'all' || it.category === cat; });
+      if(!items.length){ host.innerHTML = '<div class="lib-empty">该类目暂无条目。</div>'; return; }
+      var g = '<div class="lib-grid">';
+      items.forEach(function(it){
+        var href = '#/lib?cat=' + it.category + '&id=' + it.id;
+        g += '<div class="lib-card">'
+          + '<a class="im ' + it.category + '" href="' + href + '"><img loading="lazy" decoding="async" src="' + esc(it.file)
+          + '" alt="' + esc(it.id + ' ' + it.name) + '"></a>'
+          + '<div class="tx"><b>' + esc(it.id) + '</b><a href="' + href + '">' + esc(it.name) + '</a></div>'
+          + '<div class="mt">' + libOwner(it) + ' · ' + esc((it.tags || []).join(' / ')) + '</div></div>';
+      });
+      g += '</div>';
+      host.innerHTML = g;
+      if(p.id){
+        var cur = items.filter(function(it){ return it.id === p.id; })[0];
+        if(cur){
+          lbImg.src = cur.file;
+          lbImg.alt = cur.id + ' ' + cur.name;
+          lbCap.textContent = cur.id + ' · ' + cur.name + ' · ' + cur.desc;
+          lb.classList.add('on');
+        }
+      }
+    });
+  }
+
   /* ---------- 舰员选择 ---------- */
   var LAST_KEY = 'xs_last_crew';
   function lastCrewId(){
@@ -961,10 +1052,12 @@ footer code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:11px}
     var hash = location.hash || '#/';
     var isDetail = hash.indexOf('#/crew/') === 0 && hash.length > 7;
     var isCrewRoot = !isDetail && hash.indexOf('#/crew') === 0;
-    document.body.classList.toggle('dark', !(isDetail || isCrewRoot || hash === '#/board' || hash === '#/trash'));
+    var isLib = hash.indexOf('#/lib') === 0;
+    document.body.classList.toggle('dark', !(isDetail || isCrewRoot || isLib || hash === '#/board' || hash === '#/trash'));
     if(!(isDetail || isCrewRoot)) document.documentElement.style.removeProperty('--accent');
     if(isDetail){ viewCrew(hash.slice(7)); nav('crew'); }
     else if(isCrewRoot){ viewCrewPicker(); nav('crew'); }
+    else if(isLib){ viewLib(hash.replace(/^#\/lib/, '')); nav('lib'); }
     else if(hash === '#/board'){ viewBoard(); nav('board'); }
     else if(hash === '#/trash'){ viewTrash(); nav('trash'); }
     else { viewOverview(); nav('overview'); }
