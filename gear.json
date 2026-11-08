@@ -411,7 +411,8 @@
     "维生",
     "应急",
     "背包"
-   ]
+   ],
+   "file": "assets/lib/eq/EQ-021.webp"
   },
   {
    "id": "EQ-022",
@@ -428,7 +429,8 @@
     "抗荷",
     "机动",
     "驾驶"
-   ]
+   ],
+   "file": "assets/lib/eq/EQ-022.webp"
   },
   {
    "id": "EQ-023",
@@ -445,7 +447,8 @@
     "耐热",
     "耗材",
     "焊补"
-   ]
+   ],
+   "file": "assets/lib/eq/EQ-023.webp"
   },
   {
    "id": "EQ-024",
@@ -463,7 +466,8 @@
     "等离子",
     "舰尾"
    ],
-   "loc": "RM-15"
+   "loc": "RM-15",
+   "file": "assets/lib/eq/EQ-024.webp"
   },
   {
    "id": "EQ-025",
@@ -480,7 +484,8 @@
     "姿控",
     "靠港",
     "分组"
-   ]
+   ],
+   "file": "assets/lib/eq/EQ-025.webp"
   },
   {
    "id": "EQ-026",
@@ -498,7 +503,8 @@
     "液态金属",
     "冷却"
    ],
-   "loc": "RM-15"
+   "loc": "RM-15",
+   "file": "assets/lib/eq/EQ-026.webp"
   },
   {
    "id": "EQ-027",
@@ -516,7 +522,8 @@
     "机械臂",
     "机库"
    ],
-   "loc": "RM-04"
+   "loc": "RM-04",
+   "file": "assets/lib/eq/EQ-027.webp"
   },
   {
    "id": "EQ-028",
@@ -533,7 +540,8 @@
     "货运",
     "导轨",
     "甲板"
-   ]
+   ],
+   "file": "assets/lib/eq/EQ-028.webp"
   },
   {
    "id": "EQ-029",
@@ -551,7 +559,8 @@
     "救援",
     "绞盘"
    ],
-   "loc": "RM-04"
+   "loc": "RM-04",
+   "file": "assets/lib/eq/EQ-029.webp"
   },
   {
    "id": "EQ-030",
@@ -568,7 +577,8 @@
     "巡检",
     "无人",
     "传感"
-   ]
+   ],
+   "file": "assets/lib/eq/EQ-030.webp"
   },
   {
    "id": "EQ-031",
