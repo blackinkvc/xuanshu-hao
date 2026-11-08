@@ -568,7 +568,7 @@ footer code{background:#eceff3;padding:1px 5px;border-radius:4px;font-size:11px}
       + '<div class="ov-strip" id="ovStrip">';
     D.crews.forEach(function(c, i){
       h += '<div class="ov-av" data-i="' + i + '" title="' + esc(c.name + ' ' + c.id) + '">'
-        + (c.main ? '<img loading="lazy" decoding="async" src="' + esc(c.main.thumb) + '" alt="' + esc(c.name) + '">' : '')
+        + (c.main ? '<img decoding="async" src="' + esc(c.main.thumb) + '" alt="' + esc(c.name) + '">' : '')
         + '<span class="no">' + esc(c.id.replace('CREW-', '')) + '</span></div>';
     });
     h += '</div><button class="ov-nav" id="ovNext" type="button" aria-label="下一位">›</button></div>'
