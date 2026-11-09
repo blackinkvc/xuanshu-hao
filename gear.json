@@ -129,7 +129,7 @@
    "id": "EQ-006",
    "name": "服务资产识别项圈",
    "cat": "tol",
-   "owner": "CREW-005",
+   "owner": "NONE",
    "file": "assets/lib/eq/EQ-006.webp",
    "desc": "拉丝钢窄环，内衬软垫，方形编号牌与琥珀指示灯；进出服务舱时自动与门禁对码。",
    "spec": [
@@ -141,7 +141,10 @@
     "识别",
     "服务",
     "门禁"
-   ]
+   ],
+   "owner_prev": "NONE",
+   "status": "停用",
+   "conflict": "CREW-005 档案明写「绝对没有任何机械元素」"
   },
   {
    "id": "EQ-007",
