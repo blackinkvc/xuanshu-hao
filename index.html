@@ -1529,11 +1529,29 @@ body.no-motion .hud-page{animation:none}
 .rooms-cmd .cmd-tag{font:600 8px/1 ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:1.8px;color:var(--ink-5)}
 .rooms-cmd .cmd-tag b{color:var(--hud);font-weight:600}
 
-.deck-wrap{display:grid;grid-template-columns:minmax(0,1fr) 392px;gap:14px;align-items:start}
+.deck-wrap{display:block}
 .deck-tracks{display:flex;flex-direction:column;gap:14px;min-width:0}
 .deck-seg{border:1px solid var(--line);background:rgba(var(--bg2-rgb),.45);min-width:0}
-.deck-h{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;padding:8px 12px;border-bottom:1px solid var(--line3);
-  background:rgba(var(--panel-rgb),.65)}
+.deck-h{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;width:100%;padding:9px 12px;
+  border:0;border-bottom:1px solid var(--line3);background:rgba(var(--panel-rgb),.65);
+  font:inherit;color:inherit;text-align:left;cursor:pointer}
+.deck-h:hover{background:rgba(var(--hud-rgb),.06)}
+.deck-h .tg{margin-left:2px;font:600 10px/1 ui-monospace,SFMono-Regular,Consolas,monospace;color:var(--hud-3)}
+.deck-seg.collapsed .deck-body{display:none}
+.deck-seg.collapsed .deck-h{border-bottom-color:transparent}
+.unit-seg{border-bottom:1px solid var(--line2)}
+.unit-seg:last-child{border-bottom:0}
+.unit-h{display:flex;align-items:baseline;gap:8px;width:100%;padding:6px 12px 6px 14px;
+  border:0;border-bottom:1px solid var(--line3);background:rgba(var(--bg3-rgb),.28);
+  font:inherit;color:inherit;text-align:left;cursor:pointer}
+.unit-h:hover{background:rgba(var(--hud-rgb),.05)}
+.unit-h .uk{font:600 8.5px/1 ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:1px;color:var(--hud-3)}
+.unit-h b{font-size:10.5px;font-weight:500;letter-spacing:.6px;color:var(--ink-2)}
+.unit-h .uc{margin-left:auto;font:600 8px/1 ui-monospace,SFMono-Regular,Consolas,monospace;
+  letter-spacing:.6px;color:var(--ink-5);white-space:nowrap}
+.unit-h .tg{font:600 9px/1 ui-monospace,SFMono-Regular,Consolas,monospace;color:var(--ink-4)}
+.unit-seg.collapsed .unit-body{display:none}
+.unit-seg.collapsed .unit-h{border-bottom-color:transparent}
 .deck-h .mk{font:600 9px/1 ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:1.2px;color:var(--hud);
   border:1px solid rgba(var(--hud-rgb),.4);padding:2px 5px}
 .deck-h b{font-size:12px;font-weight:600;letter-spacing:1.4px;color:var(--ink-0)}
@@ -1566,6 +1584,16 @@ body.no-motion .hud-page{animation:none}
 .deck-node .nmeta .amt{color:var(--hud-3)}
 .deck-node .nuse{margin-top:4px;font-size:9.5px;line-height:1.5;color:var(--ink-5);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.unit-body{position:relative;padding:8px 12px 4px 34px}
+.unit-body::before{content:"";position:absolute;left:18px;top:12px;bottom:10px;width:1px;
+  background:repeating-linear-gradient(180deg,var(--line4) 0 4px,transparent 4px 8px)}
+.room-item{position:relative}
+.room-item.on>.deck-node{margin-bottom:0;border-color:var(--hud);border-bottom-color:rgba(var(--hud-rgb),.35);
+  background:rgba(var(--hud-rgb),.09);box-shadow:inset 2px 0 0 var(--hud)}
+.room-item.on>.deck-node::before{background:var(--hud);border-color:var(--hud);box-shadow:0 0 8px rgba(var(--hud-rgb),.7)}
+.room-inline{position:relative;margin:0 0 8px 13px;padding:2px 0 2px 20px;border-left:1px solid var(--hud);
+  background:linear-gradient(90deg,rgba(var(--hud-rgb),.07),rgba(var(--hud-rgb),0) 62%)}
+.room-inline:empty{display:none}
 .deck-links{display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin:2px 0 8px 8px;padding-left:0}
 .deck-links .lk{display:inline-flex;align-items:center;gap:4px;height:18px;padding:0 6px;
   border:1px solid var(--line3);color:var(--ink-4);font:600 7.5px/1 ui-monospace,SFMono-Regular,Consolas,monospace;
@@ -1593,6 +1621,24 @@ body.no-motion .hud-page{animation:none}
   letter-spacing:.3px;color:var(--ink-5);opacity:.75}
 .rd-note{font-size:9px;line-height:1.6;color:var(--ink-5);padding:8px 13px 10px;letter-spacing:.4px}
 .rd-note a{color:var(--hud-3)}
+.rd-inline{padding:9px 0 5px}
+.rdi-head{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;padding:0 0 8px}
+.rdi-head .rno{font:600 8.5px/1 ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:1px;color:var(--hud-3)}
+.rdi-head b{font-size:14px;font-weight:600;letter-spacing:1px;color:var(--ink-0)}
+.rdi-head .rmeta{margin-left:auto;font:600 8px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace;
+  letter-spacing:.6px;color:var(--ink-5)}
+.rdi-head .rmeta b{font-size:inherit;color:var(--hud-3);letter-spacing:.6px}
+.rdg-wrap{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 26px}
+.rdg{border-top:1px solid var(--line2);padding:7px 0 3px;min-width:0}
+.rdg h4{margin:0 0 5px;font:600 7.5px/1 ui-monospace,SFMono-Regular,Consolas,monospace;
+  letter-spacing:1.5px;color:var(--hud-3);text-transform:uppercase}
+.rdg dl{display:grid;grid-template-columns:112px minmax(0,1fr);margin:0}
+.rdg dt{font:600 8px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:.5px;color:var(--ink-5);
+  padding:4px 6px 4px 0;border-bottom:1px solid var(--line2);word-break:break-all}
+.rdg dd{margin:0;font-size:10.5px;line-height:1.6;color:var(--ink-2);padding:4px 0;
+  border-bottom:1px solid var(--line2);word-break:break-word}
+.rdi-note{font-size:8.5px;line-height:1.6;color:var(--ink-5);letter-spacing:.4px;padding:8px 0 2px;border-top:1px solid var(--line2);margin-top:4px}
+.rdi-note a{color:var(--hud-3)}
 .rd-photo{position:relative;aspect-ratio:16/7;overflow:hidden;background:var(--deep);border-bottom:1px solid var(--line)}
 .rd-photo img{width:100%;height:100%;object-fit:cover;cursor:zoom-in;filter:saturate(.85) brightness(.9);
   -webkit-mask-image:linear-gradient(180deg,#000 62%,rgba(0,0,0,.3) 100%);
@@ -1662,15 +1708,22 @@ body.no-motion .hud-page{animation:none}
   .crew-stage{border-right:0;border-bottom:1px solid var(--line)}
   .crew-side{border-top:1px solid var(--line);background:transparent;position:static;max-height:none;overflow:visible}
   .crew-dossier{grid-template-columns:1fr}
-  .deck-wrap{grid-template-columns:minmax(0,1fr) 320px}
+  .deck-wrap{display:block}
 }
 @media (max-width:820px){
-  .deck-wrap{grid-template-columns:minmax(0,1fr)}
-  .room-detail-col{position:static;order:-1;max-height:none;overflow:visible}
-  .room-detail-col .rd-empty{display:none}
-  .rdetail{max-height:none;overflow:visible}
-  .rd-photo{aspect-ratio:16/6}
-  .rd-fields{grid-template-columns:92px minmax(0,1fr)}
+  .deck-wrap{display:block}
+  .deck-h{padding:10px 10px}
+  .unit-h{padding:7px 10px}
+  .unit-body{padding:7px 10px 3px 28px}
+  .unit-body::before{left:14px}
+  .room-inline{margin-left:13px;padding-left:14px}
+  #roomChips{flex-wrap:nowrap;overflow-x:auto;width:100%;padding-bottom:2px;scrollbar-width:thin}
+  #roomChips .hud-chip{flex:0 0 auto}
+  .rdg-wrap{grid-template-columns:1fr;gap:0}
+  .rdg dl{grid-template-columns:1fr}
+  .rdg dt{border-bottom:0;padding:5px 0 0}
+  .rdg dd{padding:1px 0 5px}
+  .rdi-head .rmeta{margin-left:0;flex-basis:100%}
 }
 @media (max-width:760px){
   .gi-head{display:none}
@@ -1854,6 +1907,43 @@ body.light .ship-hud a.chip.on{background:#12212c;color:#fff}
   .cz-hint{display:none}
   .cz-sec pre{font-size:11.5px}
 }
+/* 详情页底部折叠区：参考图 / 垃圾箱 */
+.folds{margin-top:16px;display:grid;gap:10px}
+.fold{border:1px solid var(--line3);background:rgba(var(--panel-rgb),.35)}
+.fold-h{width:100%;display:flex;align-items:center;gap:8px;padding:11px 13px;background:none;border:0;cursor:pointer;
+  color:var(--ink-1);font:600 11px/1.4 'Microsoft YaHei',sans-serif;text-align:left}
+.fold-h:hover{background:rgba(var(--hud-rgb),.07)}
+.fold-h:focus-visible{outline:1px solid var(--hud-3);outline-offset:-2px}
+.fold-h .fold-t{font-size:12.5px;letter-spacing:.6px}
+.fold-h .fold-k{font:600 8px/1 ui-monospace,SFMono-Regular,Consolas,monospace;color:var(--ink-5);letter-spacing:1px}
+.fold-h .fold-n{margin-left:auto;font:600 9px/1 ui-monospace,SFMono-Regular,Consolas,monospace;color:var(--ink-4);letter-spacing:.4px}
+.fold-h .fold-c{font-size:10px;color:var(--ink-4);min-width:34px;text-align:right}
+.fold-h .fold-c::after{content:"▾";display:inline-block;margin-left:3px;transition:transform .15s}
+.fold.on .fold-h .fold-c::after{transform:rotate(180deg)}
+.fold-b{padding:0 13px 13px}
+.fold-b[hidden]{display:none}
+.fold-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(86px,1fr));gap:6px}
+.fold-cell{position:relative;padding:0;border:1px solid var(--line3);background:rgba(var(--bg3-rgb),.9);cursor:zoom-in;overflow:hidden;aspect-ratio:3/4}
+.fold-cell img{width:100%;height:100%;object-fit:cover;display:block}
+.fold-cell:hover{border-color:var(--hud-3)}
+.fold-lock{display:grid;justify-items:center;gap:5px;padding:24px 10px;text-align:center;
+  border:1px dashed var(--line4);background:repeating-linear-gradient(135deg,rgba(var(--bg3-rgb),.92) 0 8px,rgba(var(--panel-rgb),.92) 8px 16px)}
+.fold-lock svg{width:22px;height:22px;stroke:var(--ink-4);fill:none;stroke-width:1.6;opacity:.8}
+.fold-lock b{font-size:12.5px;color:var(--ink-1);letter-spacing:.4px}
+.fold-lock span{font-size:11px;color:var(--ink-4)}
+.fold-lock .pbtn{margin-top:5px}
+.fold-empty{padding:16px;text-align:center;font-size:11.5px;color:var(--ink-4);border:1px dashed var(--line3)}
+/* 设置：解锁开关说明与密码输入 */
+.pop .row .rn{display:block;margin-top:2px;font-size:10px;line-height:1.5;color:var(--ink-4);font-weight:400;max-width:180px}
+.pwdwr{display:flex;flex-wrap:wrap;gap:6px;padding:9px 10px 10px;border-top:1px solid var(--line3);background:rgba(var(--bg3-rgb),.6)}
+.pwdwr[hidden]{display:none}
+.pwdwr .pin{flex:1 1 88px;min-width:0;padding:6px 8px;border:1px solid var(--line4);background:rgba(var(--bg3-rgb),.9);
+  color:var(--ink-1);font:600 12px/1.4 ui-monospace,Consolas,monospace;letter-spacing:2px}
+.pwdwr .pin:focus{outline:none;border-color:var(--hud-3)}
+.pwdwr .perr{flex:1 1 100%;font-size:10.5px;line-height:1.5;color:#e8837f;min-height:0}
+.pwdwr .perr:empty{display:none}
+.pwdwr.bad .pin{border-color:#c9575a;animation:pwdShake .18s 2}
+@keyframes pwdShake{50%{transform:translateX(2px)}}
 </style>
 </head>
 <body>
@@ -1914,6 +2004,12 @@ body.light .ship-hud a.chip.on{background:#12212c;color:#fff}
     <div class="row"><span>音效</span><button class="sw" id="swSnd" type="button" role="switch" aria-checked="true" aria-label="音效"><i></i></button></div>
     <div class="row"><span>界面动效</span><button class="sw" id="swMotion" type="button" role="switch" aria-checked="true" aria-label="界面动效"><i></i></button></div>
     <div class="row"><span>时间流</span><button class="sw" id="swTime" type="button" role="switch" aria-checked="true" aria-label="时间流"><i></i></button></div>
+    <div class="row"><span>解锁原图与垃圾箱<em class="rn">打开后输入一次密码，全站详情页的参考图与废弃图可见</em></span><button class="sw" id="swUnlock" type="button" role="switch" aria-checked="false" aria-label="解锁原图与垃圾箱"><i></i></button></div>
+    <div class="pwdwr" id="pwdWrap" hidden>
+      <input class="pin" id="pwdIn" type="password" inputmode="numeric" autocomplete="off" maxlength="12" placeholder="解锁密码" aria-label="解锁密码">
+      <button class="pbtn" id="pwdGo" type="button">确认</button>
+      <div class="perr" id="pwdErr" role="alert"></div>
+    </div>
     <div class="row"><span>本地记忆（上次查看 / 时间种子）</span><button class="pbtn danger" id="btnReset" type="button">清除</button></div>
   </div>
   <div id="toast" role="status" aria-live="polite"></div>
@@ -1962,6 +2058,39 @@ body.light .ship-hud a.chip.on{background:#12212c;color:#fff}
       try{ if(CZ && CZ.list && CZ.list.length) czShow(CZ.i); }catch(e){}
     });
   })();
+  /* 参考图 / 垃圾箱 独立数据（不塞进人物对象） */
+  var EXTRAS = null, EXTRA_WAIT = [];
+  function withExtras(fn){ if(EXTRAS) fn(); else EXTRA_WAIT.push(fn); }
+  function extrasOf(id){
+    var it = (EXTRAS && EXTRAS[id]) || {};
+    return {refs: it.refs || [], junk: it.junk || []};
+  }
+  (function loadExtras(){
+    fetch('extras.json', {cache: 'no-cache'}).then(function(r){
+      if(!r.ok) throw 0;
+      return r.json();
+    }).then(function(d){
+      EXTRAS = (d && d.items) || {};
+    }).catch(function(){ EXTRAS = {}; }).then(function(){
+      var q = EXTRA_WAIT.splice(0);
+      q.forEach(function(f){ try{ f(); }catch(e){} });
+      try{ if(CUR_CREW){ CZ.list = czListFor(CUR_CREW); paintFolds(); } }catch(e){}
+    });
+  })();
+  /* 原图/垃圾箱 解锁状态：只存 sessionStorage，关标签即失效 */
+  var UNLOCK_KEY = 'xs_unlock_v1';
+  var PWD_SHA = 'd5eb593fb83f75460353eac6075f51622a193a0c8637934ddcac08944056aa57';
+  function isUnlocked(){
+    try{ return sessionStorage.getItem(UNLOCK_KEY) === '1'; }catch(e){ return false; }
+  }
+  function sha256(s){
+    if(!(window.crypto && crypto.subtle && window.TextEncoder)) return Promise.reject(new Error('no-subtle'));
+    return crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)).then(function(buf){
+      return Array.prototype.map.call(new Uint8Array(buf), function(x){
+        return ('0' + x.toString(16)).slice(-2);
+      }).join('');
+    });
+  }
   var esc = function(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){
     return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); };
   var pct = function(a,b){ return b ? Math.round(a/b*1000)/10 : 0; };
@@ -3519,6 +3648,12 @@ body.light .ship-hud a.chip.on{background:#12212c;color:#fff}
         add(it.src, c.id + ' · ' + s.id + ' · ' + it.no + ' ' + it.title);
       });
     });
+    /* 解锁后把参考图与弃用图并入同一翻页序列 */
+    if(isUnlocked()){
+      var ex = extrasOf(c.id);
+      ex.refs.forEach(function(r){ add(r.src, r.cap); });
+      ex.junk.forEach(function(r){ add(r.src, r.cap); });
+    }
     return L;
   }
   function czFillPrompt(cid){
@@ -3567,6 +3702,80 @@ body.light .ship-hud a.chip.on{background:#12212c;color:#fff}
     CZ.box = null;
     if(CZ.stageFig){ CZ.stageFig.style.display = ''; CZ.stageFig = null; }
   }
+  /* ---------- 详情页底部：参考图 / 垃圾箱 ---------- */
+  function foldHTML(kind, title, en){
+    return '<section class="fold" id="fold' + kind + '">'
+      + '<button class="fold-h" type="button" aria-expanded="false" aria-controls="foldB' + kind + '">'
+      + '<span class="fold-t">' + title + '</span><span class="fold-k">' + en + '</span>'
+      + '<span class="fold-n" data-n>— 张</span><span class="fold-c">展开</span></button>'
+      + '<div class="fold-b" id="foldB' + kind + '" hidden></div></section>';
+  }
+  function foldLockHTML(){
+    return '<div class="fold-lock">'
+      + '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4.5" y="10.5" width="15" height="10" rx="1.6"/>'
+      + '<path d="M8 10.5V7.6a4 4 0 0 1 8 0v2.9"/></svg>'
+      + '<b>需要密码</b><span>参考图与弃用图已上锁 · 在「设置 → 解锁原图与垃圾箱」输入一次密码即可全站查看</span>'
+      + '<button class="pbtn" type="button" data-goset="1">去设置解锁</button></div>';
+  }
+  function paintFolds(){
+    var c = CUR_CREW;
+    if(!c) return;
+    var ex = extrasOf(c.id);
+    var groups = [['Ref', '参考图', ex.refs], ['Junk', '垃圾箱', ex.junk]];
+    groups.forEach(function(g){
+      var sec = document.getElementById('fold' + g[0]);
+      if(!sec) return;
+      var n = sec.querySelector('[data-n]');
+      if(n) n.textContent = g[2].length + ' 张';
+      var body = sec.querySelector('.fold-b');
+      var open = sec.classList.contains('on');
+      if(!open){ body.innerHTML = ''; body.hidden = true; return; }
+      body.hidden = false;
+      if(!isUnlocked()){ body.innerHTML = foldLockHTML(); return; }
+      if(!g[2].length){ body.innerHTML = '<div class="fold-empty">暂无' + g[1] + '</div>'; return; }
+      body.innerHTML = '<div class="fold-grid">' + g[2].map(function(it){
+        return '<div class="fold-cell">'
+          + '<img loading="lazy" decoding="async" src="' + esc(it.src) + '" alt="' + esc(it.cap) + '"'
+          + ' data-full="' + esc(it.src) + '" data-cap="' + esc(it.cap) + '"></div>';
+      }).join('') + '</div>';
+      decorateNums(body);
+    });
+  }
+  function applyUnlock(){
+    if(!CUR_CREW) return;
+    if(!isUnlocked()){
+      ['foldRef', 'foldJunk'].forEach(function(id2){
+        var sec = document.getElementById(id2);
+        if(!sec) return;
+        sec.classList.remove('on');
+        var btn = sec.querySelector('.fold-h');
+        if(btn) btn.setAttribute('aria-expanded', 'false');
+        var lb = sec.querySelector('.fold-c');
+        if(lb) lb.textContent = '展开';
+      });
+      if(document.getElementById('czIn')) czClose();
+    }
+    CZ.list = czListFor(CUR_CREW);
+    paintFolds();
+  }
+  var UNLOCK_STATE = null;
+  function refreshUnlockUI(){
+    var on = isUnlocked();
+    var sw = document.getElementById('swUnlock');
+    if(sw){ sw.classList.toggle('on', on); sw.setAttribute('aria-checked', on ? 'true' : 'false'); }
+    var w = document.getElementById('pwdWrap');
+    if(w && on) w.hidden = true;
+    if(UNLOCK_STATE === on) return;
+    UNLOCK_STATE = on;
+    applyUnlock();
+  }
+  function setUnlocked(on){
+    try{
+      if(on) sessionStorage.setItem(UNLOCK_KEY, '1');
+      else sessionStorage.removeItem(UNLOCK_KEY);
+    }catch(e){}
+    refreshUnlockUI();
+  }
   /* 就地撑开：插入到被点图片所在行之后，不滚动、不跳顶 */
   function crewZoom(img){
     var c = CUR_CREW;
@@ -3598,9 +3807,15 @@ body.light .ship-hud a.chip.on{background:#12212c;color:#fff}
     }
     else if(film) film.parentNode.insertBefore(panel, film.nextSibling);
     else{
-      var wrap = img.closest('figure');
-      if(!wrap) return;
-      wrap.parentNode.insertBefore(panel, wrap.nextSibling);
+      var grid = img.closest('.fold-grid');
+      if(grid){
+        /* 折叠区缩略图：整块网格下方就地展开，滚动位置不变 */
+        grid.parentNode.insertBefore(panel, grid.nextSibling);
+      }else{
+        var wrap = img.closest('figure');
+        if(!wrap) return;
+        wrap.parentNode.insertBefore(panel, wrap.nextSibling);
+      }
     }
     CZ.box = panel;
     CZ.list = list;
@@ -3792,7 +4007,11 @@ body.light .ship-hud a.chip.on{background:#12212c;color:#fff}
       });
       h += '</div></section>';
     });
-    h += '</div></section>';
+    h += '</div>';
+
+    /* 底部：参考图 / 垃圾箱（默认收起，跟随全站解锁开关） */
+    h += '<div class="folds">' + foldHTML('Ref', '参考图', 'REFERENCE') + foldHTML('Junk', '垃圾箱', 'DISCARDED') + '</div>';
+    h += '</section>';
 
     app.innerHTML = h;
     CUR_CREW = c;
@@ -3800,6 +4019,28 @@ body.light .ship-hud a.chip.on{background:#12212c;color:#fff}
     CZ.box = null;
     CZ.stageFig = null;
     decorateNums(app);
+
+    /* 折叠区：默认收起，展开状态不跨页保存 */
+    Array.prototype.forEach.call(app.querySelectorAll('.fold-h'), function(btn){
+      btn.addEventListener('click', function(){
+        var sec = btn.closest('.fold');
+        var on = !sec.classList.contains('on');
+        sec.classList.toggle('on', on);
+        btn.setAttribute('aria-expanded', on ? 'true' : 'false');
+        var lb = sec.querySelector('.fold-c');
+        if(lb) lb.textContent = on ? '收起' : '展开';
+        if(!on && CZ.box && sec.contains(CZ.box)) czClose();
+        paintFolds();
+        SND.click();
+      });
+    });
+    app.addEventListener('click', function(e){
+      if(e.target.closest('[data-goset]')){
+        var sb = document.getElementById('setBtn');
+        if(sb) openPop('popSet', sb);
+      }
+    });
+    paintFolds();
 
     var actPick = app.querySelector('.rpick.on');
     if(actPick && actPick.scrollIntoView) actPick.scrollIntoView({block: 'nearest', inline: 'center'});
@@ -4021,6 +4262,54 @@ body.light .ship-hud a.chip.on{background:#12212c;color:#fff}
     if(swT) swT.addEventListener('click', flipTime);
     var pp = document.getElementById('pwPause');
     if(pp) pp.addEventListener('click', flipTime);
+    /* 解锁原图与垃圾箱：开→密码框，关→立刻上锁 */
+    var swU = document.getElementById('swUnlock');
+    var pwW = document.getElementById('pwdWrap');
+    var pwI = document.getElementById('pwdIn');
+    var pwG = document.getElementById('pwdGo');
+    var pwE = document.getElementById('pwdErr');
+    function tryPwd(){
+      var v = pwI ? pwI.value.trim() : '';
+      if(!v) return;
+      sha256(v).then(function(h){
+        if(h === PWD_SHA){
+          setUnlocked(true);
+          if(pwW) pwW.hidden = true;
+          if(pwW) pwW.classList.remove('bad');
+          if(pwE) pwE.textContent = '';
+          if(pwI) pwI.value = '';
+          toast('已解锁：全站参考图与垃圾箱可见');
+        }else{
+          if(pwW) pwW.classList.add('bad');
+          if(pwE) pwE.textContent = '密码不对，请再试一次';
+          if(pwI){ pwI.focus(); pwI.select(); }
+        }
+      }).catch(function(){
+        if(pwE) pwE.textContent = '当前环境不支持安全校验（需 http / https 打开）';
+      });
+    }
+    if(swU) swU.addEventListener('click', function(){
+      SND.click();
+      if(isUnlocked()){
+        setUnlocked(false);
+        toast('已上锁：参考图与垃圾箱已隐藏');
+        return;
+      }
+      if(pwW){
+        pwW.hidden = false;
+        pwW.classList.remove('bad');
+        if(pwE) pwE.textContent = '';
+        if(pwI){ pwI.value = ''; pwI.focus(); }
+      }
+    });
+    if(pwG) pwG.addEventListener('click', tryPwd);
+    if(pwI) pwI.addEventListener('keydown', function(e){
+      if(e.key === 'Enter'){ e.preventDefault(); tryPwd(); }
+    });
+    /* 外部清掉 sessionStorage 或换标签：回到前台时重新核对 */
+    window.addEventListener('focus', refreshUnlockUI);
+    document.addEventListener('visibilitychange', function(){ if(!document.hidden) refreshUnlockUI(); });
+    refreshUnlockUI();
     var rs = document.getElementById('btnReset');
     if(rs) rs.addEventListener('click', function(){
       try{ localStorage.removeItem(LAST_KEY); localStorage.removeItem('xs_world_v1'); }catch(e){}
@@ -4031,7 +4320,13 @@ body.light .ship-hud a.chip.on{background:#12212c;color:#fff}
     });
     /* 点空白关浮层 */
     document.addEventListener('click', function(e){
-      if(POP && !e.target.closest('.pop') && !e.target.closest('#worldBtn') && !e.target.closest('#setBtn')) closePop();
+      if(POP && !e.target.closest('.pop') && !e.target.closest('#worldBtn') && !e.target.closest('#setBtn')){
+        closePop();
+        var w = document.getElementById('pwdWrap');
+        if(w) w.hidden = true;
+        var pe = document.getElementById('pwdErr');
+        if(pe) pe.textContent = '';
+      }
     });
     /* 全局点击音：链接交给路由音，雷达轴/头像单独处理 */
     document.addEventListener('click', function(e){
@@ -4045,6 +4340,14 @@ body.light .ship-hud a.chip.on{background:#12212c;color:#fff}
 
   /* ---------- 舱室页 #/rooms ---------- */
   var ROOMS = null, ROOMS_META = null, ROOMS_BUSY = false, ROOMS_ERR = false, ROOM_BY = {}, ROOM_S = {}, RQ = '', ROOMS_Q = [];
+  var RCOLL = {}, UCOLL = {};
+  var ROOM_GROUPS = [
+    ['位置与编号', ['房间编号', '单元编号', '甲板', '分区', '房间名']],
+    ['功能与尺度', ['用途', '面积m2', '净高m', '定员']],
+    ['门与观察窗', ['门（编号/净宽/类型）', '舷窗或观察窗']],
+    ['家具与设备', ['家具清单', '设备清单']],
+    ['接口与构造', ['送风/回风/水/电/数据接口', '管井位置', '特殊要求']]
+  ];
 
   function roomsLoad(cb){
     if(ROOMS) return cb();
@@ -4099,35 +4402,46 @@ body.light .ship-hud a.chip.on{background:#12212c;color:#fff}
   }
   function roomCard(r, active){
     var deck = roomDeckMeta(r['甲板']);
-    return '<a class="deck-node' + (active ? ' on' : '') + '" href="#/rooms' + roomQuery({id: r['房间编号']}) + '">'
-      + '<div class="nl1"><span class="rno">' + esc(r['房间编号']) + '</span><b>' + esc(r['房间名']) + '</b>'
+    var rid = r['房间编号'];
+    return '<div class="room-item' + (active ? ' on' : '') + '" data-id="' + esc(rid) + '">'
+      + '<a class="deck-node' + (active ? ' on' : '') + '" href="#/rooms' + roomQuery({id: rid}) + '">'
+      + '<div class="nl1"><span class="rno">' + esc(rid) + '</span><b>' + esc(r['房间名']) + '</b>'
       +   '<span class="gst"><span class="amt">' + esc(roomVal(r['面积m2'])) + ' m²</span></span></div>'
       + '<div class="nmeta"><span>单元 <b>' + esc(r['单元编号']) + '</b></span>'
       +   '<span>分区 <b>' + esc(r['分区']) + '</b></span>'
       +   '<span>定员 <b>' + esc(r['定员']) + '</b></span>'
       +   '<span>' + esc(deck ? deck.label : r['甲板']) + '</span></div>'
       + '<div class="nuse">' + esc(roomVal(r['用途'])) + '</div>'
-      + '</a>';
+      + '</a><div class="room-inline"></div></div>';
   }
   function roomDetail(r){
-    var fields = (ROOMS_META && ROOMS_META.sourceFields) || [];
+    var meta = ROOMS_META || {};
+    var fields = meta.sourceFields || [];
+    var unit = (meta.units || {})[r['单元编号']] || {};
     var deck = roomDeckMeta(r['甲板']);
-    var rows = fields.map(function(k){
-      return '<dt>' + esc(k) + '</dt><dd>' + esc(roomVal(r[k])) + '</dd>';
-    }).join('');
-    return '<article class="rdetail hud-brk">'
-      + '<div class="rd-head">'
-      +   '<span class="rno">' + esc(r['房间编号']) + '</span>'
-      +   '<h2>' + esc(r['房间名']) + '</h2>'
-      +   '<div class="rmeta"><span>' + esc(deck ? deck.label : r['甲板']) + '</span><span>/</span>'
-      +     '<span>分区 <b>' + esc(r['分区']) + '</b></span><span>/</span>'
-      +     '<span>单元 <b>' + esc(r['单元编号']) + '</b></span><span>/</span>'
-      +     '<span><b>' + esc(r['面积m2']) + '</b> m²</span></div>'
-      + '</div>'
-      + '<dl class="rd-fields">' + rows + '</dl>'
-      + '<div class="rd-note">以上字段逐项取自 <b>' + esc((ROOMS_META && ROOMS_META.source) || '房间明细_v3.csv')
-      +   '</b> 的同名列，未做换算或改写。 <a href="#/rooms">返回房间列表</a></div>'
-      + '</article>';
+    var shown = {};
+    var groups = ROOM_GROUPS.map(function(g){
+      var rows = g[1].map(function(k){
+        shown[k] = 1;
+        return '<dt>' + esc(k) + '</dt><dd>' + esc(roomVal(r[k])) + '</dd>';
+      }).join('');
+      return '<section class="rdg"><h4>' + esc(g[0]) + '</h4><dl>' + rows + '</dl></section>';
+    });
+    // 兜底：设计表若增列，未分组的字段仍全部展示，不丢字段
+    var rest = fields.filter(function(k){ return !shown[k]; });
+    if(rest.length){
+      groups.push('<section class="rdg"><h4>其他字段</h4><dl>' + rest.map(function(k){
+        return '<dt>' + esc(k) + '</dt><dd>' + esc(roomVal(r[k])) + '</dd>';
+      }).join('') + '</dl></section>');
+    }
+    return '<div class="rd-inline">'
+      + '<div class="rdi-head"><span class="rno">' + esc(r['房间编号']) + '</span><b>' + esc(r['房间名']) + '</b>'
+      +   '<span class="rmeta">' + esc(deck ? deck.label : r['甲板']) + ' · ' + esc(unit.name || '') + ' ' + esc(r['单元编号'])
+      +   ' · 分区 ' + esc(r['分区']) + ' · 面积 <b>' + esc(roomVal(r['面积m2'])) + '</b> m²</span></div>'
+      + '<div class="rdg-wrap">' + groups.join('') + '</div>'
+      + '<div class="rdi-note">以上字段逐项取自 <b>' + esc(meta.source || '房间明细_v3.csv')
+      +   '</b> 的同名列，未做换算或改写 · 再次点击该行收起</div>'
+      + '</div>';
   }
   function viewRooms(q){
     var p = {};
@@ -4155,8 +4469,7 @@ body.light .ship-hud a.chip.on{background:#12212c;color:#fff}
       + '<input id="rq" type="search" value="' + esc(RQ) + '" placeholder="搜索编号 / 房间名 / 用途 / 单元" aria-label="搜索舱室"></label>'
       + '<span class="gcount" id="roomCount"></span></div>';
     h += '<div class="deck-wrap">'
-      + '<div class="deck-tracks" id="roomBody"><div class="gi-empty">正在读取 rooms.json…</div></div>'
-      + '<div class="room-detail-col" id="roomDetail"></div></div>';
+      + '<div class="deck-tracks" id="roomBody"><div class="gi-empty">正在读取 rooms.json…</div></div></div>';
     h += '</section>';
     app.innerHTML = h;
     roomsLoad(function(){
@@ -4168,6 +4481,7 @@ body.light .ship-hud a.chip.on{background:#12212c;color:#fff}
         return;
       }
       var decks = (ROOMS_META && ROOMS_META.decks) || [];
+      var unitsMeta = (ROOMS_META && ROOMS_META.units) || {};
       if(deck !== 'all' && !roomDeckMeta(deck)) deck = 'all';
       var sub = document.getElementById('roomSub');
       if(sub){
@@ -4181,17 +4495,72 @@ body.light .ship-hud a.chip.on{background:#12212c;color:#fff}
             return '<a class="hud-chip' + (deck === d.k ? ' on' : '') + '" href="#/rooms' + roomQuery({deck: d.k}) + '" title="'
               + esc(d.label) + '">' + esc(d.k) + ' <i>' + d.count + '</i></a>';
           }).join('');
-      var det = document.getElementById('roomDetail');
       var cur = id ? roomById(id) : null;
       if(cur){
-        det.innerHTML = roomDetail(cur);
-      }else if(id){
-        det.innerHTML = '<div class="rd-empty"><b>该编号不在设计表</b>'
-          + esc(id) + ' 不属于 房间明细_v3.csv 的 ' + ROOMS.length + ' 个房间编号，可能来自旧舱室索引。'
-          + '<a href="#/rooms">查看全部房间</a></div>';
-      }else{
-        det.innerHTML = '<div class="rd-empty"><b>未选择舱室</b>点击左侧房间，查看 16 项设计字段；数据逐列取自 房间明细_v3.csv。</div>';
+        delete RCOLL[cur['甲板']];
+        delete UCOLL[cur['单元编号']];
       }
+      function docUrl(withId){
+        return '#/rooms' + roomQuery({deck: deck === 'all' ? '' : deck, id: withId ? withId : ''});
+      }
+      function closeRoom(item){
+        item.classList.remove('on');
+        var node = item.querySelector('.deck-node');
+        if(node) node.classList.remove('on');
+        var inline = item.querySelector('.room-inline');
+        if(inline) inline.innerHTML = '';
+      }
+      function openRoom(item, updateUrl){
+        if(!item || item.classList.contains('on')) return;
+        var prev = host.querySelector('.room-item.on');
+        if(prev) closeRoom(prev);
+        var r = roomById(item.getAttribute('data-id'));
+        if(!r) return;
+        item.classList.add('on');
+        item.querySelector('.deck-node').classList.add('on');
+        item.querySelector('.room-inline').innerHTML = roomDetail(r);
+        if(updateUrl){
+          try{ history.replaceState(null, '', docUrl(r['房间编号'])); }catch(e){}
+        }
+      }
+      function toggleRoom(item){
+        if(item.classList.contains('on')){
+          closeRoom(item);
+          try{ history.replaceState(null, '', docUrl('')); }catch(e){}
+          return;
+        }
+        openRoom(item, true);
+      }
+      host.addEventListener('click', function(e){
+        var t = e.target;
+        var dh = t.closest && t.closest('.deck-h');
+        if(dh){
+          var seg = dh.closest('.deck-seg');
+          var dk = seg.getAttribute('data-deck');
+          var collapsed = seg.classList.toggle('collapsed');
+          if(collapsed) RCOLL[dk] = 1; else delete RCOLL[dk];
+          dh.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+          var tgd = dh.querySelector('.tg');
+          if(tgd) tgd.textContent = collapsed ? '＋' : '－';
+          return;
+        }
+        var uh = t.closest && t.closest('.unit-h');
+        if(uh){
+          var useg = uh.closest('.unit-seg');
+          var uk = useg.getAttribute('data-unit');
+          var ucollapsed = useg.classList.toggle('collapsed');
+          if(ucollapsed) UCOLL[uk] = 1; else delete UCOLL[uk];
+          uh.setAttribute('aria-expanded', ucollapsed ? 'false' : 'true');
+          var tgu = uh.querySelector('.tg');
+          if(tgu) tgu.textContent = ucollapsed ? '＋' : '－';
+          return;
+        }
+        var a = t.closest && t.closest('.deck-node');
+        if(a && host.contains(a)){
+          e.preventDefault();
+          toggleRoom(a.closest('.room-item'));
+        }
+      });
       function paint(){
         var k = RQ.trim().toLowerCase();
         var list = ROOMS.filter(function(r){
@@ -4206,22 +4575,60 @@ body.light .ship-hud a.chip.on{background:#12212c;color:#fff}
           return;
         }
         var html = '';
+        if(id && !cur){
+          html += '<div class="gi-empty"><b>该编号不在设计表</b>'
+            + esc(id) + ' 不属于 房间明细_v3.csv 的 ' + ROOMS.length + ' 个房间编号，可能来自旧舱室索引。'
+            + '<a href="#/rooms">查看全部房间</a></div>';
+        }
         decks.forEach(function(d){
           if(deck !== 'all' && d.k !== deck) return;
           var rows = list.filter(function(r){ return r['甲板'] === d.k; });
           if(!rows.length) return;
-          html += '<section class="deck-seg"><div class="deck-h"><span class="mk">' + esc(d.k) + '</span><b>'
-            + esc(d.label) + '</b><span class="wh">' + d.count + ' 间 · 合计 ' + d.area + ' m²</span>'
-            + '<span class="ct">显示 ' + rows.length + ' / ' + d.count + '</span></div><div class="deck-track">'
-            + rows.map(function(r){ return roomCard(r, r['房间编号'] === id); }).join('')
-            + '</div></section>';
+          var dColl = !!RCOLL[d.k];
+          html += '<section class="deck-seg' + (dColl ? ' collapsed' : '') + '" data-deck="' + esc(d.k) + '">'
+            + '<button class="deck-h" type="button" aria-expanded="' + (dColl ? 'false' : 'true') + '">'
+            + '<span class="mk">' + esc(d.k) + '</span><b>' + esc(d.label) + '</b>'
+            + '<span class="wh">' + d.count + ' 间 · 合计 ' + d.area + ' m²</span>'
+            + '<span class="ct">显示 ' + rows.length + ' / ' + d.count + '</span>'
+            + '<span class="tg">' + (dColl ? '＋' : '－') + '</span></button><div class="deck-body">';
+          var ukeys = [];
+          rows.forEach(function(r){
+            var uk = r['单元编号'];
+            if(ukeys.indexOf(uk) < 0) ukeys.push(uk);
+          });
+          ukeys.forEach(function(uk){
+            var urs = rows.filter(function(r){ return r['单元编号'] === uk; });
+            var u = unitsMeta[uk] || {};
+            var uColl = !!UCOLL[uk];
+            var ucnt = u.count ? (urs.length === u.count ? u.count + ' 间' : urs.length + ' / ' + u.count + ' 间') : urs.length + ' 间';
+            html += '<section class="unit-seg' + (uColl ? ' collapsed' : '') + '" data-unit="' + esc(uk) + '">'
+              + '<button class="unit-h" type="button" aria-expanded="' + (uColl ? 'false' : 'true') + '">'
+              + '<span class="uk">' + esc(uk) + '</span><b>' + esc(u.name || '') + '</b>'
+              + '<span class="uc">' + ucnt + ' · ' + (u.area || 0) + ' m²</span>'
+              + '<span class="tg">' + (uColl ? '＋' : '－') + '</span></button>'
+              + '<div class="unit-body">' + urs.map(function(r){ return roomCard(r, false); }).join('') + '</div></section>';
+          });
+          html += '</div></section>';
         });
         host.innerHTML = html;
+        if(cur){
+          var item = host.querySelector('.room-item[data-id="' + cur['房间编号'] + '"]');
+          if(item) openRoom(item, false);
+        }
       }
       var inp = document.getElementById('rq');
-      inp.addEventListener('input', function(){ RQ = inp.value; paint(); });
+      inp.addEventListener('input', function(){
+        RQ = inp.value;
+        if(RQ.trim()){ RCOLL = {}; UCOLL = {}; }
+        cur = null; id = '';
+        try{ history.replaceState(null, '', docUrl('')); }catch(e){}
+        paint();
+      });
       paint();
-      if(cur) window.scrollTo(0, 0);
+      if(cur){
+        var citem = host.querySelector('.room-item[data-id="' + cur['房间编号'] + '"]');
+        if(citem) citem.scrollIntoView({block: 'center'});
+      }
     });
   }
 
