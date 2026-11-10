@@ -1067,6 +1067,80 @@ body.dark main{max-width:1440px}
   .ov-pmeta strong{font-size:13.5px}
 }
 
+/* ===================== 总览改版 · 实体相框 / 悬浮主位 / 角色资料 / 头像墙 ===================== */
+.ov-stage{grid-template-columns:236px minmax(0,1fr) 352px;align-items:start}
+.ov-side{padding:16px 14px}
+.ov-left{padding:14px 12px 16px}
+.ov-right{padding:14px 16px 16px;max-height:666px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:#2d4356 transparent;gap:11px}
+.ov-right .ov-field{padding-top:6px}
+.ov-right .ov-nameblk{padding-bottom:8px}
+.ov-right .ov-radar{margin:0 auto}
+.ov-right::-webkit-scrollbar{width:4px}
+.ov-right::-webkit-scrollbar-thumb{background:#2d4356;border-radius:3px}
+.ov-frames{display:flex;flex-direction:column;gap:14px;max-height:640px;overflow-y:auto;padding-right:4px;
+  scrollbar-width:thin;scrollbar-color:#2d4356 transparent}
+.ov-frames::-webkit-scrollbar{width:4px}
+.ov-frames::-webkit-scrollbar-thumb{background:#2d4356;border-radius:3px}
+
+/* 实体相框：外框 + 内衬 + 画芯 + 玻璃反光 + 投影 */
+.ov-frame{position:relative;margin:0;padding:9px;border-radius:2px;
+  background:linear-gradient(150deg,#3a2c1c 0%,#21180f 46%,#170f09 100%);
+  border:1px solid #4a3823;
+  box-shadow:0 16px 30px rgba(0,0,0,.62),inset 0 2px 0 rgba(255,226,170,.12),inset 0 -2px 6px rgba(0,0,0,.7)}
+.ov-frame::before{content:"";position:absolute;inset:4px;pointer-events:none;border-radius:1px;
+  border:1px solid rgba(232,192,114,.34);box-shadow:0 0 0 1px rgba(0,0,0,.65),inset 0 1px 0 rgba(255,230,180,.18)}
+.ov-frame .pic{position:relative;background:#07090c;padding:5px;overflow:hidden;
+  box-shadow:0 0 0 1px #0b0c0e,inset 0 0 16px rgba(0,0,0,.9)}
+.ov-frame img{display:block;width:100%;aspect-ratio:3/4;object-fit:cover;object-position:50% 18%}
+.ov-frame .pic::after{content:"";position:absolute;inset:5px;pointer-events:none;
+  background:linear-gradient(118deg,rgba(255,255,255,.16) 0%,rgba(255,255,255,.04) 26%,transparent 42%,transparent 68%,rgba(255,255,255,.05) 100%)}
+.ov-frame figcaption{display:flex;align-items:center;justify-content:space-between;gap:6px;
+  margin-top:7px;padding:0 1px 1px;font:600 8.5px/1.4 ui-monospace,SFMono-Regular,Consolas,monospace;
+  letter-spacing:.8px;color:#b99a63;white-space:nowrap;overflow:hidden}
+.ov-frame figcaption b{font-weight:600;overflow:hidden;text-overflow:ellipsis}
+.ov-frame .idx{color:#6d5a3c;flex:0 0 auto}
+
+/* 中间悬浮主位：CSS 只负责摆放与尺寸，光效全部来自图片本身 */
+.ov-figure img,.ov-figure.cut img{max-height:min(580px,68vh);border-radius:0;
+  box-shadow:none;filter:none;-webkit-mask-image:none;mask-image:none}
+.ov-figure.soft img{max-height:min(540px,64vh);filter:none;box-shadow:none;
+  -webkit-mask-image:radial-gradient(ellipse 76% 92% at 50% 44%,#000 56%,rgba(0,0,0,.55) 78%,transparent 100%);
+  mask-image:radial-gradient(ellipse 76% 92% at 50% 44%,#000 56%,rgba(0,0,0,.55) 78%,transparent 100%)}
+.ov-aura,.ov-plinth,.ov-figure::after{display:none!important}
+
+/* 底部头像墙：正方形、可多行铺开 */
+.ov-dockrow{display:block}
+.ov-nav{display:none}
+.ov-strip{display:grid;grid-template-columns:repeat(13,minmax(0,1fr));gap:8px;
+  max-width:none;width:100%;margin:0;padding:0;overflow:visible}
+.ov-av{width:auto;height:auto;flex:none;aspect-ratio:1/1;border-radius:2px}
+.ov-av img{object-position:50% 26%}
+.ov-av .no{font-size:8px}
+.ov-av.on{transform:none;box-shadow:inset 0 0 0 1px var(--hud),0 0 0 1px rgba(var(--hud-rgb),.55),0 0 16px rgba(var(--hud-rgb),.4)}
+.ov-tip{margin-top:8px}
+
+@media (max-width:1180px){
+  .ov-stage{grid-template-columns:206px minmax(0,1fr) 300px}
+  .ov-right{max-height:600px}
+  .ov-frames{max-height:580px}
+  .ov-frame{padding:8px}
+}
+@media (max-width:900px){
+  .ov-stage{grid-template-columns:minmax(0,1fr)}
+  .ov-right{max-height:none;overflow:visible}
+  .ov-left{order:2;padding:14px 16px}
+  .ov-frames{flex-direction:row;max-height:none;overflow-x:auto;overflow-y:hidden;gap:12px;padding-bottom:4px;scrollbar-width:none}
+  .ov-frames::-webkit-scrollbar{display:none}
+  .ov-frame{flex:0 0 132px;padding:7px}
+  .ov-strip{grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:7px}
+}
+@media (max-width:640px){
+  .ov-left{display:block}
+  .ov-frame{flex:0 0 118px}
+  .ov-strip{grid-template-columns:repeat(auto-fill,minmax(52px,1fr));gap:6px}
+  .ov-av .no{font-size:7px}
+}
+
 /* ===================== 人物 · 装备 · 舱室 重排为舰桥终端语言 ===================== */
 body.dark{--hud:var(--hud);--hud-soft:rgba(var(--hud-rgb),.32);--hud-line:var(--line);--hud-line2:var(--line2);
   --panel:rgba(var(--panel-rgb),.72);--line:var(--line);--line2:var(--line2);
@@ -1820,6 +1894,16 @@ body.light .ship-hud a.chip.on{background:#12212c;color:#fff}
     var n = c.id.replace('CREW-','').toLowerCase();
     return 'assets/c/crew-' + n + '/crew-' + n + '-float.png';
   }
+  /* 方形头像：001–007 小写 png，008–025 大写 CREW 前缀 png，026–030 webp，031–039 暂无头像 */
+  var AV_WEBP = {'CREW-026':1,'CREW-027':1,'CREW-028':1,'CREW-029':1,'CREW-030':1};
+  var AV_UPPER = {'CREW-008':1,'CREW-009':1,'CREW-010':1,'CREW-011':1,'CREW-012':1,'CREW-013':1,'CREW-014':1,'CREW-015':1,'CREW-016':1,'CREW-017':1,'CREW-018':1,'CREW-019':1,'CREW-020':1,'CREW-021':1,'CREW-022':1,'CREW-023':1,'CREW-024':1,'CREW-025':1};
+  var AV_MISSING = {'CREW-031':1,'CREW-032':1,'CREW-033':1,'CREW-034':1,'CREW-035':1,'CREW-036':1,'CREW-037':1,'CREW-038':1,'CREW-039':1};
+  function avatarOf(c){
+    if(AV_MISSING[c.id]) return (c.main && c.main.thumb) || PH;
+    var n = c.id.replace('CREW-','').toLowerCase();
+    var name = (AV_UPPER[c.id] ? 'CREW-' : 'crew-') + n + '-avatar.' + (AV_WEBP[c.id] ? 'webp' : 'png');
+    return 'assets/c/crew-' + n + '/' + name;
+  }
   document.addEventListener('error', function(e){
     var img = e.target;
     if(!img || img.tagName !== 'IMG') return;
@@ -2262,6 +2346,29 @@ body.light .ship-hud a.chip.on{background:#12212c;color:#fff}
       +   '<div class="ov-num"><a class="ov-link" href="#/board" style="color:inherit">' + c.done + ' / ' + c.planned + ' · ' + p + '%' + (c.missing ? ' · 缺 ' + c.missing : '') + '</a></div></div>';
   }
 
+  /* 左侧实体相框：主立绘 + 每组系列的封面，纵向排列 */
+  function ovFrames(c){
+    var list = [];
+    if(c.main && (c.main.thumb || c.main.src)){
+      list.push({t:'主立绘 · MAIN', s:c.main.src || c.main.thumb, f:c.main.thumb || c.main.src});
+    }
+    (c.series || []).forEach(function(g){
+      var it = null;
+      for(var i = 0; i < (g.items || []).length; i++){
+        if(g.items[i] && (g.items[i].thumb || g.items[i].src)){ it = g.items[i]; break; }
+      }
+      if(it) list.push({t:(g.id || '') + (g.name ? ' · ' + g.name : ''), s:it.src || it.thumb, f:it.thumb || it.src});
+    });
+    if(!list.length) list.push({t:'立绘待补', s:PH, f:PH});
+    var h = '';
+    list.forEach(function(f, i){
+      h += '<figure class="ov-frame"><div class="pic"><img loading="lazy" decoding="async" src="' + esc(f.s) + '"'
+        + ' data-fb="' + esc(f.f) + '" alt="' + esc(c.name + ' ' + f.t) + '"></div>'
+        + '<figcaption><b>' + esc(f.t) + '</b><span class="idx">' + (i < 9 ? '0' : '') + (i + 1) + '</span></figcaption></figure>';
+    });
+    return h;
+  }
+
   function ovRadar(c){
     var a = c.attrs || {};
     if(!Object.keys(a).length){
@@ -2423,16 +2530,14 @@ body.light .ship-hud a.chip.on{background:#12212c;color:#fff}
       + '<div class="sub"><b id="ovType"></b><span id="ovSub"></span></div>'
       + '<a class="ov-goto" id="ovGo" href="#/crew/' + esc(D.crews[0].id) + '">查看档案 →</a>'
       + '</div>';
-    h += '<div class="ov-dock"><div class="ov-dockrow">'
-      + '<button class="ov-nav" id="ovPrev" type="button" aria-label="上一位">‹</button>'
-      + '<div class="ov-strip" id="ovStrip">';
+    h += '<div class="ov-dock"><div class="ov-strip" id="ovStrip">';
     D.crews.forEach(function(c, i){
       h += '<div class="ov-av" data-i="' + i + '" title="' + esc(c.name + ' ' + c.id) + '">'
-        + (c.main ? '<img decoding="async" src="' + esc(c.main.thumb) + '" alt="' + esc(c.name) + '">' : '')
+        + '<img loading="lazy" decoding="async" src="' + esc(avatarOf(c)) + '"'
+        + ' data-fb="' + esc((c.main && c.main.thumb) || PH) + '" alt="' + esc(c.name) + '">'
         + '<span class="no">' + esc(c.id.replace('CREW-', '')) + '</span></div>';
     });
-    h += '</div><button class="ov-nav" id="ovNext" type="button" aria-label="下一位">›</button></div>'
-      + '<div class="ov-tip">← → 切换 · 点立绘放大 · 点属性轴看释义</div></div>';
+    h += '</div><div class="ov-tip">点头像切换 · ← → 切换 · 点立绘放大 · 点属性轴看释义</div></div>';
     return h;
   }
 
@@ -2476,8 +2581,8 @@ body.light .ship-hud a.chip.on{background:#12212c;color:#fff}
     var img = document.getElementById('ovImg');
     var eye = c.accent || '#5fd0ff';
     ovEl.style.setProperty('--eye', eye);
-    document.getElementById('ovLeft').innerHTML = ovLeft(c);
-    document.getElementById('ovRight').innerHTML = ovRight(c);
+    document.getElementById('ovLeft').innerHTML = '<div class="ov-frames">' + ovFrames(c) + '</div>';
+    document.getElementById('ovRight').innerHTML = ovLeft(c) + ovRight(c);
     var nm = document.getElementById('ovName');
     if(nm) nm.textContent = c.name;
     var en = document.getElementById('ovNameEn');
@@ -2527,15 +2632,11 @@ body.light .ship-hud a.chip.on{background:#12212c;color:#fff}
     ovTip(OV_AXIS);
     var avs = document.querySelectorAll('#ovStrip .ov-av');
     for(var k = 0; k < avs.length; k++) avs[k].classList.toggle('on', Number(avs[k].getAttribute('data-i')) === i);
-    var strip = document.getElementById('ovStrip');
-    var on = document.querySelector('#ovStrip .ov-av.on');
-    if(strip && on){
-      var target = on.offsetLeft - (strip.clientWidth - on.offsetWidth) / 2;
-      target = Math.max(0, target);
-      if(still) strip.scrollLeft = target;
-      else if(strip.scrollTo) strip.scrollTo({left: target, behavior: 'smooth'});
-      else strip.scrollLeft = target;
-    }
+    /* 换人后相框列回到顶部 */
+    var frames = document.querySelector('#ovLeft .ov-frames');
+    if(frames){ frames.scrollTop = 0; frames.scrollLeft = 0; }
+    var lft = document.getElementById('ovLeft');
+    if(lft) lft.scrollTop = 0;
     var cut = !!floatOf(c);
     fig.classList.toggle('cut', cut);
     fig.classList.toggle('soft', !cut);
