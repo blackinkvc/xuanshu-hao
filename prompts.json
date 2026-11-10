@@ -1,0 +1,406 @@
+{
+ "generated": "2026-11-11",
+ "note": "由 02_人物立绘/0XX_角色卡_t2i_20261110.md 预抽，页面只读此文件",
+ "items": {
+  "CREW-032": {
+   "id": "CREW-032",
+   "name": "待命名",
+   "source": "D:\\玄枢号项目\\02_人物立绘\\032_待命名\\032_角色卡_t2i_20261110.md",
+   "prompt": "【人物基准】东亚女性角色，视觉年龄 25 岁，身高感 170cm，身形瘦高、骨架轻；肩窄而平、锁骨明显、腰线高、腿长；气质冷、静、话少，站姿收着，下巴微收，眼神平直看镜头，不笑或只给一点很淡的礼貌弧度。不是甜系、不是御姐张扬型，是「值更官」那种克制。\n\n【发型与面容】头发是深黑棕色长直发，侧分约 3:7，发量厚，长至胸下，发尾齐整、末端轻微内扣；按大束分块概括，每束有明确的亮带与暗带，不做一根根碎丝，不做夸张蓬松。脸型窄长，颧骨略高，下颌线干净收窄成一个利落的小尖；眼型细长上挑（凤眼），内眼角略尖，双眼皮一道窄线；眉毛细长平直、眉峰很轻；鼻梁高而直，鼻头小而收；唇形薄、唇峰清楚，唇色低饱和豆沙；肤色偏冷白；妆面只保留一道细眼线与唇色，没有腮红、没有高光。\n\n【服饰·舰载值更装备·九项】①硬质方领框：领口为方形，四条边平直、四角直角，领框是磨砂复合板铣削件，边缘有一道细倒角高光，内缘一圈硅胶密封条；领深到锁骨下约两指，左右完全对称，是画面里最清楚的硬表面件。②贴体短袖内层：单层复合针织贴身内层，哑光、无布纹；胸口下方一条横向承力带，磨砂带面 + 一个方形金属扣；袖口外侧一圈硬质环箍。③高腰短裙甲：四片叠压硬质裙甲，腰封为复合板环带，片间露出深灰内衬，左前一片外侧嵌一条竖向冷白指示灯条，长度膝上约 15cm。④背部矩形检修窗：腰上至肩胛的镂空窗，四周包复合板边框与密封条，左右各一只旋转锁扣。⑤背部承力链：一条扁平小方环金属链，从颈后两侧斜拉至腰封。⑥过膝软壳长靴：靴筒软壳复合材料，自然堆叠两道褶，脚踝一圈金属锁定环，中空粗跟，黑色复合防滑底。⑦领框下缘嵌入式细链传感器：极细金属链贴着领框下缘走线，正面一枚扁平方形传感器。⑧腕部接口环箍：右腕金属环箍 + 扁平矩形接口片，片侧小指示灯、正面窄数据窗。⑨耳侧接缝扣：耳侧一枚极小金属接缝扣，颧侧一条极细接缝线，颈根一圈软质密封环与领框密封条对接。所有部件按大体块 + 平涂色画，不做螺丝、铆钉、划痕等细碎装饰。\n\n【配色】主色黑（内层、裙甲、长靴，约 65%）；辅色枪灰（领框、卡扣、环箍、踝环、检修窗边框，约 20%）；点缀色香槟金（细链传感器、腕部接口片、锁扣，约 8%）与冷白到浅青指示灯（约 7%，只出现在裙甲灯条与接口片）。整体低饱和、冷调，没有大面积亮色，没有紫色、没有暖橙。\n\n【硬约束】画面里只有这一个角色，单主体、单一姿势；身体结构完整不变形，手指不多不少、四肢不缺不叠；肩线上没有任何装甲片、没有护肩、没有金属块；不出现表外衣物与配件；不做镜像/双人/三视图拼贴；不出现文字、logo、水印、UI 界面元素。\n\nlowres, blurry, text, watermark, signature, bad anatomy, extra fingers, deformed hands, oversaturated, cartoon, flat lighting, waxy skin, asymmetric face, deformed eyes, blurry face, plastic skin, photo, photograph, photorealistic, hyperrealistic, real person, real human skin, skin pores, film grain, analog noise, DSLR, 35mm photo, shallow depth of field, bokeh, fashion editorial, magazine cover, studio softbox, natural window light, instagram face, influencer face, plastic toy, cheap plastic look, vinyl figure, blurry, lowres, bad anatomy, extra fingers, deformed hands, watermark, text, signature, shoulder armor, pauldron, watch, smartwatch, choker, neck ring, zipper, pockets, sofa, bed, chair, curtain, plain wall, gradient backdrop, high detail, intricate detail, micro detail, photographic texture, skin texture, pores, peach fuzz, specular reflection, ray traced reflections, glossy plastic, subsurface scattering, physically based rendering, real fabric weave, shoulder armor, pauldron, shoulder plate, shoulder guard, armored shoulder, 85mm, 50mm, 35mm, macro, f/1.4, depth of field, cinematic lighting, film still, premium CG poster, game cinematic trailer, hyper detailed render, lace, lace trim, halter neck, purple, warm orange lighting\n\n【风格层·最高权重】这件作品本身就是一件 3D 角色资产，不是拍摄出来的画面。呈现方式：游戏角色选择界面里的角色展示位（character select screen render），角色站在展示台上、正面朝向镜头、被打光照亮，画面是引擎直出。着色：matcap 着色质感——材质像 matcap 预览球，高光是干净的一块圆形反光，没有环境反射、没有物理正确的镜面拖影。形体：风格化 3D 雕塑（stylized 3D sculpt），面数克制、造型概括，所有面用大块平面交代，转折处是柔软倒角，不做微观起伏。贴图：手绘贴图（hand-painted texture），颜色以平涂色块为主，色块边界清楚，表面看不出照片纹理与细微噪点。光：赛璐璐式分块光（cel-band lighting），亮部 / 灰部 / 暗部三段切开，每段内部是平整的色，阴影边缘干净不糊。质感基调：low poly feel、simplified planes、reduced surface detail、soft matte shading——低细节、哑光、概括，宁可少画也不加细节。展示模型：像 character turnaround model 的一格，均匀展示光、无戏剧性打光。\n\n【取景·正面半身】832×1216 竖幅，画面上沿在头顶上方约两指，画面下沿裁在胸线下方一掌（能看见领框、胸带与两肩完整），正面平视，角色直视镜头，双手自然垂在身侧不入画。\n\n【姿势·动作全身·一】全身入画，坐在舱室金属长凳上，右腿曲起、左腿自然垂下，右手抬起按在耳侧接缝扣上（像在接通讯），左手撑在身侧；上身前倾一点，视线略偏画面左外侧。\n\n【姿势·动作全身·二】全身入画，侧坐在长凳边缘，双腿交叠，肩线转向镜头、胯线保留侧向，右手扶着腰侧裙甲边缘，左手垂在身后；下巴略抬，视线回看镜头。",
+   "sections": [
+    {
+     "k": "2. 人物基准（独立设定，不套用 031）",
+     "text": "【人物基准】东亚女性角色，视觉年龄 25 岁，身高感 170cm，身形瘦高、骨架轻；肩窄而平、锁骨明显、腰线高、腿长；气质冷、静、话少，站姿收着，下巴微收，眼神平直看镜头，不笑或只给一点很淡的礼貌弧度。不是甜系、不是御姐张扬型，是「值更官」那种克制。"
+    },
+    {
+     "k": "3. 发型与面容",
+     "text": "【发型与面容】头发是深黑棕色长直发，侧分约 3:7，发量厚，长至胸下，发尾齐整、末端轻微内扣；按大束分块概括，每束有明确的亮带与暗带，不做一根根碎丝，不做夸张蓬松。脸型窄长，颧骨略高，下颌线干净收窄成一个利落的小尖；眼型细长上挑（凤眼），内眼角略尖，双眼皮一道窄线；眉毛细长平直、眉峰很轻；鼻梁高而直，鼻头小而收；唇形薄、唇峰清楚，唇色低饱和豆沙；肤色偏冷白；妆面只保留一道细眼线与唇色，没有腮红、没有高光。"
+    },
+    {
+     "k": "4. 服饰（九项）",
+     "text": "【服饰·舰载值更装备·九项】①硬质方领框：领口为方形，四条边平直、四角直角，领框是磨砂复合板铣削件，边缘有一道细倒角高光，内缘一圈硅胶密封条；领深到锁骨下约两指，左右完全对称，是画面里最清楚的硬表面件。②贴体短袖内层：单层复合针织贴身内层，哑光、无布纹；胸口下方一条横向承力带，磨砂带面 + 一个方形金属扣；袖口外侧一圈硬质环箍。③高腰短裙甲：四片叠压硬质裙甲，腰封为复合板环带，片间露出深灰内衬，左前一片外侧嵌一条竖向冷白指示灯条，长度膝上约 15cm。④背部矩形检修窗：腰上至肩胛的镂空窗，四周包复合板边框与密封条，左右各一只旋转锁扣。⑤背部承力链：一条扁平小方环金属链，从颈后两侧斜拉至腰封。⑥过膝软壳长靴：靴筒软壳复合材料，自然堆叠两道褶，脚踝一圈金属锁定环，中空粗跟，黑色复合防滑底。⑦领框下缘嵌入式细链传感器：极细金属链贴着领框下缘走线，正面一枚扁平方形传感器。⑧腕部接口环箍：右腕金属环箍 + 扁平矩形接口片，片侧小指示灯、正面窄数据窗。⑨耳侧接缝扣：耳侧一枚极小金属接缝扣，颧侧一条极细接缝线，颈根一圈软质密封环与领框密封条对接。所有部件按大体块 + 平涂色画，不做螺丝、铆钉、划痕等细碎装饰。"
+    },
+    {
+     "k": "5. 配色",
+     "text": "【配色】主色黑（内层、裙甲、长靴，约 65%）；辅色枪灰（领框、卡扣、环箍、踝环、检修窗边框，约 20%）；点缀色香槟金（细链传感器、腕部接口片、锁扣，约 8%）与冷白到浅青指示灯（约 7%，只出现在裙甲灯条与接口片）。整体低饱和、冷调，没有大面积亮色，没有紫色、没有暖橙。"
+    },
+    {
+     "k": "6. 硬约束",
+     "text": "【硬约束】画面里只有这一个角色，单主体、单一姿势；身体结构完整不变形，手指不多不少、四肢不缺不叠；肩线上没有任何装甲片、没有护肩、没有金属块；不出现表外衣物与配件；不做镜像/双人/三视图拼贴；不出现文字、logo、水印、UI 界面元素。"
+    },
+    {
+     "k": "7. 负向",
+     "text": "lowres, blurry, text, watermark, signature, bad anatomy, extra fingers, deformed hands, oversaturated, cartoon, flat lighting, waxy skin, asymmetric face, deformed eyes, blurry face, plastic skin, photo, photograph, photorealistic, hyperrealistic, real person, real human skin, skin pores, film grain, analog noise, DSLR, 35mm photo, shallow depth of field, bokeh, fashion editorial, magazine cover, studio softbox, natural window light, instagram face, influencer face, plastic toy, cheap plastic look, vinyl figure, blurry, lowres, bad anatomy, extra fingers, deformed hands, watermark, text, signature, shoulder armor, pauldron, watch, smartwatch, choker, neck ring, zipper, pockets, sofa, bed, chair, curtain, plain wall, gradient backdrop, high detail, intricate detail, micro detail, photographic texture, skin texture, pores, peach fuzz, specular reflection, ray traced reflections, glossy plastic, subsurface scattering, physically based rendering, real fabric weave, shoulder armor, pauldron, shoulder plate, shoulder guard, armored shoulder, 85mm, 50mm, 35mm, macro, f/1.4, depth of field, cinematic lighting, film still, premium CG poster, game cinematic trailer, hyper detailed render, lace, lace trim, halter neck, purple, warm orange lighting"
+    },
+    {
+     "k": "8. 风格层（全角色共用，原文照抄 `031_角色卡_t2i_20261110.md` 的「风格层 v2」）",
+     "text": "【风格层·最高权重】这件作品本身就是一件 3D 角色资产，不是拍摄出来的画面。呈现方式：游戏角色选择界面里的角色展示位（character select screen render），角色站在展示台上、正面朝向镜头、被打光照亮，画面是引擎直出。着色：matcap 着色质感——材质像 matcap 预览球，高光是干净的一块圆形反光，没有环境反射、没有物理正确的镜面拖影。形体：风格化 3D 雕塑（stylized 3D sculpt），面数克制、造型概括，所有面用大块平面交代，转折处是柔软倒角，不做微观起伏。贴图：手绘贴图（hand-painted texture），颜色以平涂色块为主，色块边界清楚，表面看不出照片纹理与细微噪点。光：赛璐璐式分块光（cel-band lighting），亮部 / 灰部 / 暗部三段切开，每段内部是平整的色，阴影边缘干净不糊。质感基调：low poly feel、simplified planes、reduced surface detail、soft matte shading——低细节、哑光、概括，宁可少画也不加细节。展示模型：像 character turnaround model 的一格，均匀展示光、无戏剧性打光。"
+    }
+   ],
+   "shots": [
+    {
+     "k": "A 正面半身",
+     "text": "【取景·正面半身】832×1216 竖幅，画面上沿在头顶上方约两指，画面下沿裁在胸线下方一掌（能看见领框、胸带与两肩完整），正面平视，角色直视镜头，双手自然垂在身侧不入画。"
+    },
+    {
+     "k": "B 动作全身",
+     "text": "【姿势·动作全身·一】全身入画，坐在舱室金属长凳上，右腿曲起、左腿自然垂下，右手抬起按在耳侧接缝扣上（像在接通讯），左手撑在身侧；上身前倾一点，视线略偏画面左外侧。"
+    },
+    {
+     "k": "C 动作全身",
+     "text": "【姿势·动作全身·二】全身入画，侧坐在长凳边缘，双腿交叠，肩线转向镜头、胯线保留侧向，右手扶着腰侧裙甲边缘，左手垂在身后；下巴略抬，视线回看镜头。"
+    }
+   ]
+  },
+  "CREW-033": {
+   "id": "CREW-033",
+   "name": "待命名",
+   "source": "D:\\玄枢号项目\\02_人物立绘\\033_待命名\\033_角色卡_t2i_20261110.md",
+   "prompt": "【人物基准】东亚女性角色，视觉年龄 23 岁，身高感 165cm，身形匀称偏柔；肩线圆润、腰细、胯线柔和、腿型匀称；气质温和、松弛、带一点俏，眼神有笑意但不卖萌；站姿自然放松，重心常落在一侧胯上。不是冷艳型、不是职业克制型。\n\n【发型与面容】头发是深栗棕色大波浪长卷发，中分偏侧（约 4:6），发量蓬松，长度过胸；按大束分块概括，每束是一个完整形体、有明确亮带与暗带，卷度从耳下开始，发尾内扣与外翻混合、走向清楚，不做一根根碎丝。脸型是鹅蛋偏圆，面颊饱满、下颌柔和；眼型圆杏眼，眼尾平，卧蚕明显，双眼皮宽一点；眉毛柔和微弯、眉尾淡；鼻梁中等高度，鼻头圆润；唇形饱满、唇峰柔和，唇色暖玫瑰；肤色暖白；妆面保留很淡的腮红与玫瑰唇，不做皮肤高光、不做亮片。\n\n【服饰·舰载医疗监测装备·九项】①硬质方领框：领口为方形，四条边平直、四角直角，磨砂复合板铣削件，边缘一道细倒角高光，内缘一圈密封条；领深到锁骨下约两指，左右对称；上缘两根短承力杆斜拉到肩后。②领框四角金属锁扣：四只方形香槟金锁扣嵌在四角，压住承力杆端头。③领下折叠承力褶：领框下方一道横向折叠的复合面料承力褶，两折、走向清楚、哑光。④无袖肩线：肩缝平贴、顺肩线落下，肩上没有任何覆盖件、没有护肩、没有金属块。⑤高腰短裙甲：四片叠压硬质裙甲，膝上约 18cm，片间露深灰内衬，右前一片嵌竖向冷白指示灯条。⑥硬质腰封环带：复合板环带压住裙甲上缘，正面一个方形金属扣。⑦硬质高跟踝靴：深紫外壳 + 半硬壳模压鞋面，中空金属细跟，脚踝一圈金属锁定环。⑧腕部接口片：左腕金属环箍 + 扁平矩形接口片，片侧一枚小指示灯、正面一条窄数据窗。⑨耳侧接缝扣：耳侧一枚极小金属接缝扣，颧侧一条极细接缝线。所有部件按大体块 + 平涂色画，不做螺丝、铆钉、划痕等细碎装饰。\n\n【配色】主色黑（内层、裙甲、靴筒，约 55%）；辅色深紫（领下承力褶、裙甲外片、鞋面，约 25%，低饱和、偏冷紫，不是亮紫）；点缀色枪灰（领框、腰封、踝环，约 12%）与香槟金（四角锁扣、腰封扣、接口片，约 5%）；冷白到浅青指示灯约 3%，只出现在灯条与接口片。没有暖橙、没有粉色大面积、没有金属镜面。\n\n【硬约束】画面里只有这一个角色，单主体、单一姿势；身体结构完整不变形，手指不多不少、四肢不缺不叠；肩线上没有任何装甲片、没有护肩、没有金属块；不出现表外衣物与配件；不做镜像/双人/三视图拼贴；不出现文字、logo、水印、UI 界面元素；不是丝缎礼服、不是晚装。\n\nlowres, blurry, text, watermark, signature, bad anatomy, extra fingers, deformed hands, oversaturated, cartoon, flat lighting, waxy skin, asymmetric face, deformed eyes, blurry face, plastic skin, photo, photograph, photorealistic, hyperrealistic, real person, real human skin, skin pores, film grain, analog noise, DSLR, 35mm photo, shallow depth of field, bokeh, fashion editorial, magazine cover, studio softbox, natural window light, instagram face, influencer face, plastic toy, cheap plastic look, vinyl figure, blurry, lowres, bad anatomy, extra fingers, deformed hands, watermark, text, signature, shoulder armor, pauldron, watch, smartwatch, choker, neck ring, zipper, pockets, sofa, bed, chair, curtain, plain wall, gradient backdrop, high detail, intricate detail, micro detail, photographic texture, skin texture, pores, peach fuzz, specular reflection, ray traced reflections, glossy plastic, subsurface scattering, physically based rendering, real fabric weave, shoulder armor, pauldron, shoulder plate, shoulder guard, armored shoulder, 85mm, 50mm, 35mm, macro, f/1.4, depth of field, cinematic lighting, film still, premium CG poster, game cinematic trailer, hyper detailed render, halter neck, halter straps, cowl neck, silk satin, evening gown, cocktail dress, stiletto heels, bare shoulders, warm orange lighting, lace\n\n【风格层·最高权重】这件作品本身就是一件 3D 角色资产，不是拍摄出来的画面。呈现方式：游戏角色选择界面里的角色展示位（character select screen render），角色站在展示台上、正面朝向镜头、被打光照亮，画面是引擎直出。着色：matcap 着色质感——材质像 matcap 预览球，高光是干净的一块圆形反光，没有环境反射、没有物理正确的镜面拖影。形体：风格化 3D 雕塑（stylized 3D sculpt），面数克制、造型概括，所有面用大块平面交代，转折处是柔软倒角，不做微观起伏。贴图：手绘贴图（hand-painted texture），颜色以平涂色块为主，色块边界清楚，表面看不出照片纹理与细微噪点。光：赛璐璐式分块光（cel-band lighting），亮部 / 灰部 / 暗部三段切开，每段内部是平整的色，阴影边缘干净不糊。质感基调：low poly feel、simplified planes、reduced surface detail、soft matte shading——低细节、哑光、概括，宁可少画也不加细节。展示模型：像 character turnaround model 的一格，均匀展示光、无戏剧性打光。\n\n【取景·正面半身】832×1216 竖幅，画面上沿在头顶上方约两指，画面下沿裁在胸线下方一掌（能看见方领框、承力褶与两肩完整），正面平视，角色直视镜头，双手不入画。\n\n【姿势·动作全身·一】全身入画，坐在舱室休息区的软包座椅上，双腿交叠、脚尖点地，右手抬起把一侧头发拢到耳后、露出耳侧接缝扣，左手搭在扶手上；上身前倾一点，视线看向镜头。\n\n【姿势·动作全身·二】全身入画，侧坐在舱室舷窗下的矮台上，一条腿曲起、一条腿垂下，右臂横在胸前、指尖轻碰领框下缘，左手扶着腰封边缘；胯线歪向一侧，下巴略低，视线从下往上看镜头。",
+   "sections": [
+    {
+     "k": "2. 人物基准（独立设定，不套用 031 / 032）",
+     "text": "【人物基准】东亚女性角色，视觉年龄 23 岁，身高感 165cm，身形匀称偏柔；肩线圆润、腰细、胯线柔和、腿型匀称；气质温和、松弛、带一点俏，眼神有笑意但不卖萌；站姿自然放松，重心常落在一侧胯上。不是冷艳型、不是职业克制型。"
+    },
+    {
+     "k": "3. 发型与面容",
+     "text": "【发型与面容】头发是深栗棕色大波浪长卷发，中分偏侧（约 4:6），发量蓬松，长度过胸；按大束分块概括，每束是一个完整形体、有明确亮带与暗带，卷度从耳下开始，发尾内扣与外翻混合、走向清楚，不做一根根碎丝。脸型是鹅蛋偏圆，面颊饱满、下颌柔和；眼型圆杏眼，眼尾平，卧蚕明显，双眼皮宽一点；眉毛柔和微弯、眉尾淡；鼻梁中等高度，鼻头圆润；唇形饱满、唇峰柔和，唇色暖玫瑰；肤色暖白；妆面保留很淡的腮红与玫瑰唇，不做皮肤高光、不做亮片。"
+    },
+    {
+     "k": "4. 服饰（九项）",
+     "text": "【服饰·舰载医疗监测装备·九项】①硬质方领框：领口为方形，四条边平直、四角直角，磨砂复合板铣削件，边缘一道细倒角高光，内缘一圈密封条；领深到锁骨下约两指，左右对称；上缘两根短承力杆斜拉到肩后。②领框四角金属锁扣：四只方形香槟金锁扣嵌在四角，压住承力杆端头。③领下折叠承力褶：领框下方一道横向折叠的复合面料承力褶，两折、走向清楚、哑光。④无袖肩线：肩缝平贴、顺肩线落下，肩上没有任何覆盖件、没有护肩、没有金属块。⑤高腰短裙甲：四片叠压硬质裙甲，膝上约 18cm，片间露深灰内衬，右前一片嵌竖向冷白指示灯条。⑥硬质腰封环带：复合板环带压住裙甲上缘，正面一个方形金属扣。⑦硬质高跟踝靴：深紫外壳 + 半硬壳模压鞋面，中空金属细跟，脚踝一圈金属锁定环。⑧腕部接口片：左腕金属环箍 + 扁平矩形接口片，片侧一枚小指示灯、正面一条窄数据窗。⑨耳侧接缝扣：耳侧一枚极小金属接缝扣，颧侧一条极细接缝线。所有部件按大体块 + 平涂色画，不做螺丝、铆钉、划痕等细碎装饰。"
+    },
+    {
+     "k": "5. 配色",
+     "text": "【配色】主色黑（内层、裙甲、靴筒，约 55%）；辅色深紫（领下承力褶、裙甲外片、鞋面，约 25%，低饱和、偏冷紫，不是亮紫）；点缀色枪灰（领框、腰封、踝环，约 12%）与香槟金（四角锁扣、腰封扣、接口片，约 5%）；冷白到浅青指示灯约 3%，只出现在灯条与接口片。没有暖橙、没有粉色大面积、没有金属镜面。"
+    },
+    {
+     "k": "6. 硬约束",
+     "text": "【硬约束】画面里只有这一个角色，单主体、单一姿势；身体结构完整不变形，手指不多不少、四肢不缺不叠；肩线上没有任何装甲片、没有护肩、没有金属块；不出现表外衣物与配件；不做镜像/双人/三视图拼贴；不出现文字、logo、水印、UI 界面元素；不是丝缎礼服、不是晚装。"
+    },
+    {
+     "k": "7. 负向",
+     "text": "lowres, blurry, text, watermark, signature, bad anatomy, extra fingers, deformed hands, oversaturated, cartoon, flat lighting, waxy skin, asymmetric face, deformed eyes, blurry face, plastic skin, photo, photograph, photorealistic, hyperrealistic, real person, real human skin, skin pores, film grain, analog noise, DSLR, 35mm photo, shallow depth of field, bokeh, fashion editorial, magazine cover, studio softbox, natural window light, instagram face, influencer face, plastic toy, cheap plastic look, vinyl figure, blurry, lowres, bad anatomy, extra fingers, deformed hands, watermark, text, signature, shoulder armor, pauldron, watch, smartwatch, choker, neck ring, zipper, pockets, sofa, bed, chair, curtain, plain wall, gradient backdrop, high detail, intricate detail, micro detail, photographic texture, skin texture, pores, peach fuzz, specular reflection, ray traced reflections, glossy plastic, subsurface scattering, physically based rendering, real fabric weave, shoulder armor, pauldron, shoulder plate, shoulder guard, armored shoulder, 85mm, 50mm, 35mm, macro, f/1.4, depth of field, cinematic lighting, film still, premium CG poster, game cinematic trailer, hyper detailed render, halter neck, halter straps, cowl neck, silk satin, evening gown, cocktail dress, stiletto heels, bare shoulders, warm orange lighting, lace"
+    },
+    {
+     "k": "8. 风格层（全角色共用，原文照抄 `031_角色卡_t2i_20261110.md` 的「风格层 v2」）",
+     "text": "【风格层·最高权重】这件作品本身就是一件 3D 角色资产，不是拍摄出来的画面。呈现方式：游戏角色选择界面里的角色展示位（character select screen render），角色站在展示台上、正面朝向镜头、被打光照亮，画面是引擎直出。着色：matcap 着色质感——材质像 matcap 预览球，高光是干净的一块圆形反光，没有环境反射、没有物理正确的镜面拖影。形体：风格化 3D 雕塑（stylized 3D sculpt），面数克制、造型概括，所有面用大块平面交代，转折处是柔软倒角，不做微观起伏。贴图：手绘贴图（hand-painted texture），颜色以平涂色块为主，色块边界清楚，表面看不出照片纹理与细微噪点。光：赛璐璐式分块光（cel-band lighting），亮部 / 灰部 / 暗部三段切开，每段内部是平整的色，阴影边缘干净不糊。质感基调：low poly feel、simplified planes、reduced surface detail、soft matte shading——低细节、哑光、概括，宁可少画也不加细节。展示模型：像 character turnaround model 的一格，均匀展示光、无戏剧性打光。"
+    }
+   ],
+   "shots": [
+    {
+     "k": "A 正面半身",
+     "text": "【取景·正面半身】832×1216 竖幅，画面上沿在头顶上方约两指，画面下沿裁在胸线下方一掌（能看见方领框、承力褶与两肩完整），正面平视，角色直视镜头，双手不入画。"
+    },
+    {
+     "k": "B 动作全身",
+     "text": "【姿势·动作全身·一】全身入画，坐在舱室休息区的软包座椅上，双腿交叠、脚尖点地，右手抬起把一侧头发拢到耳后、露出耳侧接缝扣，左手搭在扶手上；上身前倾一点，视线看向镜头。"
+    },
+    {
+     "k": "C 动作全身",
+     "text": "【姿势·动作全身·二】全身入画，侧坐在舱室舷窗下的矮台上，一条腿曲起、一条腿垂下，右臂横在胸前、指尖轻碰领框下缘，左手扶着腰封边缘；胯线歪向一侧，下巴略低，视线从下往上看镜头。"
+    }
+   ]
+  },
+  "CREW-034": {
+   "id": "CREW-034",
+   "name": "待命名",
+   "source": "D:\\玄枢号项目\\02_人物立绘\\034_待命名\\034_角色卡_t2i_20261110.md",
+   "prompt": "【人物基准】东亚女性角色，视觉年龄 22–23 岁，身高感 160cm，骨架娇小、肩窄而圆、腰细、腿相对短，整体比例偏可爱而非修长；站姿放松，重心常落在一条腿上。脸小而偏圆的心形脸，下巴略尖但两颊带一点婴儿肥，苹果肌饱满。肤质暖白偏奶油，皮肤细腻、脸上有血色，不是冷白、不是瓷白。眼型大而圆，双眼皮宽，眼尾略下垂，卧蚕明显，看人时是直接的正视、不带审视。鼻梁中等高度、鼻头小巧圆润。唇偏厚、唇峰不明显、常态微微张开，唇色浅珊瑚。气质是生活流甜美：安静、不张扬、不设防，像城市里被照顾得很好的女孩；不是冷艳、不是厌世、不是御姐。\n\n【发型与面容】纯黑长发，中分、发量极大、直发垂到腰，发尾齐整不做碎层次；按大束分块概括，每束有明确的亮带与暗带，不画一根根碎丝。脸小而偏圆的心形脸，两颊有柔和婴儿肥，下颌线收成一个小而钝的尖；眼型大而圆、双眼皮宽、眼尾略下垂、卧蚕明显；眉毛是自然的平弯眉、眉色偏淡、眉尾略下垂；鼻梁中等高度、鼻头小而圆；唇偏厚、唇峰圆钝、唇色浅珊瑚；肤色暖白偏奶油；妆面很淡，只有一层薄底、浅粉腮红、浅珊瑚唇，没有浓眼线、没有高光。\n\n【服饰·舰载生活区装备·九项】①白色针织纹软甲背心：整片针织纹复合软甲，哑光、有细密的针织纹但不做真实纱线，V 领，五颗哑光白扣，胸口一枚指甲盖大小的熊形徽记模块，是全身最清楚的软表面件。②缎面内层吊带：哑光缎面单层内层，V 领，领缘一圈细齿边硅胶密封条，下摆藏在裙甲里。③双态百褶裙甲：八片薄硬板叠压成褶，下缘一圈细齿边，内衬藏蓝细格纹复合布，膝上约 12cm，片间留 2mm 深灰缝。④领下嵌入式细链传感器：极细金属链贴领缘走一圈，正面一枚扁平方形传感器。⑤左腕接口环箍：窄金属环箍 + 竖向窄数据窗，窗内冷白指示灯。⑥立领硬质外披：立领铣削件，前襟与袖口走白色明线，短版到腰，可脱外层。⑦平底软壳短靴：软壳复合面，脚踝一圈窄金属锁定环，复合平底无跟。⑧肩线接缝：肩上不加装甲片，只沿肩线走一道极窄浅灰接缝线，与领缘密封条在颈根对接。⑨耳侧接缝扣：耳侧一枚极小金属扣，颧侧一条极细接缝线。所有部件按大体块 + 平涂色画，不做螺丝、铆钉、划痕等细碎装饰。\n\n【配色】主色奶油白（背心、内层吊带，约 52%）；辅色藏蓝（裙甲内衬与外披内里，约 22%）与浅雾灰（接缝线、靴面，约 14%）；点缀色浅香槟（细链传感器、腕部接口片、熊形徽记，约 7%）与冷白指示灯（约 5%）。整体低饱和、暖调偏亮，没有大面积深色、没有金属镜面高光、没有紫色、没有荧光色。\n\n【硬约束】画面里只有这一个角色，单主体、单一姿势；身体结构完整不变形，手指不多不少、四肢不缺不叠；肩线上没有任何装甲片、没有护肩、没有金属块；不出现表外衣物与配件；不做镜像/双人/三视图拼贴；不出现文字、logo、水印、UI 界面元素。\n\nlowres, blurry, text, watermark, signature, bad anatomy, extra fingers, deformed hands, oversaturated, cartoon, flat lighting, waxy skin, asymmetric face, deformed eyes, blurry face, plastic skin, photo, photograph, photorealistic, hyperrealistic, real person, real human skin, skin pores, film grain, analog noise, DSLR, 35mm photo, shallow depth of field, bokeh, fashion editorial, magazine cover, studio softbox, natural window light, instagram face, influencer face, plastic toy, cheap plastic look, vinyl figure, shoulder armor, pauldron, watch, smartwatch, choker, neck ring, zipper, pockets, sofa, bed, chair, curtain, plain wall, gradient backdrop, high detail, intricate detail, micro detail, photographic texture, skin texture, pores, peach fuzz, specular reflection, ray traced reflections, glossy plastic, subsurface scattering, physically based rendering, real fabric weave, mannequin, dress form, model stand, second person, extra person, background figure, crowd, holding object, cup, bottle, camera lens, prop, floating object, disembodied hand, detached boot, duplicate limb, three legs, 85mm, 50mm, 35mm, macro, f/1.4, depth of field, cinematic lighting, film still, premium CG poster, game cinematic trailer, hyper detailed render, lace, lace trim, purple, warm orange lighting, mature woman, sharp cheekbones, narrow long face, phoenix eyes, high fashion model, cold expression, gaunt, 175cm tall, long legs\n\n【风格层·最高权重】这件作品本身就是一件 3D 角色资产，不是拍摄出来的画面。呈现方式：游戏角色选择界面里的角色展示位（character select screen render），角色站在展示台上、正面朝向镜头、被打光照亮，画面是引擎直出。着色：matcap 着色质感——材质像 matcap 预览球，高光是干净的一块圆形反光，没有环境反射、没有物理正确的镜面拖影。形体：风格化 3D 雕塑（stylized 3D sculpt），面数克制、造型概括，所有面用大块平面交代，转折处是柔软倒角，不做微观起伏。贴图：手绘贴图（hand-painted texture），颜色以平涂色块为主，色块边界清楚，表面看不出照片纹理与细微噪点。光：赛璐璐式分块光（cel-band lighting），亮部 / 灰部 / 暗部三段切开，每段内部是平整的色，阴影边缘干净不糊。质感基调：low poly feel、simplified planes、reduced surface detail、soft matte shading——低细节、哑光、概括，宁可少画也不加细节。展示模型：像 character turnaround model 的一格，均匀展示光、无戏剧性打光。\n\n【取景·正面半身】832×1216 竖幅，画面上沿在头顶上方约两指，画面下沿裁在胸线下方一掌（能看见 V 领、五颗白扣与肩线接缝完整），正面平视，角色直视镜头、表情放松不笑，双手自然垂在身侧不入画。\n\n【姿势·动作全身·一】全身入画，坐在舱室休息区的矮长凳上，双腿并拢微微侧放、脚尖点地，右手抬起把一侧头发拢到耳后、露出耳侧接缝扣，左手搭在膝上；上身前倾一点，视线平直看镜头。\n\n【姿势·动作全身·二】全身入画，站在舱室舷窗前的矮台边，重心压在右腿、左腿微屈点地，右手扶着腰侧立领外披的边缘，左手自然垂在体侧；肩膀放松、下巴微收，视线略偏画面右外侧。",
+   "sections": [
+    {
+     "k": "2. 人物基准（独立设定，与 032 / 033 明确分开）",
+     "text": "【人物基准】东亚女性角色，视觉年龄 22–23 岁，身高感 160cm，骨架娇小、肩窄而圆、腰细、腿相对短，整体比例偏可爱而非修长；站姿放松，重心常落在一条腿上。脸小而偏圆的心形脸，下巴略尖但两颊带一点婴儿肥，苹果肌饱满。肤质暖白偏奶油，皮肤细腻、脸上有血色，不是冷白、不是瓷白。眼型大而圆，双眼皮宽，眼尾略下垂，卧蚕明显，看人时是直接的正视、不带审视。鼻梁中等高度、鼻头小巧圆润。唇偏厚、唇峰不明显、常态微微张开，唇色浅珊瑚。气质是生活流甜美：安静、不张扬、不设防，像城市里被照顾得很好的女孩；不是冷艳、不是厌世、不是御姐。"
+    },
+    {
+     "k": "3. 发型与面容",
+     "text": "【发型与面容】纯黑长发，中分、发量极大、直发垂到腰，发尾齐整不做碎层次；按大束分块概括，每束有明确的亮带与暗带，不画一根根碎丝。脸小而偏圆的心形脸，两颊有柔和婴儿肥，下颌线收成一个小而钝的尖；眼型大而圆、双眼皮宽、眼尾略下垂、卧蚕明显；眉毛是自然的平弯眉、眉色偏淡、眉尾略下垂；鼻梁中等高度、鼻头小而圆；唇偏厚、唇峰圆钝、唇色浅珊瑚；肤色暖白偏奶油；妆面很淡，只有一层薄底、浅粉腮红、浅珊瑚唇，没有浓眼线、没有高光。"
+    },
+    {
+     "k": "4. 服饰（九项）",
+     "text": "【服饰·舰载生活区装备·九项】①白色针织纹软甲背心：整片针织纹复合软甲，哑光、有细密的针织纹但不做真实纱线，V 领，五颗哑光白扣，胸口一枚指甲盖大小的熊形徽记模块，是全身最清楚的软表面件。②缎面内层吊带：哑光缎面单层内层，V 领，领缘一圈细齿边硅胶密封条，下摆藏在裙甲里。③双态百褶裙甲：八片薄硬板叠压成褶，下缘一圈细齿边，内衬藏蓝细格纹复合布，膝上约 12cm，片间留 2mm 深灰缝。④领下嵌入式细链传感器：极细金属链贴领缘走一圈，正面一枚扁平方形传感器。⑤左腕接口环箍：窄金属环箍 + 竖向窄数据窗，窗内冷白指示灯。⑥立领硬质外披：立领铣削件，前襟与袖口走白色明线，短版到腰，可脱外层。⑦平底软壳短靴：软壳复合面，脚踝一圈窄金属锁定环，复合平底无跟。⑧肩线接缝：肩上不加装甲片，只沿肩线走一道极窄浅灰接缝线，与领缘密封条在颈根对接。⑨耳侧接缝扣：耳侧一枚极小金属扣，颧侧一条极细接缝线。所有部件按大体块 + 平涂色画，不做螺丝、铆钉、划痕等细碎装饰。"
+    },
+    {
+     "k": "5. 配色",
+     "text": "【配色】主色奶油白（背心、内层吊带，约 52%）；辅色藏蓝（裙甲内衬与外披内里，约 22%）与浅雾灰（接缝线、靴面，约 14%）；点缀色浅香槟（细链传感器、腕部接口片、熊形徽记，约 7%）与冷白指示灯（约 5%）。整体低饱和、暖调偏亮，没有大面积深色、没有金属镜面高光、没有紫色、没有荧光色。"
+    },
+    {
+     "k": "6. 硬约束",
+     "text": "【硬约束】画面里只有这一个角色，单主体、单一姿势；身体结构完整不变形，手指不多不少、四肢不缺不叠；肩线上没有任何装甲片、没有护肩、没有金属块；不出现表外衣物与配件；不做镜像/双人/三视图拼贴；不出现文字、logo、水印、UI 界面元素。"
+    },
+    {
+     "k": "7. 负向",
+     "text": "lowres, blurry, text, watermark, signature, bad anatomy, extra fingers, deformed hands, oversaturated, cartoon, flat lighting, waxy skin, asymmetric face, deformed eyes, blurry face, plastic skin, photo, photograph, photorealistic, hyperrealistic, real person, real human skin, skin pores, film grain, analog noise, DSLR, 35mm photo, shallow depth of field, bokeh, fashion editorial, magazine cover, studio softbox, natural window light, instagram face, influencer face, plastic toy, cheap plastic look, vinyl figure, shoulder armor, pauldron, watch, smartwatch, choker, neck ring, zipper, pockets, sofa, bed, chair, curtain, plain wall, gradient backdrop, high detail, intricate detail, micro detail, photographic texture, skin texture, pores, peach fuzz, specular reflection, ray traced reflections, glossy plastic, subsurface scattering, physically based rendering, real fabric weave, mannequin, dress form, model stand, second person, extra person, background figure, crowd, holding object, cup, bottle, camera lens, prop, floating object, disembodied hand, detached boot, duplicate limb, three legs, 85mm, 50mm, 35mm, macro, f/1.4, depth of field, cinematic lighting, film still, premium CG poster, game cinematic trailer, hyper detailed render, lace, lace trim, purple, warm orange lighting, mature woman, sharp cheekbones, narrow long face, phoenix eyes, high fashion model, cold expression, gaunt, 175cm tall, long legs"
+    },
+    {
+     "k": "8. 风格层（全角色共用，原文照抄 `031_角色卡_t2i_20261110.md` 的「风格层 v2」）",
+     "text": "【风格层·最高权重】这件作品本身就是一件 3D 角色资产，不是拍摄出来的画面。呈现方式：游戏角色选择界面里的角色展示位（character select screen render），角色站在展示台上、正面朝向镜头、被打光照亮，画面是引擎直出。着色：matcap 着色质感——材质像 matcap 预览球，高光是干净的一块圆形反光，没有环境反射、没有物理正确的镜面拖影。形体：风格化 3D 雕塑（stylized 3D sculpt），面数克制、造型概括，所有面用大块平面交代，转折处是柔软倒角，不做微观起伏。贴图：手绘贴图（hand-painted texture），颜色以平涂色块为主，色块边界清楚，表面看不出照片纹理与细微噪点。光：赛璐璐式分块光（cel-band lighting），亮部 / 灰部 / 暗部三段切开，每段内部是平整的色，阴影边缘干净不糊。质感基调：low poly feel、simplified planes、reduced surface detail、soft matte shading——低细节、哑光、概括，宁可少画也不加细节。展示模型：像 character turnaround model 的一格，均匀展示光、无戏剧性打光。"
+    }
+   ],
+   "shots": [
+    {
+     "k": "A 正面半身",
+     "text": "【取景·正面半身】832×1216 竖幅，画面上沿在头顶上方约两指，画面下沿裁在胸线下方一掌（能看见 V 领、五颗白扣与肩线接缝完整），正面平视，角色直视镜头、表情放松不笑，双手自然垂在身侧不入画。"
+    },
+    {
+     "k": "B 动作全身",
+     "text": "【姿势·动作全身·一】全身入画，坐在舱室休息区的矮长凳上，双腿并拢微微侧放、脚尖点地，右手抬起把一侧头发拢到耳后、露出耳侧接缝扣，左手搭在膝上；上身前倾一点，视线平直看镜头。"
+    },
+    {
+     "k": "C 动作全身",
+     "text": "【姿势·动作全身·二】全身入画，站在舱室舷窗前的矮台边，重心压在右腿、左腿微屈点地，右手扶着腰侧立领外披的边缘，左手自然垂在体侧；肩膀放松、下巴微收，视线略偏画面右外侧。"
+    }
+   ]
+  },
+  "CREW-035": {
+   "id": "CREW-035",
+   "name": "待命名",
+   "source": "D:\\玄枢号项目\\02_人物立绘\\035_待命名\\035_角色卡_t2i_20261110.md",
+   "prompt": "【人物基准】东亚女性角色，视觉年龄 19–20 岁，身高感 172cm，**极瘦**：肩薄而窄，锁骨与肩胛骨轮廓清楚，手臂与小腿细长、膝与踝的骨点可见，腰极细、胯窄，整体是模特走秀那种「衣架身材」，但不是病态消瘦、脸上仍有精神。脸是短小的 V 脸：脸长偏短、下颌线向内收成窄尖下巴，颧骨位置略高且平，脸颊微凹；额头不宽，颧到下颌之间没有肉感。肤色冷白偏灰青，眼下有一层很淡的倦影。眼型细长、眼尾上挑，内双、眼睑略垂，看人时是自下而上的斜视或平视，眼神倦、不带讨好。鼻梁细直、鼻头小而窄。唇极薄、唇线平直、常态闭合，唇色是低饱和的灰粉。眉毛细、眉尾平直略下压。气质是厌世倦怠的冷：松、懒、不解释，像刚下秀场还没卸妆的模特；不是 032 那种绷着的克制，也不是 033 的温和，更不是 034 的甜。站姿重心压在一条腿上，另一条腿松着，肩略含。\n\n【发型与面容】纯黑长发，中分（偏 1cm），发丝细软、贴头皮、发量中等偏薄，直发垂到胸下，发尾薄而不齐，两侧各留两三缕细碎发丝垂到颧骨与下颌之间；按大束分块概括，每束一条亮带一条暗带，不画一根根碎丝、不做蓬松大波浪。脸短小呈 V 形，下颌收成窄尖下巴，颧骨略高且平，脸颊微凹；眼细长上挑、内双、眼睑略垂；眉毛细、平直、眉尾略下压；鼻梁细直、鼻头小而窄；唇极薄、唇线平直、常闭，唇色灰粉；肤色冷白偏灰青，眼下淡倦影；妆面克制，只有薄底与灰粉唇，没有腮红、没有浓眼线、没有高光。\n\n【服饰·舰载生活区装备·九项】①冷灰罗纹软甲背心：整片细竖罗纹复合软甲，哑光，侧缝一道开衩，胸前三道浅压线代替抽褶，圆领不深。②豹纹层压硬壳短外披：驼棕底 + 深褐斑块的大色块豹纹，短到肋下，立领，前襟隐藏式拉链，肩线平直无垫肩。③环毛领密封圈：颈根一圈奶白短毛环，毛向统一、大束分块，下缘一圈窄金属接口环，可拆。④奶白缎面吊带内层：哑光缎面单层，领缘一圈细齿边硅胶密封条，下摆收进裙甲。⑤条纹短甲裙：五片薄硬板叠压，灰黑细横条纹复合面，膝上约 14cm，片间 2mm 深灰缝。⑥铆钉接口腰带：宽黑复合带，正面一排扁圆接口钉，压在裙甲上缘。⑦白色堆叠护胫：双层软壳套筒，自然堆褶三到四道，上缘到小腿中段。⑧软壳平底舞鞋：软壳复合面、薄底、脚背一横一竖两条细绑带，舰内态备选鞋型，首版三张统一穿 ⑨。⑨铆钉硬壳及膝靴：硬壳靴筒到膝下，三圈窄搭扣，小星形钉，方头低粗跟，首版三张都穿这双。所有部件按大体块 + 平涂色画，豹纹斑块不超过掌心大小，不做螺丝、铆钉、划痕等细碎装饰。\n\n【配色】主色冷灰（背心、甲裙底，约 40%）；辅色豹纹驼棕（外披，约 24%）与奶白（毛领、护胫、内层，约 18%）；重色纯黑（腰带、靴筒，约 14%）；点缀冷银（接口钉、搭扣、密封条，约 4%）。整体低饱和、冷调压暗，豹纹是唯一的暖色块；没有金属镜面高光、没有荧光色、没有大面积正红或紫色。\n\n【硬约束】画面里只有这一个角色，单主体、单一姿势；身体结构完整不变形，手指不多不少、四肢不缺不叠；双手空着、不拿道具；双脚都踩在地面上，靴子穿在脚上、不悬空、不脱脚、不出现第二双鞋；豹纹只在外披上，不出现豹纹皮肤或豹纹丝袜；不出现表外衣物与配件；不做镜像/双人/三视图拼贴；不出现文字、logo、水印、UI 界面元素。\n\nlowres, blurry, text, watermark, signature, bad anatomy, extra fingers, deformed hands, oversaturated, cartoon, flat lighting, waxy skin, asymmetric face, deformed eyes, blurry face, plastic skin, photo, photograph, photorealistic, hyperrealistic, real person, real human skin, skin pores, film grain, analog noise, DSLR, 35mm photo, shallow depth of field, bokeh, fashion editorial, magazine cover, studio softbox, natural window light, instagram face, influencer face, plastic toy, cheap plastic look, vinyl figure, shoulder armor, pauldron, watch, choker, neck ring, zipper, pockets, sofa, bed, chair, curtain, plain wall, gradient backdrop, high detail, intricate detail, micro detail, photographic texture, skin texture, pores, peach fuzz, specular reflection, ray traced reflections, glossy plastic, subsurface scattering, physically based rendering, real fabric weave, mannequin, dress form, model stand, second person, extra person, background figure, crowd, holding object, cup, bottle, camera lens, prop, floating object, disembodied hand, detached boot, duplicate limb, three legs, 85mm, 50mm, 35mm, macro, f/1.4, depth of field, cinematic lighting, film still, premium CG poster, game cinematic trailer, hyper detailed render, leopard print skin, leopard tights, animal print leggings, two pairs of shoes, bare feet, high heels, stiletto, platform shoes, long legs exaggeration, gaunt, emaciated, sickly, purple, neon, warm orange lighting, mature woman, child, loli, narrow long face, phoenix eyes, oval face, big round eyes, blush, thick lips\n\n【风格层·最高权重】这件作品本身就是一件 3D 角色资产，不是拍摄出来的画面。呈现方式：游戏角色选择界面里的角色展示位（character select screen render），角色站在展示台上、正面朝向镜头、被打光照亮，画面是引擎直出。着色：matcap 着色质感——材质像 matcap 预览球，高光是干净的一块圆形反光，没有环境反射、没有物理正确的镜面拖影。形体：风格化 3D 雕塑（stylized 3D sculpt），面数克制、造型概括，所有面用大块平面交代，转折处是柔软倒角，不做微观起伏。贴图：手绘贴图（hand-painted texture），颜色以平涂色块为主，色块边界清楚，表面看不出照片纹理与细微噪点。光：赛璐璐式分块光（cel-band lighting），亮部 / 灰部 / 暗部三段切开，每段内部是平整的色，阴影边缘干净不糊。质感基调：low poly feel、simplified planes、reduced surface detail、soft matte shading——低细节、哑光、概括，宁可少画也不加细节。展示模型：像 character turnaround model 的一格，均匀展示光、无戏剧性打光。\n\n【取景·正面半身】832×1216 竖幅，画面上沿在头顶上方约两指，画面下沿裁在胸线下方一掌（能看见环毛领密封圈、豹纹外披的前襟与冷灰背心的圆领），正面平视，角色直视镜头、不笑，双手自然垂在身侧不入画。\n\n【姿势·动作全身·一】全身入画，坐在圆形展示台边缘，双腿自然垂下、双脚平踩台面，双手撑在身体两侧的台面上、手指自然张开，肩略含、下巴微收，视线平视偏下看镜头；完整造型为豹纹外披 + 环毛领 + 冷灰背心 + 黑腰带 + 条纹短甲裙 + 白色堆叠护胫 + 纯黑色铆钉及膝靴。\n\n【姿势·动作全身·二】全身入画，站在展示台上，重心压在左腿、右腿松着向外撇一点，双臂自然垂在体侧、双手空着，肩略含、下巴微收，视线斜下看向画面右外侧；豹纹外披、环毛领密封圈、铆钉接口腰带与铆钉及膝靴齐全。",
+   "sections": [
+    {
+     "k": "2. 人物基准（独立设定，与 032 / 033 / 034 明确分开）",
+     "text": "【人物基准】东亚女性角色，视觉年龄 19–20 岁，身高感 172cm，**极瘦**：肩薄而窄，锁骨与肩胛骨轮廓清楚，手臂与小腿细长、膝与踝的骨点可见，腰极细、胯窄，整体是模特走秀那种「衣架身材」，但不是病态消瘦、脸上仍有精神。脸是短小的 V 脸：脸长偏短、下颌线向内收成窄尖下巴，颧骨位置略高且平，脸颊微凹；额头不宽，颧到下颌之间没有肉感。肤色冷白偏灰青，眼下有一层很淡的倦影。眼型细长、眼尾上挑，内双、眼睑略垂，看人时是自下而上的斜视或平视，眼神倦、不带讨好。鼻梁细直、鼻头小而窄。唇极薄、唇线平直、常态闭合，唇色是低饱和的灰粉。眉毛细、眉尾平直略下压。气质是厌世倦怠的冷：松、懒、不解释，像刚下秀场还没卸妆的模特；不是 032 那种绷着的克制，也不是 033 的温和，更不是 034 的甜。站姿重心压在一条腿上，另一条腿松着，肩略含。"
+    },
+    {
+     "k": "3. 发型与面容",
+     "text": "【发型与面容】纯黑长发，中分（偏 1cm），发丝细软、贴头皮、发量中等偏薄，直发垂到胸下，发尾薄而不齐，两侧各留两三缕细碎发丝垂到颧骨与下颌之间；按大束分块概括，每束一条亮带一条暗带，不画一根根碎丝、不做蓬松大波浪。脸短小呈 V 形，下颌收成窄尖下巴，颧骨略高且平，脸颊微凹；眼细长上挑、内双、眼睑略垂；眉毛细、平直、眉尾略下压；鼻梁细直、鼻头小而窄；唇极薄、唇线平直、常闭，唇色灰粉；肤色冷白偏灰青，眼下淡倦影；妆面克制，只有薄底与灰粉唇，没有腮红、没有浓眼线、没有高光。"
+    },
+    {
+     "k": "4. 服饰（九项）",
+     "text": "【服饰·舰载生活区装备·九项】①冷灰罗纹软甲背心：整片细竖罗纹复合软甲，哑光，侧缝一道开衩，胸前三道浅压线代替抽褶，圆领不深。②豹纹层压硬壳短外披：驼棕底 + 深褐斑块的大色块豹纹，短到肋下，立领，前襟隐藏式拉链，肩线平直无垫肩。③环毛领密封圈：颈根一圈奶白短毛环，毛向统一、大束分块，下缘一圈窄金属接口环，可拆。④奶白缎面吊带内层：哑光缎面单层，领缘一圈细齿边硅胶密封条，下摆收进裙甲。⑤条纹短甲裙：五片薄硬板叠压，灰黑细横条纹复合面，膝上约 14cm，片间 2mm 深灰缝。⑥铆钉接口腰带：宽黑复合带，正面一排扁圆接口钉，压在裙甲上缘。⑦白色堆叠护胫：双层软壳套筒，自然堆褶三到四道，上缘到小腿中段。⑧软壳平底舞鞋：软壳复合面、薄底、脚背一横一竖两条细绑带，舰内态备选鞋型，首版三张统一穿 ⑨。⑨铆钉硬壳及膝靴：硬壳靴筒到膝下，三圈窄搭扣，小星形钉，方头低粗跟，首版三张都穿这双。所有部件按大体块 + 平涂色画，豹纹斑块不超过掌心大小，不做螺丝、铆钉、划痕等细碎装饰。"
+    },
+    {
+     "k": "5. 配色",
+     "text": "【配色】主色冷灰（背心、甲裙底，约 40%）；辅色豹纹驼棕（外披，约 24%）与奶白（毛领、护胫、内层，约 18%）；重色纯黑（腰带、靴筒，约 14%）；点缀冷银（接口钉、搭扣、密封条，约 4%）。整体低饱和、冷调压暗，豹纹是唯一的暖色块；没有金属镜面高光、没有荧光色、没有大面积正红或紫色。"
+    },
+    {
+     "k": "6. 硬约束",
+     "text": "【硬约束】画面里只有这一个角色，单主体、单一姿势；身体结构完整不变形，手指不多不少、四肢不缺不叠；双手空着、不拿道具；双脚都踩在地面上，靴子穿在脚上、不悬空、不脱脚、不出现第二双鞋；豹纹只在外披上，不出现豹纹皮肤或豹纹丝袜；不出现表外衣物与配件；不做镜像/双人/三视图拼贴；不出现文字、logo、水印、UI 界面元素。"
+    },
+    {
+     "k": "7. 负向",
+     "text": "lowres, blurry, text, watermark, signature, bad anatomy, extra fingers, deformed hands, oversaturated, cartoon, flat lighting, waxy skin, asymmetric face, deformed eyes, blurry face, plastic skin, photo, photograph, photorealistic, hyperrealistic, real person, real human skin, skin pores, film grain, analog noise, DSLR, 35mm photo, shallow depth of field, bokeh, fashion editorial, magazine cover, studio softbox, natural window light, instagram face, influencer face, plastic toy, cheap plastic look, vinyl figure, shoulder armor, pauldron, watch, choker, neck ring, zipper, pockets, sofa, bed, chair, curtain, plain wall, gradient backdrop, high detail, intricate detail, micro detail, photographic texture, skin texture, pores, peach fuzz, specular reflection, ray traced reflections, glossy plastic, subsurface scattering, physically based rendering, real fabric weave, mannequin, dress form, model stand, second person, extra person, background figure, crowd, holding object, cup, bottle, camera lens, prop, floating object, disembodied hand, detached boot, duplicate limb, three legs, 85mm, 50mm, 35mm, macro, f/1.4, depth of field, cinematic lighting, film still, premium CG poster, game cinematic trailer, hyper detailed render, leopard print skin, leopard tights, animal print leggings, two pairs of shoes, bare feet, high heels, stiletto, platform shoes, long legs exaggeration, gaunt, emaciated, sickly, purple, neon, warm orange lighting, mature woman, child, loli, narrow long face, phoenix eyes, oval face, big round eyes, blush, thick lips"
+    },
+    {
+     "k": "8. 风格层（全角色共用，原文照抄 `031_角色卡_t2i_20261110.md` 的「风格层 v2」）",
+     "text": "【风格层·最高权重】这件作品本身就是一件 3D 角色资产，不是拍摄出来的画面。呈现方式：游戏角色选择界面里的角色展示位（character select screen render），角色站在展示台上、正面朝向镜头、被打光照亮，画面是引擎直出。着色：matcap 着色质感——材质像 matcap 预览球，高光是干净的一块圆形反光，没有环境反射、没有物理正确的镜面拖影。形体：风格化 3D 雕塑（stylized 3D sculpt），面数克制、造型概括，所有面用大块平面交代，转折处是柔软倒角，不做微观起伏。贴图：手绘贴图（hand-painted texture），颜色以平涂色块为主，色块边界清楚，表面看不出照片纹理与细微噪点。光：赛璐璐式分块光（cel-band lighting），亮部 / 灰部 / 暗部三段切开，每段内部是平整的色，阴影边缘干净不糊。质感基调：low poly feel、simplified planes、reduced surface detail、soft matte shading——低细节、哑光、概括，宁可少画也不加细节。展示模型：像 character turnaround model 的一格，均匀展示光、无戏剧性打光。"
+    }
+   ],
+   "shots": [
+    {
+     "k": "A 正面半身",
+     "text": "【取景·正面半身】832×1216 竖幅，画面上沿在头顶上方约两指，画面下沿裁在胸线下方一掌（能看见环毛领密封圈、豹纹外披的前襟与冷灰背心的圆领），正面平视，角色直视镜头、不笑，双手自然垂在身侧不入画。"
+    },
+    {
+     "k": "B 动作全身（坐姿、完整造型）",
+     "text": "【姿势·动作全身·一】全身入画，坐在圆形展示台边缘，双腿自然垂下、双脚平踩台面，双手撑在身体两侧的台面上、手指自然张开，肩略含、下巴微收，视线平视偏下看镜头；完整造型为豹纹外披 + 环毛领 + 冷灰背心 + 黑腰带 + 条纹短甲裙 + 白色堆叠护胫 + 纯黑色铆钉及膝靴。"
+    },
+    {
+     "k": "C 动作全身（站立、完整造型）",
+     "text": "【姿势·动作全身·二】全身入画，站在展示台上，重心压在左腿、右腿松着向外撇一点，双臂自然垂在体侧、双手空着，肩略含、下巴微收，视线斜下看向画面右外侧；豹纹外披、环毛领密封圈、铆钉接口腰带与铆钉及膝靴齐全。"
+    }
+   ]
+  },
+  "CREW-036": {
+   "id": "CREW-036",
+   "name": "待命名",
+   "source": "D:\\玄枢号项目\\02_人物立绘\\036_待命名\\036_角色卡_t2i_20261110.md",
+   "prompt": "【人物基准】东亚女性角色，视觉年龄 27–29 岁，身高感 168cm，匀称偏纤：肩平、颈长、手臂细、腰线清楚、腿形匀称，不是模特那种极瘦，也不是圆润型。脸是**偏长的鹅蛋脸**：脸长略大于脸宽，额头饱满，颧骨不外扩，面中略平，下颌线柔和中带一点点方，下巴圆润不尖、不翘；不是短圆脸、不是 V 尖脸。肤色暖白偏奶、细腻通透，颈部与锁骨干净。眼是**狭长的杏眼**：眼形偏长、眼尾微微上挑、双眼皮窄、睫毛自然，眼神温和有神、看人时先笑眼。鼻梁直、长度中等、鼻头小而圆。唇**小而唇峰清楚**，唇色是低饱和豆沙红，常态带一丝浅笑、不露齿。眉毛自然弯、眉尾略长。气质温婉知性、从容端庄：像做过很多年展厅讲解的人，安静、有分寸、不冷也不甜；站姿肩背打开、手势收敛。\n\n【发型与面容】深褐近黑的长发，向后收成一个**低发髻**（位于脑后偏下、后颈上方），发髻紧实不蓬松；中分偏侧，额侧各留一缕顺直长发贴着脸颊垂下，其余全部收进髻里；发丝细、服帖、有柔和亮带，按大束分块概括，不画碎发飞丝、不做大波浪、不做高马尾。偏长鹅蛋脸、面中略平、下颌柔和中带一点方、下巴圆润；狭长杏眼、眼尾微挑、双眼皮窄；自然弯眉、眉尾略长；鼻梁直、鼻头小而圆；唇小而唇峰清楚、豆沙红、带一丝浅笑；暖白偏奶肤色、光线柔和；妆面干净克制，只有薄底、自然眉、豆沙唇，没有浓眼影、没有腮红块、没有高光。\n\n【服饰·舰载生活区装备·九项】①驼色针织长裙甲：整片针织纹复合软甲，大圆领，领缘一圈深褐硬质齿边接口环，哑光不反光。②胸前与肩部散布的深褐花卉贴布模块：2–3 朵大小错开的硬质薄片贴布，花瓣大色块平涂，边缘一道窄缝线框。③驼色流苏披肩甲：无缝软壳披肩，搭在双肩、前襟自然交叠，边缘垂深褐长流苏，流苏按大束概括。④腰部束带锁扣：深褐窄带绕腰一周，正面一枚扁圆锁扣，垂两条短带。⑤多节花形耳坠传感器：三节正红花形模块 + 红珠，垂到下颌线，左右各一。⑥低发髻固定环：深褐窄箍藏在发内，只露一点。⑦左腕细银接口环：窄金属环箍，素面。⑧长裙下摆：垂到小腿中段，同驼色，补齐·待确认。⑨深褐软皮短靴（踝到小腿下段）：无装饰、方头、低跟，补齐·待确认。所有部件按大体块 + 平涂色画，不做细碎亮片、不做刺绣针脚细节、不做螺丝与划痕。\n\n【配色】主色驼色（裙甲、披肩，约 60%）；辅色深褐（齿边、贴布、流苏、束带、靴，约 24%）；浅色暖白（内层与高光面，约 9%）；重色正红（耳坠，约 5%）；点缀冷银（腕环、锁扣，约 2%）。整体暖调、低对比、哑光；红色是唯一的饱和色块；不出紫色、不要荧光、不要金属镜面。\n\n【硬约束】画面里只有这一个角色，单主体、单一姿势；身体结构完整不变形，手指不多不少、四肢不缺不叠；双手空着、不拿道具；双脚都踩在地面上，靴子穿在脚上、不悬空、不脱脚、不出现第二双鞋；大圆领，不是方领、不是高领；红色只出现在耳坠；不出现表外衣物与配件；不做镜像/双人/三视图拼贴；不出现文字、logo、水印、UI 界面元素。\n\nlowres, blurry, text, watermark, signature, bad anatomy, extra fingers, deformed hands, oversaturated, cartoon, flat lighting, waxy skin, asymmetric face, deformed eyes, blurry face, plastic skin, photo, photograph, photorealistic, hyperrealistic, real person, real human skin, skin pores, film grain, analog noise, DSLR, 35mm photo, shallow depth of field, bokeh, fashion editorial, magazine cover, studio softbox, natural window light, instagram face, influencer face, plastic toy, vinyl figure, shoulder armor, pauldron, watch, choker, neck ring, zipper, pockets, sofa, bed, chair, curtain, gradient backdrop, high detail, intricate detail, micro detail, photographic texture, skin texture, pores, peach fuzz, specular reflection, ray traced reflections, glossy plastic, subsurface scattering, real fabric weave, mannequin, dress form, model stand, second person, extra person, background figure, crowd, holding object, cup, bottle, prop, floating object, disembodied hand, detached boot, duplicate limb, three legs, 85mm, 50mm, macro, f/1.4, depth of field, cinematic lighting, film still, premium CG poster, game cinematic trailer, hyper detailed render, long loose hair, wavy hair, big curls, high ponytail, bun on top, square neckline, high neck, turtleneck, short round face, V-shaped chin, pointed chin, phoenix eyes, thick lips, chubby cheeks, baby face, doll face, teenage, young girl, child, heavy makeup, red eyeshadow, glitter, sequins, purple, neon, black dress, white dress, handbag, text overlay, caption, subtitle, letters, wardrobe, closet, shelf, poster, frame, shoes on floor, multiple shoes, scattered shoes, stool, table, furniture\n\n【风格层·最高权重】这件作品本身就是一件 3D 角色资产，不是拍摄出来的画面。呈现方式：游戏角色选择界面里的角色展示位（character select screen render），角色站在展示台上、正面朝向镜头、被打光照亮，画面是引擎直出。着色：matcap 着色质感——材质像 matcap 预览球，高光是干净的一块圆形反光，没有环境反射、没有物理正确的镜面拖影。形体：风格化 3D 雕塑（stylized 3D sculpt），面数克制、造型概括，所有面用大块平面交代，转折处是柔软倒角，不做微观起伏。贴图：手绘贴图（hand-painted texture），颜色以平涂色块为主，色块边界清楚，表面看不出照片纹理与细微噪点。光：赛璐璐式分块光（cel-band lighting），亮部 / 灰部 / 暗部三段切开，每段内部是平整的色，阴影边缘干净不糊。质感基调：low poly feel、simplified planes、reduced surface detail、soft matte shading——低细节、哑光、概括，宁可少画也不加细节。展示模型：像 character turnaround model 的一格，均匀展示光、无戏剧性打光。\n\n【取景·正面半身】832×1216 竖幅，只要上半身：画面上沿在头顶上方约两指，下沿裁在胸线下方一掌，画面里不出现腰线以下的腿与鞋；能看清低发髻、额侧两缕长发、大圆领齿边、胸腹花卉贴布与红色多节耳坠；正面平视，角色直视镜头、眼神温和、嘴角带一丝浅笑，双手自然垂在身侧不入画。\n\n【姿势·动作全身·一】全身入画，站在圆形展示台上，重心压在右腿、左腿稍前，双手在身前轻轻交握、手肘放松，肩背打开、下巴微抬，视线平视镜头、带浅笑；长裙下摆垂到小腿中段，深褐短靴穿在脚上、双脚着地。\n\n【姿势·动作全身·二】全身入画，坐在圆柱展示台边缘，双腿并拢、小腿自然垂下、双脚平踩地面，双手交叠放在膝上、手指自然放松，肩略侧、头微偏，视线看向画面左外侧；披肩仍搭在身上；短靴穿在脚上、双脚着地不悬空。",
+   "sections": [
+    {
+     "k": "2. 人物基准（独立设定）",
+     "text": "【人物基准】东亚女性角色，视觉年龄 27–29 岁，身高感 168cm，匀称偏纤：肩平、颈长、手臂细、腰线清楚、腿形匀称，不是模特那种极瘦，也不是圆润型。脸是**偏长的鹅蛋脸**：脸长略大于脸宽，额头饱满，颧骨不外扩，面中略平，下颌线柔和中带一点点方，下巴圆润不尖、不翘；不是短圆脸、不是 V 尖脸。肤色暖白偏奶、细腻通透，颈部与锁骨干净。眼是**狭长的杏眼**：眼形偏长、眼尾微微上挑、双眼皮窄、睫毛自然，眼神温和有神、看人时先笑眼。鼻梁直、长度中等、鼻头小而圆。唇**小而唇峰清楚**，唇色是低饱和豆沙红，常态带一丝浅笑、不露齿。眉毛自然弯、眉尾略长。气质温婉知性、从容端庄：像做过很多年展厅讲解的人，安静、有分寸、不冷也不甜；站姿肩背打开、手势收敛。"
+    },
+    {
+     "k": "3. 发型与面容",
+     "text": "【发型与面容】深褐近黑的长发，向后收成一个**低发髻**（位于脑后偏下、后颈上方），发髻紧实不蓬松；中分偏侧，额侧各留一缕顺直长发贴着脸颊垂下，其余全部收进髻里；发丝细、服帖、有柔和亮带，按大束分块概括，不画碎发飞丝、不做大波浪、不做高马尾。偏长鹅蛋脸、面中略平、下颌柔和中带一点方、下巴圆润；狭长杏眼、眼尾微挑、双眼皮窄；自然弯眉、眉尾略长；鼻梁直、鼻头小而圆；唇小而唇峰清楚、豆沙红、带一丝浅笑；暖白偏奶肤色、光线柔和；妆面干净克制，只有薄底、自然眉、豆沙唇，没有浓眼影、没有腮红块、没有高光。"
+    },
+    {
+     "k": "4. 服饰（九项）",
+     "text": "【服饰·舰载生活区装备·九项】①驼色针织长裙甲：整片针织纹复合软甲，大圆领，领缘一圈深褐硬质齿边接口环，哑光不反光。②胸前与肩部散布的深褐花卉贴布模块：2–3 朵大小错开的硬质薄片贴布，花瓣大色块平涂，边缘一道窄缝线框。③驼色流苏披肩甲：无缝软壳披肩，搭在双肩、前襟自然交叠，边缘垂深褐长流苏，流苏按大束概括。④腰部束带锁扣：深褐窄带绕腰一周，正面一枚扁圆锁扣，垂两条短带。⑤多节花形耳坠传感器：三节正红花形模块 + 红珠，垂到下颌线，左右各一。⑥低发髻固定环：深褐窄箍藏在发内，只露一点。⑦左腕细银接口环：窄金属环箍，素面。⑧长裙下摆：垂到小腿中段，同驼色，补齐·待确认。⑨深褐软皮短靴（踝到小腿下段）：无装饰、方头、低跟，补齐·待确认。所有部件按大体块 + 平涂色画，不做细碎亮片、不做刺绣针脚细节、不做螺丝与划痕。"
+    },
+    {
+     "k": "5. 配色",
+     "text": "【配色】主色驼色（裙甲、披肩，约 60%）；辅色深褐（齿边、贴布、流苏、束带、靴，约 24%）；浅色暖白（内层与高光面，约 9%）；重色正红（耳坠，约 5%）；点缀冷银（腕环、锁扣，约 2%）。整体暖调、低对比、哑光；红色是唯一的饱和色块；不出紫色、不要荧光、不要金属镜面。"
+    },
+    {
+     "k": "6. 硬约束",
+     "text": "【硬约束】画面里只有这一个角色，单主体、单一姿势；身体结构完整不变形，手指不多不少、四肢不缺不叠；双手空着、不拿道具；双脚都踩在地面上，靴子穿在脚上、不悬空、不脱脚、不出现第二双鞋；大圆领，不是方领、不是高领；红色只出现在耳坠；不出现表外衣物与配件；不做镜像/双人/三视图拼贴；不出现文字、logo、水印、UI 界面元素。"
+    },
+    {
+     "k": "7. 负向",
+     "text": "lowres, blurry, text, watermark, signature, bad anatomy, extra fingers, deformed hands, oversaturated, cartoon, flat lighting, waxy skin, asymmetric face, deformed eyes, blurry face, plastic skin, photo, photograph, photorealistic, hyperrealistic, real person, real human skin, skin pores, film grain, analog noise, DSLR, 35mm photo, shallow depth of field, bokeh, fashion editorial, magazine cover, studio softbox, natural window light, instagram face, influencer face, plastic toy, vinyl figure, shoulder armor, pauldron, watch, choker, neck ring, zipper, pockets, sofa, bed, chair, curtain, gradient backdrop, high detail, intricate detail, micro detail, photographic texture, skin texture, pores, peach fuzz, specular reflection, ray traced reflections, glossy plastic, subsurface scattering, real fabric weave, mannequin, dress form, model stand, second person, extra person, background figure, crowd, holding object, cup, bottle, prop, floating object, disembodied hand, detached boot, duplicate limb, three legs, 85mm, 50mm, macro, f/1.4, depth of field, cinematic lighting, film still, premium CG poster, game cinematic trailer, hyper detailed render, long loose hair, wavy hair, big curls, high ponytail, bun on top, square neckline, high neck, turtleneck, short round face, V-shaped chin, pointed chin, phoenix eyes, thick lips, chubby cheeks, baby face, doll face, teenage, young girl, child, heavy makeup, red eyeshadow, glitter, sequins, purple, neon, black dress, white dress, handbag, text overlay, caption, subtitle, letters, wardrobe, closet, shelf, poster, frame, shoes on floor, multiple shoes, scattered shoes, stool, table, furniture"
+    },
+    {
+     "k": "8. 风格层（全角色共用，原文照抄 `031_角色卡_t2i_20261110.md` 的「风格层 v2」）",
+     "text": "【风格层·最高权重】这件作品本身就是一件 3D 角色资产，不是拍摄出来的画面。呈现方式：游戏角色选择界面里的角色展示位（character select screen render），角色站在展示台上、正面朝向镜头、被打光照亮，画面是引擎直出。着色：matcap 着色质感——材质像 matcap 预览球，高光是干净的一块圆形反光，没有环境反射、没有物理正确的镜面拖影。形体：风格化 3D 雕塑（stylized 3D sculpt），面数克制、造型概括，所有面用大块平面交代，转折处是柔软倒角，不做微观起伏。贴图：手绘贴图（hand-painted texture），颜色以平涂色块为主，色块边界清楚，表面看不出照片纹理与细微噪点。光：赛璐璐式分块光（cel-band lighting），亮部 / 灰部 / 暗部三段切开，每段内部是平整的色，阴影边缘干净不糊。质感基调：low poly feel、simplified planes、reduced surface detail、soft matte shading——低细节、哑光、概括，宁可少画也不加细节。展示模型：像 character turnaround model 的一格，均匀展示光、无戏剧性打光。"
+    }
+   ],
+   "shots": [
+    {
+     "k": "A 正面半身",
+     "text": "【取景·正面半身】832×1216 竖幅，只要上半身：画面上沿在头顶上方约两指，下沿裁在胸线下方一掌，画面里不出现腰线以下的腿与鞋；能看清低发髻、额侧两缕长发、大圆领齿边、胸腹花卉贴布与红色多节耳坠；正面平视，角色直视镜头、眼神温和、嘴角带一丝浅笑，双手自然垂在身侧不入画。"
+    },
+    {
+     "k": "B 动作全身·站姿",
+     "text": "【姿势·动作全身·一】全身入画，站在圆形展示台上，重心压在右腿、左腿稍前，双手在身前轻轻交握、手肘放松，肩背打开、下巴微抬，视线平视镜头、带浅笑；长裙下摆垂到小腿中段，深褐短靴穿在脚上、双脚着地。"
+    },
+    {
+     "k": "C 动作全身·坐姿",
+     "text": "【姿势·动作全身·二】全身入画，坐在圆柱展示台边缘，双腿并拢、小腿自然垂下、双脚平踩地面，双手交叠放在膝上、手指自然放松，肩略侧、头微偏，视线看向画面左外侧；披肩仍搭在身上；短靴穿在脚上、双脚着地不悬空。"
+    }
+   ]
+  },
+  "CREW-037": {
+   "id": "CREW-037",
+   "name": "待命名",
+   "source": "D:\\玄枢号项目\\02_人物立绘\\037_待命名\\037_角色卡_t2i_20261110.md",
+   "prompt": "【人物基准】东亚女性角色，视觉年龄 21–23 岁，身高感 172cm，极长腿、上身短：肩窄而平、颈细长、腰细、胯窄，腿长占身高约一半，整体是高瘦的衣架子身形，不是圆润型、不是肌肉型。脸是**小巧偏短的心形脸**：脸宽略大于脸长的视觉感、额头饱满、颧部柔和不外扩、下颌线柔和收窄、下巴小而略尖但不尖锐；不是长脸、不是方脸、不是圆脸。肤色冷白偏粉、通透有光泽，颈与锁骨的骨点清楚。眼是**略长的杏眼**：眼裂长度中等偏长、眼尾微微**下垂**（天然无辜感）、双眼皮明显且窄、黑眼珠占比大、卧蚕浅；眼神安静、不太笑。鼻梁细、鼻头小、鼻翼窄。唇小，上唇薄、下唇略厚，唇色玫瑰豆沙，常态平直不说话。眉毛细、平直略下压。气质**甜酷**：五官是软的，表情是冷的；站姿松但直，重心常落在一条腿上。\n\n【发型与面容】纯黑长发，侧分（约三比七），发量厚，头顶蓬起有高度；从耳下开始起**大波浪**，卷度大而松、不细碎，发尾垂到胸下；脸颊一侧有一缕大卷垂在胸前，另一侧别在耳后。不是中分、不是直发贴头皮、不是栗色/棕色、不是短发、不是盘发。小巧偏短的心形脸、下颌柔和收窄、下巴小而略尖；略长杏眼、眼尾微下垂、双眼皮窄而明显、黑眼珠大；细而平直的眉；鼻梁细、鼻头小；唇小、上薄下略厚、玫瑰豆沙；冷白偏粉肤色；妆面干净，只有薄底、细眼线、玫瑰唇，没有浓眼影、没有明显腮红、没有高光颗粒。\n\n【服饰·舰载生活区装备·九项】①黑色细密针织软甲外壳：短款，前襟敞开不扣，门襟与袖口一圈细齿接口边，哑光。②白色硬质蕾丝领环：颈下一圈白色蕾丝纹硬边领环，前中三枚珍珠状接口钉。③双圈珍珠传感器链：两圈哑光珍珠模块，大小错开，垂到胸下。④白色蕾丝高腰短甲裙：整片蕾丝纹硬质壳，高腰，裤脚一圈黑色短流苏护边按束概括。⑤黑色菱格硬壳腰侧挂载仓：小方仓，正面金色 V 形卡扣，短链条斜挂到左髋。⑥黑色尖头硬壳细高跟战靴：尖头、踝部两圈铆钉绑带接口、细金属跟钉，哑光漆面。⑦侧分发内窄箍固定环：藏在发内只露一点。⑧左腕细银接口环：窄金属环箍、素面，补齐·待确认。⑨后颈发际接口片：小片浅银硬片、藏在发下，补齐·待确认。所有部件按大体块 + 平涂色画，不做亮片、不做刺绣针脚、不做螺丝与划痕。\n\n【配色】主色纯黑（软甲外壳、短流苏、挂载仓、战靴，约 52%）；大块白（蕾丝领环、短甲裙，约 30%）；暖白珍珠（传感器链，约 8%）；冷银（接口环、接口片、跟钉，约 6%）；金色只做一枚 V 形卡扣（约 2%）；肤色与唇的玫瑰调（约 2%）。整体黑白高对比、哑光；不出现第三主色，不出紫色、不出荧光、不要镜面反射。\n\n【硬约束】画面里只有这一个角色，单主体、单一姿势；身体结构完整不变形，手指不多不少、四肢不缺不叠；双手空着、不拿道具、不拎包；双脚都踩在地面上，高跟鞋穿在脚上、不悬空、不脱脚、不出现第二双鞋；上身穿黑色短开衫、内层白色蕾丝领环，下身穿白色蕾丝短甲裙，三层结构必须都读得出来；珍珠链只一圈位置在胸前，不绕颈两圈以上；不做镜像/双人/三视图拼贴；不出现文字、logo、水印、UI 界面元素。\n\nlowres, blurry, text, watermark, signature, bad anatomy, extra fingers, deformed hands, oversaturated, cartoon, flat lighting, waxy skin, asymmetric face, deformed eyes, blurry face, plastic skin, photo, photograph, photorealistic, hyperrealistic, real person, real human skin, skin pores, film grain, analog noise, DSLR, 35mm photo, shallow depth of field, bokeh, fashion editorial, magazine cover, studio softbox, natural window light, instagram face, influencer face, plastic toy, vinyl figure, shoulder armor, pauldron, choker, neck ring, zipper, pockets, sofa, bed, chair, chair back, stairs, curtain, gradient backdrop, high detail, intricate detail, micro detail, photographic texture, skin texture, pores, peach fuzz, specular reflection, ray traced reflections, glossy plastic, subsurface scattering, real fabric weave, mannequin, dress form, model stand, second person, extra person, background figure, crowd, holding object, cup, phone, handbag, shoulder bag, prop, floating object, disembodied hand, detached shoe, duplicate limb, three legs, platform heels, ankle boots, knee boots, sneakers, flat shoes, bare feet, 85mm, 50mm, macro, f/1.4, depth of field, cinematic lighting, film still, premium CG poster, game cinematic trailer, hyper detailed render, middle part, straight flat hair, short hair, bob cut, bun, ponytail, bald forehead, brown hair, chestnut hair, blonde, long face, square jaw, round face, chubby cheeks, baby face, thick eyebrows, big round eyes, upturned eye corners, heavy makeup, smokey eyes, red lips, glitter, sequins, purple, neon, parent and child, two models, hand on hip, sitting on chair, leaning on wall, tulle, tutu, spring coat, jeans, pants, shorts on floor, scattered clothes, wardrobe, closet, shelf, poster, frame, text overlay, caption, subtitle, letters, numbers, logo, ui\n\n【风格层·最高权重】这件作品本身就是一件 3D 角色资产，不是拍摄出来的画面。呈现方式：游戏角色选择界面里的角色展示位（character select screen render），角色站在展示台上、正面朝向镜头、被打光照亮，画面是引擎直出。着色：matcap 着色质感——材质像 matcap 预览球，高光是干净的一块圆形反光，没有环境反射、没有物理正确的镜面拖影。形体：风格化 3D 雕塑（stylized 3D sculpt），面数克制、造型概括，所有面用大块平面交代，转折处是柔软倒角，不做微观起伏。贴图：手绘贴图（hand-painted texture），颜色以平涂色块为主，色块边界清楚，表面看不出照片纹理与细微噪点。光：赛璐璐式分块光（cel-band lighting），亮部 / 灰部 / 暗部三段切开，每段内部是平整的色，阴影边缘干净不糊。质感基调：low poly feel、simplified planes、reduced surface detail、soft matte shading——低细节、哑光、概括，宁可少画也不加细节。展示模型：像 character turnaround model 的一格，均匀展示光、无戏剧性打光。\n\n【取景·正面半身】832×1216 竖幅，只要上半身：画面上沿在头顶上方约两指，下沿裁在胸线下方一掌，不出现腰线以下的腿与鞋；要能看清侧分大波浪、白色蕾丝领环、黑色短开衫敞开、双圈珍珠链；正面平视，角色直视镜头、表情冷静、嘴角不动。\n\n【姿势·动作全身·一】全身入画，站在圆形展示台上，重心压在左腿、右腿稍前并微微内扣，双手自然垂在身侧、手指放松，肩平、下巴微收，视线平视镜头、不笑；白色蕾丝短甲裙的长度到大腿中段，黑色尖头细高跟穿在脚上、双脚着地。\n\n【姿势·动作全身·二】全身入画，坐在圆柱展示台边缘，双腿并拢、小腿自然垂下、双脚平踩地面，双手交叠放在大腿上、手指自然放松，上身略侧、头微偏，视线看向画面右外侧；短甲裙的黑色短流苏护边垂在台沿外；高跟鞋穿在脚上、双脚着地不悬空。",
+   "sections": [
+    {
+     "k": "2. 人物基准（独立设定）",
+     "text": "【人物基准】东亚女性角色，视觉年龄 21–23 岁，身高感 172cm，极长腿、上身短：肩窄而平、颈细长、腰细、胯窄，腿长占身高约一半，整体是高瘦的衣架子身形，不是圆润型、不是肌肉型。脸是**小巧偏短的心形脸**：脸宽略大于脸长的视觉感、额头饱满、颧部柔和不外扩、下颌线柔和收窄、下巴小而略尖但不尖锐；不是长脸、不是方脸、不是圆脸。肤色冷白偏粉、通透有光泽，颈与锁骨的骨点清楚。眼是**略长的杏眼**：眼裂长度中等偏长、眼尾微微**下垂**（天然无辜感）、双眼皮明显且窄、黑眼珠占比大、卧蚕浅；眼神安静、不太笑。鼻梁细、鼻头小、鼻翼窄。唇小，上唇薄、下唇略厚，唇色玫瑰豆沙，常态平直不说话。眉毛细、平直略下压。气质**甜酷**：五官是软的，表情是冷的；站姿松但直，重心常落在一条腿上。"
+    },
+    {
+     "k": "3. 发型与面容",
+     "text": "【发型与面容】纯黑长发，侧分（约三比七），发量厚，头顶蓬起有高度；从耳下开始起**大波浪**，卷度大而松、不细碎，发尾垂到胸下；脸颊一侧有一缕大卷垂在胸前，另一侧别在耳后。不是中分、不是直发贴头皮、不是栗色/棕色、不是短发、不是盘发。小巧偏短的心形脸、下颌柔和收窄、下巴小而略尖；略长杏眼、眼尾微下垂、双眼皮窄而明显、黑眼珠大；细而平直的眉；鼻梁细、鼻头小；唇小、上薄下略厚、玫瑰豆沙；冷白偏粉肤色；妆面干净，只有薄底、细眼线、玫瑰唇，没有浓眼影、没有明显腮红、没有高光颗粒。"
+    },
+    {
+     "k": "4. 服饰（九项）",
+     "text": "【服饰·舰载生活区装备·九项】①黑色细密针织软甲外壳：短款，前襟敞开不扣，门襟与袖口一圈细齿接口边，哑光。②白色硬质蕾丝领环：颈下一圈白色蕾丝纹硬边领环，前中三枚珍珠状接口钉。③双圈珍珠传感器链：两圈哑光珍珠模块，大小错开，垂到胸下。④白色蕾丝高腰短甲裙：整片蕾丝纹硬质壳，高腰，裤脚一圈黑色短流苏护边按束概括。⑤黑色菱格硬壳腰侧挂载仓：小方仓，正面金色 V 形卡扣，短链条斜挂到左髋。⑥黑色尖头硬壳细高跟战靴：尖头、踝部两圈铆钉绑带接口、细金属跟钉，哑光漆面。⑦侧分发内窄箍固定环：藏在发内只露一点。⑧左腕细银接口环：窄金属环箍、素面，补齐·待确认。⑨后颈发际接口片：小片浅银硬片、藏在发下，补齐·待确认。所有部件按大体块 + 平涂色画，不做亮片、不做刺绣针脚、不做螺丝与划痕。"
+    },
+    {
+     "k": "5. 配色",
+     "text": "【配色】主色纯黑（软甲外壳、短流苏、挂载仓、战靴，约 52%）；大块白（蕾丝领环、短甲裙，约 30%）；暖白珍珠（传感器链，约 8%）；冷银（接口环、接口片、跟钉，约 6%）；金色只做一枚 V 形卡扣（约 2%）；肤色与唇的玫瑰调（约 2%）。整体黑白高对比、哑光；不出现第三主色，不出紫色、不出荧光、不要镜面反射。"
+    },
+    {
+     "k": "6. 硬约束",
+     "text": "【硬约束】画面里只有这一个角色，单主体、单一姿势；身体结构完整不变形，手指不多不少、四肢不缺不叠；双手空着、不拿道具、不拎包；双脚都踩在地面上，高跟鞋穿在脚上、不悬空、不脱脚、不出现第二双鞋；上身穿黑色短开衫、内层白色蕾丝领环，下身穿白色蕾丝短甲裙，三层结构必须都读得出来；珍珠链只一圈位置在胸前，不绕颈两圈以上；不做镜像/双人/三视图拼贴；不出现文字、logo、水印、UI 界面元素。"
+    },
+    {
+     "k": "7. 负向",
+     "text": "lowres, blurry, text, watermark, signature, bad anatomy, extra fingers, deformed hands, oversaturated, cartoon, flat lighting, waxy skin, asymmetric face, deformed eyes, blurry face, plastic skin, photo, photograph, photorealistic, hyperrealistic, real person, real human skin, skin pores, film grain, analog noise, DSLR, 35mm photo, shallow depth of field, bokeh, fashion editorial, magazine cover, studio softbox, natural window light, instagram face, influencer face, plastic toy, vinyl figure, shoulder armor, pauldron, choker, neck ring, zipper, pockets, sofa, bed, chair, chair back, stairs, curtain, gradient backdrop, high detail, intricate detail, micro detail, photographic texture, skin texture, pores, peach fuzz, specular reflection, ray traced reflections, glossy plastic, subsurface scattering, real fabric weave, mannequin, dress form, model stand, second person, extra person, background figure, crowd, holding object, cup, phone, handbag, shoulder bag, prop, floating object, disembodied hand, detached shoe, duplicate limb, three legs, platform heels, ankle boots, knee boots, sneakers, flat shoes, bare feet, 85mm, 50mm, macro, f/1.4, depth of field, cinematic lighting, film still, premium CG poster, game cinematic trailer, hyper detailed render, middle part, straight flat hair, short hair, bob cut, bun, ponytail, bald forehead, brown hair, chestnut hair, blonde, long face, square jaw, round face, chubby cheeks, baby face, thick eyebrows, big round eyes, upturned eye corners, heavy makeup, smokey eyes, red lips, glitter, sequins, purple, neon, parent and child, two models, hand on hip, sitting on chair, leaning on wall, tulle, tutu, spring coat, jeans, pants, shorts on floor, scattered clothes, wardrobe, closet, shelf, poster, frame, text overlay, caption, subtitle, letters, numbers, logo, ui"
+    },
+    {
+     "k": "8. 风格层（全角色共用，原文照抄 `031_角色卡_t2i_20261110.md` 的「风格层 v2」）",
+     "text": "【风格层·最高权重】这件作品本身就是一件 3D 角色资产，不是拍摄出来的画面。呈现方式：游戏角色选择界面里的角色展示位（character select screen render），角色站在展示台上、正面朝向镜头、被打光照亮，画面是引擎直出。着色：matcap 着色质感——材质像 matcap 预览球，高光是干净的一块圆形反光，没有环境反射、没有物理正确的镜面拖影。形体：风格化 3D 雕塑（stylized 3D sculpt），面数克制、造型概括，所有面用大块平面交代，转折处是柔软倒角，不做微观起伏。贴图：手绘贴图（hand-painted texture），颜色以平涂色块为主，色块边界清楚，表面看不出照片纹理与细微噪点。光：赛璐璐式分块光（cel-band lighting），亮部 / 灰部 / 暗部三段切开，每段内部是平整的色，阴影边缘干净不糊。质感基调：low poly feel、simplified planes、reduced surface detail、soft matte shading——低细节、哑光、概括，宁可少画也不加细节。展示模型：像 character turnaround model 的一格，均匀展示光、无戏剧性打光。"
+    }
+   ],
+   "shots": [
+    {
+     "k": "A 正面半身",
+     "text": "【取景·正面半身】832×1216 竖幅，只要上半身：画面上沿在头顶上方约两指，下沿裁在胸线下方一掌，不出现腰线以下的腿与鞋；要能看清侧分大波浪、白色蕾丝领环、黑色短开衫敞开、双圈珍珠链；正面平视，角色直视镜头、表情冷静、嘴角不动。"
+    },
+    {
+     "k": "B 动作全身·站姿",
+     "text": "【姿势·动作全身·一】全身入画，站在圆形展示台上，重心压在左腿、右腿稍前并微微内扣，双手自然垂在身侧、手指放松，肩平、下巴微收，视线平视镜头、不笑；白色蕾丝短甲裙的长度到大腿中段，黑色尖头细高跟穿在脚上、双脚着地。"
+    },
+    {
+     "k": "C 动作全身·坐姿",
+     "text": "【姿势·动作全身·二】全身入画，坐在圆柱展示台边缘，双腿并拢、小腿自然垂下、双脚平踩地面，双手交叠放在大腿上、手指自然放松，上身略侧、头微偏，视线看向画面右外侧；短甲裙的黑色短流苏护边垂在台沿外；高跟鞋穿在脚上、双脚着地不悬空。"
+    }
+   ]
+  },
+  "CREW-038": {
+   "id": "CREW-038",
+   "name": "待命名",
+   "source": "D:\\玄枢号项目\\02_人物立绘\\038_待命名\\038_角色卡_t2i_20261110.md",
+   "prompt": "【人物基准】东亚女性角色，视觉年龄 18–19 岁，身高感 165cm，纤瘦：肩窄、颈细、手臂细、腰细、胯窄，腿细而直，整体是少女的清瘦身形，不是成熟曲线型。脸是**小巧的瓜子脸**：额头圆润、颧部柔和不外扩、下颌线一路收窄、下巴小而圆尖；脸的面积小、五官占比大。肤色瓷白偏冷粉、近乎无瑕，颈与肩的线条干净。眼是**大而圆的杏眼**：眼裂圆、眼尾平缓略下垂、双眼皮浅而宽、黑眼珠占比大、卧蚕明显；眼神是安静的、略带怯的直视。鼻梁细而短、鼻头非常小、鼻翼窄。唇小，唇峰柔和、上下唇厚度接近，唇色浅粉，常态微微张开一线。眉毛淡而柔、眉形平缓。气质温婉、安静、带一点怯：肩常微微内收，手势轻。\n\n【发型与面容】栗棕（暖褐）长发，中分偏侧，发质直而厚、柔顺有光泽，全部拨到左肩前，发尾垂到胸下；右侧头发别在耳后，右耳上方别一朵**六瓣大粉花**发饰。不是大波浪、不是卷发、不是黑色、不是短发、不是盘发、不是双马尾。小巧瓜子脸、下颌收窄、下巴小而圆尖；大而圆的杏眼、眼尾平缓略垂、双眼皮浅宽、卧蚕明显；淡而柔的平缓眉；鼻梁细短、鼻头极小；唇小、浅粉、微微张开一线；瓷白偏冷粉肤色；妆面极淡，只有薄底、极细内眼线、浅粉唇，没有眼影色块、没有腮红、没有高光颗粒。\n\n【服饰·舰载生活区装备·九项】①抹胸印花长裙甲：整片奶白底硬质软甲，表面珊瑚粉大花按大色块平涂印花，无肩带、抹胸式，哑光。②抹胸防滑接口箍：上缘内侧一圈窄硬质箍，外侧只露一道细线。③高开衩侧片：左侧开衩到大腿中段，衩缘一道窄包边。④长裙下摆：垂到脚踝上方，同印花，摆缘窄包边。⑤锁骨接口链：细银链 + 一枚小水滴形模块。⑥左腕细银接口环：窄银环 + 一枚小米粒大小蓝点模块。⑦侧头发饰模块：六瓣大粉花别在右耳上方，花瓣硬质平涂。⑧赤足：不设鞋袜，脚趾与脚背完整入画。⑨裙后中缝接口：一道窄硬质缝线，补齐·待确认。所有部件按大体块 + 平涂色画，不做亮片、不做真实布料褶皱细节、不做刺绣针脚。\n\n【配色】主色奶白（裙甲底，约 45%）；大块珊瑚粉（印花大花、发花，约 30%）；栗棕（发，约 14%）；冷银（项链、腕环，约 6%）；浅粉（唇，约 3%）；一点冷蓝（腕环小点，约 2%）。整体浅暖调、低对比、哑光；不出现黑色大块、不出紫色、不要荧光、不要金属镜面。\n\n【硬约束】画面里只有这一个角色，单主体、单一姿势；身体结构完整不变形，手指不多不少、四肢不缺不叠；双手空着、不拿花、不拿道具；赤足，双脚都踩在地面或台面上、不悬空、不出现任何鞋与袜、不出现第二双鞋；抹胸式，肩颈完全裸露，没有肩带、没有披肩、没有外套；左腿开衩一道，不开两道；不做镜像/双人/三视图拼贴；不出现文字、logo、水印、UI 界面元素。\n\nlowres, blurry, text, watermark, signature, bad anatomy, extra fingers, deformed hands, oversaturated, cartoon, flat lighting, waxy skin, asymmetric face, deformed eyes, blurry face, plastic skin, photo, photograph, photorealistic, hyperrealistic, real person, real human skin, skin pores, film grain, analog noise, DSLR, 35mm photo, shallow depth of field, bokeh, fashion editorial, magazine cover, studio softbox, natural window light, instagram face, influencer face, plastic toy, vinyl figure, shoulder armor, pauldron, choker, neck ring, zipper, pockets, sofa, bed, chair, chair back, bamboo chair, curtain, gradient backdrop, high detail, intricate detail, micro detail, photographic texture, skin texture, pores, peach fuzz, specular reflection, ray traced reflections, glossy plastic, subsurface scattering, real fabric weave, mannequin, dress form, model stand, second person, extra person, background figure, crowd, holding object, holding flower, bouquet, vase, prop, floating object, disembodied hand, detached shoe, duplicate limb, three legs, shoes, high heels, sandals, sneakers, socks, stockings, strapless dress falling, spaghetti straps, halter neck, off shoulder sleeves, coat, cardigan, jacket, shawl, wavy hair, big curls, loose curls, black hair, dark hair, short hair, bob cut, twin tails, ponytail, bun, updo, long face, narrow face, square jaw, mature face, heavy makeup, thick eyebrows, sharp eyes, upturned eyes, smokey eyes, red lips, glitter, sequins, purple, neon, 85mm, 50mm, macro, f/1.4, depth of field, cinematic lighting, film still, premium CG poster, game cinematic trailer, hyper detailed render, wardrobe, closet, shelf, poster, frame, text overlay, caption, subtitle, letters, numbers, logo, ui\n\n【风格层·最高权重】这件作品本身就是一件 3D 角色资产，不是拍摄出来的画面。呈现方式：游戏角色选择界面里的角色展示位（character select screen render），角色站在展示台上、正面朝向镜头、被打光照亮，画面是引擎直出。着色：matcap 着色质感——材质像 matcap 预览球，高光是干净的一块圆形反光，没有环境反射、没有物理正确的镜面拖影。形体：风格化 3D 雕塑（stylized 3D sculpt），面数克制、造型概括，所有面用大块平面交代，转折处是柔软倒角，不做微观起伏。贴图：手绘贴图（hand-painted texture），颜色以平涂色块为主，色块边界清楚，表面看不出照片纹理与细微噪点。光：赛璐璐式分块光（cel-band lighting），亮部 / 灰部 / 暗部三段切开，每段内部是平整的色，阴影边缘干净不糊。质感基调：low poly feel、simplified planes、reduced surface detail、soft matte shading——低细节、哑光、概括，宁可少画也不加细节。展示模型：像 character turnaround model 的一格，均匀展示光、无戏剧性打光。\n\n【取景·正面半身】832×1216 竖幅，只要上半身：画面上沿在头顶上方约两指，下沿裁在胸线下方一掌，不出现腰线以下的腿；要能看清栗棕长直发全部拨到左肩、右耳上方的大粉花、抹胸印花上缘与锁骨接口链；正面平视，角色直视镜头、表情安静。\n\n【姿势·动作全身·一】全身入画，站在圆形展示台上，重心落在右腿、左腿稍前、左脚微外撇，双手在身前轻轻交叠、手肘放松，肩微内收、下巴略低，视线平视镜头、带一点怯；左腿一侧开衩露出大腿中段，长裙摆垂到脚踝上方，赤足、双脚着地。\n\n【姿势·动作全身·二】全身入画，坐在木质矮台上（无靠背），双腿并拢侧向一侧、小腿自然垂下、赤足平踩地面，双手放在膝上、手指自然放松，上身微侧、头略偏，视线看向画面左外侧；长裙摆顺着腿侧垂下、开衩处露出一段小腿；画面里不出现任何鞋。",
+   "sections": [
+    {
+     "k": "2. 人物基准（独立设定）",
+     "text": "【人物基准】东亚女性角色，视觉年龄 18–19 岁，身高感 165cm，纤瘦：肩窄、颈细、手臂细、腰细、胯窄，腿细而直，整体是少女的清瘦身形，不是成熟曲线型。脸是**小巧的瓜子脸**：额头圆润、颧部柔和不外扩、下颌线一路收窄、下巴小而圆尖；脸的面积小、五官占比大。肤色瓷白偏冷粉、近乎无瑕，颈与肩的线条干净。眼是**大而圆的杏眼**：眼裂圆、眼尾平缓略下垂、双眼皮浅而宽、黑眼珠占比大、卧蚕明显；眼神是安静的、略带怯的直视。鼻梁细而短、鼻头非常小、鼻翼窄。唇小，唇峰柔和、上下唇厚度接近，唇色浅粉，常态微微张开一线。眉毛淡而柔、眉形平缓。气质温婉、安静、带一点怯：肩常微微内收，手势轻。"
+    },
+    {
+     "k": "3. 发型与面容",
+     "text": "【发型与面容】栗棕（暖褐）长发，中分偏侧，发质直而厚、柔顺有光泽，全部拨到左肩前，发尾垂到胸下；右侧头发别在耳后，右耳上方别一朵**六瓣大粉花**发饰。不是大波浪、不是卷发、不是黑色、不是短发、不是盘发、不是双马尾。小巧瓜子脸、下颌收窄、下巴小而圆尖；大而圆的杏眼、眼尾平缓略垂、双眼皮浅宽、卧蚕明显；淡而柔的平缓眉；鼻梁细短、鼻头极小；唇小、浅粉、微微张开一线；瓷白偏冷粉肤色；妆面极淡，只有薄底、极细内眼线、浅粉唇，没有眼影色块、没有腮红、没有高光颗粒。"
+    },
+    {
+     "k": "4. 服饰（九项）",
+     "text": "【服饰·舰载生活区装备·九项】①抹胸印花长裙甲：整片奶白底硬质软甲，表面珊瑚粉大花按大色块平涂印花，无肩带、抹胸式，哑光。②抹胸防滑接口箍：上缘内侧一圈窄硬质箍，外侧只露一道细线。③高开衩侧片：左侧开衩到大腿中段，衩缘一道窄包边。④长裙下摆：垂到脚踝上方，同印花，摆缘窄包边。⑤锁骨接口链：细银链 + 一枚小水滴形模块。⑥左腕细银接口环：窄银环 + 一枚小米粒大小蓝点模块。⑦侧头发饰模块：六瓣大粉花别在右耳上方，花瓣硬质平涂。⑧赤足：不设鞋袜，脚趾与脚背完整入画。⑨裙后中缝接口：一道窄硬质缝线，补齐·待确认。所有部件按大体块 + 平涂色画，不做亮片、不做真实布料褶皱细节、不做刺绣针脚。"
+    },
+    {
+     "k": "5. 配色",
+     "text": "【配色】主色奶白（裙甲底，约 45%）；大块珊瑚粉（印花大花、发花，约 30%）；栗棕（发，约 14%）；冷银（项链、腕环，约 6%）；浅粉（唇，约 3%）；一点冷蓝（腕环小点，约 2%）。整体浅暖调、低对比、哑光；不出现黑色大块、不出紫色、不要荧光、不要金属镜面。"
+    },
+    {
+     "k": "6. 硬约束",
+     "text": "【硬约束】画面里只有这一个角色，单主体、单一姿势；身体结构完整不变形，手指不多不少、四肢不缺不叠；双手空着、不拿花、不拿道具；赤足，双脚都踩在地面或台面上、不悬空、不出现任何鞋与袜、不出现第二双鞋；抹胸式，肩颈完全裸露，没有肩带、没有披肩、没有外套；左腿开衩一道，不开两道；不做镜像/双人/三视图拼贴；不出现文字、logo、水印、UI 界面元素。"
+    },
+    {
+     "k": "7. 负向",
+     "text": "lowres, blurry, text, watermark, signature, bad anatomy, extra fingers, deformed hands, oversaturated, cartoon, flat lighting, waxy skin, asymmetric face, deformed eyes, blurry face, plastic skin, photo, photograph, photorealistic, hyperrealistic, real person, real human skin, skin pores, film grain, analog noise, DSLR, 35mm photo, shallow depth of field, bokeh, fashion editorial, magazine cover, studio softbox, natural window light, instagram face, influencer face, plastic toy, vinyl figure, shoulder armor, pauldron, choker, neck ring, zipper, pockets, sofa, bed, chair, chair back, bamboo chair, curtain, gradient backdrop, high detail, intricate detail, micro detail, photographic texture, skin texture, pores, peach fuzz, specular reflection, ray traced reflections, glossy plastic, subsurface scattering, real fabric weave, mannequin, dress form, model stand, second person, extra person, background figure, crowd, holding object, holding flower, bouquet, vase, prop, floating object, disembodied hand, detached shoe, duplicate limb, three legs, shoes, high heels, sandals, sneakers, socks, stockings, strapless dress falling, spaghetti straps, halter neck, off shoulder sleeves, coat, cardigan, jacket, shawl, wavy hair, big curls, loose curls, black hair, dark hair, short hair, bob cut, twin tails, ponytail, bun, updo, long face, narrow face, square jaw, mature face, heavy makeup, thick eyebrows, sharp eyes, upturned eyes, smokey eyes, red lips, glitter, sequins, purple, neon, 85mm, 50mm, macro, f/1.4, depth of field, cinematic lighting, film still, premium CG poster, game cinematic trailer, hyper detailed render, wardrobe, closet, shelf, poster, frame, text overlay, caption, subtitle, letters, numbers, logo, ui"
+    },
+    {
+     "k": "8. 风格层（全角色共用，原文照抄 `031_角色卡_t2i_20261110.md` 的「风格层 v2」）",
+     "text": "【风格层·最高权重】这件作品本身就是一件 3D 角色资产，不是拍摄出来的画面。呈现方式：游戏角色选择界面里的角色展示位（character select screen render），角色站在展示台上、正面朝向镜头、被打光照亮，画面是引擎直出。着色：matcap 着色质感——材质像 matcap 预览球，高光是干净的一块圆形反光，没有环境反射、没有物理正确的镜面拖影。形体：风格化 3D 雕塑（stylized 3D sculpt），面数克制、造型概括，所有面用大块平面交代，转折处是柔软倒角，不做微观起伏。贴图：手绘贴图（hand-painted texture），颜色以平涂色块为主，色块边界清楚，表面看不出照片纹理与细微噪点。光：赛璐璐式分块光（cel-band lighting），亮部 / 灰部 / 暗部三段切开，每段内部是平整的色，阴影边缘干净不糊。质感基调：low poly feel、simplified planes、reduced surface detail、soft matte shading——低细节、哑光、概括，宁可少画也不加细节。展示模型：像 character turnaround model 的一格，均匀展示光、无戏剧性打光。"
+    }
+   ],
+   "shots": [
+    {
+     "k": "A 正面半身",
+     "text": "【取景·正面半身】832×1216 竖幅，只要上半身：画面上沿在头顶上方约两指，下沿裁在胸线下方一掌，不出现腰线以下的腿；要能看清栗棕长直发全部拨到左肩、右耳上方的大粉花、抹胸印花上缘与锁骨接口链；正面平视，角色直视镜头、表情安静。"
+    },
+    {
+     "k": "B 动作全身·站姿",
+     "text": "【姿势·动作全身·一】全身入画，站在圆形展示台上，重心落在右腿、左腿稍前、左脚微外撇，双手在身前轻轻交叠、手肘放松，肩微内收、下巴略低，视线平视镜头、带一点怯；左腿一侧开衩露出大腿中段，长裙摆垂到脚踝上方，赤足、双脚着地。"
+    },
+    {
+     "k": "C 动作全身·坐姿",
+     "text": "【姿势·动作全身·二】全身入画，坐在木质矮台上（无靠背），双腿并拢侧向一侧、小腿自然垂下、赤足平踩地面，双手放在膝上、手指自然放松，上身微侧、头略偏，视线看向画面左外侧；长裙摆顺着腿侧垂下、开衩处露出一段小腿；画面里不出现任何鞋。"
+    }
+   ]
+  },
+  "CREW-039": {
+   "id": "CREW-039",
+   "name": "待命名",
+   "source": "D:\\玄枢号项目\\02_人物立绘\\039_待命名\\039_角色卡_t2i_20261110.md",
+   "prompt": "【人物基准】东亚女性角色，视觉年龄 26–30 岁，身高感 170cm，身形有曲线：肩线平、颈长、胸腰臀的转折明显、腿长而匀称，是成熟女性的丰盈感，不是极瘦、不是少女身形。脸是**偏长的心形脸**：额头饱满、颧骨略高但线条柔和、下颌一路收窄、下巴小而略尖；不是圆脸、不是方脸。肤色象牙暖白、有妆底与轻修容。眼是**细长的桃花眼**：眼裂细长、眼尾明显上挑、双眼皮宽、睫毛浓密、眼线拉出一点尾；眼神是冷的、审视的、不太笑。鼻梁高而直、鼻头小而精致。唇中等偏厚、唇峰清晰、玫红满涂。眉毛是有形的挑眉、眉尾上挑。气质冷艳、疏离、夜场女主：站姿直、下巴略抬、手势少而稳。\n\n【发型与面容】纯黑头发全部向上收成**高位松散丸子头**（位于头顶偏后，丸体松而不紧、有几缕抽出的发丝），两侧鬓角各留两三缕细碎发垂到下颌，发顶自然蓬起；不是低发髻、不是长直发、不是大波浪、不是短发、不是双马尾。偏长心形脸、颧略高但柔和、下颌收窄、下巴小尖；细长桃花眼、眼尾明显上挑、双眼皮宽、浓睫、眼线拉尾；挑眉、眉尾上挑；鼻梁高直、鼻头小而精致；唇中等偏厚、唇峰清晰、玫红满涂；象牙暖白肤色、有妆底；妆面是**浓妆但干净**：眼线、睫毛、眉形、玫红唇清楚，没有大面积亮片、没有夸张腮红、没有假睫毛夸张外翻。\n\n【服饰·舰载生活区装备·九项】①黑色蕾丝长袖贴身软甲：V 领深到胸线，领缘与袖口一圈蕾丝纹硬质包边，哑光。②分段贴身结构：腰腹与髋部横向褶线按段切开，每段一道窄缝接口。③背部交叉接口带：两条窄带在背中交叉，交点一枚小方扣。④半透黑纱覆层：大腿到脚踝的半透黑纱，接缝一道窄接口线，是覆层不是义体。⑤黑色漆皮尖头硬壳细高跟：尖头、细金属跟、鞋底正红。⑥白色短毛绒披肩甲：搭在双肩、前襟自然分开，毛面按大色块概括。⑦黑色长风衣甲：长及小腿、敞开不系、翻领、无装饰。⑧大圈耳环传感器：细金属圈，直径垂到下颌线，左右各一。⑨锁骨细链 + 左腕宽银接口环：细链一枚小方坠；腕环面宽、哑光银。所有部件按大体块 + 平涂色画，不做亮片、不做蕾丝针脚、不做螺丝与划痕。\n\n【配色】主色纯黑（软甲、风衣、鞋、纱，约 62%）；大块白（毛绒披肩，约 17%）；冷银（耳环、项链、腕环，约 9%）；正红（鞋底、唇，约 8%）；象牙暖白（肤与高光面，约 4%）。整体深色高对比、哑光；红色是唯一的饱和色块；不出紫色、不要荧光、不要金属镜面。\n\n【画面铁律】画面里只有这一个角色，单主体、单一姿势；身体结构完整不变形，手指不多不少、四肢不缺不叠；双手空着、不拿酒杯、不拿手机、不拿包；双脚都踩在地面上，高跟鞋穿在脚上、不悬空、不脱脚、不出现第二双鞋；V 领深到胸线但不下滑、不露点；黑纱是覆层，腿部能看到半透的黑，不做关节线、不做红色义体；风衣只在 C 图穿上，A/B 图不穿风衣；不做镜像/双人/三视图拼贴；不出现文字、logo、水印、UI 界面元素。\n\nlowres, blurry, text, watermark, signature, bad anatomy, extra fingers, deformed hands, oversaturated, cartoon, flat lighting, waxy skin, asymmetric face, deformed eyes, blurry face, plastic skin, photo, photograph, photorealistic, hyperrealistic, real person, real human skin, skin pores, film grain, analog noise, DSLR, 35mm photo, shallow depth of field, bokeh, fashion editorial, magazine cover, studio softbox, natural window light, instagram face, influencer face, plastic toy, vinyl figure, shoulder armor, pauldron, zipper, pockets, sofa, sofa cushions, bed, chair, bar stool, window, night city, curtain, gradient backdrop, high detail, intricate detail, micro detail, photographic texture, skin texture, pores, peach fuzz, specular reflection, ray traced reflections, glossy plastic, subsurface scattering, real fabric weave, mannequin, dress form, model stand, second person, extra person, background figure, crowd, holding object, wine glass, phone, handbag, cigarette, prop, floating object, disembodied hand, detached shoe, duplicate limb, three legs, low bun, chignon, long straight hair, loose hair, wavy hair, short hair, bob cut, twin tails, ponytail, fringe bangs, red hair, brown hair, blonde, round face, chubby cheeks, baby face, teenage, young girl, child, minimal makeup, bare face, thin lips, pale lips, red prosthetic legs, mechanical legs, joint lines on legs, glitter, sequins, purple, neon, gold jewelry, ring, 85mm, 50mm, macro, f/1.4, depth of field, cinematic lighting, film still, premium CG poster, game cinematic trailer, hyper detailed render, wardrobe, closet, shelf, poster, frame, text overlay, caption, subtitle, letters, numbers, logo, ui\n\n【风格层·最高权重】这件作品本身就是一件 3D 角色资产，不是拍摄出来的画面。呈现方式：游戏角色选择界面里的角色展示位（character select screen render），角色站在展示台上、正面朝向镜头、被打光照亮，画面是引擎直出。着色：matcap 着色质感——材质像 matcap 预览球，高光是干净的一块圆形反光，没有环境反射、没有物理正确的镜面拖影。形体：风格化 3D 雕塑（stylized 3D sculpt），面数克制、造型概括，所有面用大块平面交代，转折处是柔软倒角，不做微观起伏。贴图：手绘贴图（hand-painted texture），颜色以平涂色块为主，色块边界清楚，表面看不出照片纹理与细微噪点。光：赛璐璐式分块光（cel-band lighting），亮部 / 灰部 / 暗部三段切开，每段内部是平整的色，阴影边缘干净不糊。质感基调：low poly feel、simplified planes、reduced surface detail、soft matte shading——低细节、哑光、概括，宁可少画也不加细节。展示模型：像 character turnaround model 的一格，均匀展示光、无戏剧性打光。\n\n【取景·正面半身】832×1216 竖幅，只要上半身：画面上沿在头顶上方约两指，下沿裁在胸线下方一掌，不出现腰线以下的腿；要能看清高位松散丸子头、鬓角碎发、V 领蕾丝包边、大圈耳环、锁骨细链；正面平视，角色直视镜头、眼神冷、不笑。\n\n【姿势·动作全身·一】全身入画，站在圆形展示台上，重心压在右腿、左腿稍前并外撇，双手自然垂在身侧、手指放松，肩平、下巴略抬，视线平视镜头、不笑；白色毛绒披肩搭在双肩、前襟分开；半透黑纱从大腿延伸到脚踝，黑色漆皮尖头细高跟穿在脚上、双脚着地。\n\n【姿势·动作全身·二】全身入画，坐在圆柱展示台边缘，双腿并拢、小腿自然垂下、双脚平踩地面，双手交叠放在大腿上、手指自然放松，上身略侧、头微偏，视线看向画面右外侧；黑色长风衣甲敞开披在肩上、长及小腿；高跟鞋穿在脚上、双脚着地不悬空。",
+   "sections": [
+    {
+     "k": "2. 人物基准（独立设定）",
+     "text": "【人物基准】东亚女性角色，视觉年龄 26–30 岁，身高感 170cm，身形有曲线：肩线平、颈长、胸腰臀的转折明显、腿长而匀称，是成熟女性的丰盈感，不是极瘦、不是少女身形。脸是**偏长的心形脸**：额头饱满、颧骨略高但线条柔和、下颌一路收窄、下巴小而略尖；不是圆脸、不是方脸。肤色象牙暖白、有妆底与轻修容。眼是**细长的桃花眼**：眼裂细长、眼尾明显上挑、双眼皮宽、睫毛浓密、眼线拉出一点尾；眼神是冷的、审视的、不太笑。鼻梁高而直、鼻头小而精致。唇中等偏厚、唇峰清晰、玫红满涂。眉毛是有形的挑眉、眉尾上挑。气质冷艳、疏离、夜场女主：站姿直、下巴略抬、手势少而稳。"
+    },
+    {
+     "k": "3. 发型与面容",
+     "text": "【发型与面容】纯黑头发全部向上收成**高位松散丸子头**（位于头顶偏后，丸体松而不紧、有几缕抽出的发丝），两侧鬓角各留两三缕细碎发垂到下颌，发顶自然蓬起；不是低发髻、不是长直发、不是大波浪、不是短发、不是双马尾。偏长心形脸、颧略高但柔和、下颌收窄、下巴小尖；细长桃花眼、眼尾明显上挑、双眼皮宽、浓睫、眼线拉尾；挑眉、眉尾上挑；鼻梁高直、鼻头小而精致；唇中等偏厚、唇峰清晰、玫红满涂；象牙暖白肤色、有妆底；妆面是**浓妆但干净**：眼线、睫毛、眉形、玫红唇清楚，没有大面积亮片、没有夸张腮红、没有假睫毛夸张外翻。"
+    },
+    {
+     "k": "4. 服饰（九项）",
+     "text": "【服饰·舰载生活区装备·九项】①黑色蕾丝长袖贴身软甲：V 领深到胸线，领缘与袖口一圈蕾丝纹硬质包边，哑光。②分段贴身结构：腰腹与髋部横向褶线按段切开，每段一道窄缝接口。③背部交叉接口带：两条窄带在背中交叉，交点一枚小方扣。④半透黑纱覆层：大腿到脚踝的半透黑纱，接缝一道窄接口线，是覆层不是义体。⑤黑色漆皮尖头硬壳细高跟：尖头、细金属跟、鞋底正红。⑥白色短毛绒披肩甲：搭在双肩、前襟自然分开，毛面按大色块概括。⑦黑色长风衣甲：长及小腿、敞开不系、翻领、无装饰。⑧大圈耳环传感器：细金属圈，直径垂到下颌线，左右各一。⑨锁骨细链 + 左腕宽银接口环：细链一枚小方坠；腕环面宽、哑光银。所有部件按大体块 + 平涂色画，不做亮片、不做蕾丝针脚、不做螺丝与划痕。"
+    },
+    {
+     "k": "5. 配色",
+     "text": "【配色】主色纯黑（软甲、风衣、鞋、纱，约 62%）；大块白（毛绒披肩，约 17%）；冷银（耳环、项链、腕环，约 9%）；正红（鞋底、唇，约 8%）；象牙暖白（肤与高光面，约 4%）。整体深色高对比、哑光；红色是唯一的饱和色块；不出紫色、不要荧光、不要金属镜面。"
+    },
+    {
+     "k": "6. 硬约束",
+     "text": "【画面铁律】画面里只有这一个角色，单主体、单一姿势；身体结构完整不变形，手指不多不少、四肢不缺不叠；双手空着、不拿酒杯、不拿手机、不拿包；双脚都踩在地面上，高跟鞋穿在脚上、不悬空、不脱脚、不出现第二双鞋；V 领深到胸线但不下滑、不露点；黑纱是覆层，腿部能看到半透的黑，不做关节线、不做红色义体；风衣只在 C 图穿上，A/B 图不穿风衣；不做镜像/双人/三视图拼贴；不出现文字、logo、水印、UI 界面元素。"
+    },
+    {
+     "k": "7. 负向",
+     "text": "lowres, blurry, text, watermark, signature, bad anatomy, extra fingers, deformed hands, oversaturated, cartoon, flat lighting, waxy skin, asymmetric face, deformed eyes, blurry face, plastic skin, photo, photograph, photorealistic, hyperrealistic, real person, real human skin, skin pores, film grain, analog noise, DSLR, 35mm photo, shallow depth of field, bokeh, fashion editorial, magazine cover, studio softbox, natural window light, instagram face, influencer face, plastic toy, vinyl figure, shoulder armor, pauldron, zipper, pockets, sofa, sofa cushions, bed, chair, bar stool, window, night city, curtain, gradient backdrop, high detail, intricate detail, micro detail, photographic texture, skin texture, pores, peach fuzz, specular reflection, ray traced reflections, glossy plastic, subsurface scattering, real fabric weave, mannequin, dress form, model stand, second person, extra person, background figure, crowd, holding object, wine glass, phone, handbag, cigarette, prop, floating object, disembodied hand, detached shoe, duplicate limb, three legs, low bun, chignon, long straight hair, loose hair, wavy hair, short hair, bob cut, twin tails, ponytail, fringe bangs, red hair, brown hair, blonde, round face, chubby cheeks, baby face, teenage, young girl, child, minimal makeup, bare face, thin lips, pale lips, red prosthetic legs, mechanical legs, joint lines on legs, glitter, sequins, purple, neon, gold jewelry, ring, 85mm, 50mm, macro, f/1.4, depth of field, cinematic lighting, film still, premium CG poster, game cinematic trailer, hyper detailed render, wardrobe, closet, shelf, poster, frame, text overlay, caption, subtitle, letters, numbers, logo, ui"
+    },
+    {
+     "k": "8. 风格层（全角色共用，原文照抄 `031_角色卡_t2i_20261110.md` 的「风格层 v2」）",
+     "text": "【风格层·最高权重】这件作品本身就是一件 3D 角色资产，不是拍摄出来的画面。呈现方式：游戏角色选择界面里的角色展示位（character select screen render），角色站在展示台上、正面朝向镜头、被打光照亮，画面是引擎直出。着色：matcap 着色质感——材质像 matcap 预览球，高光是干净的一块圆形反光，没有环境反射、没有物理正确的镜面拖影。形体：风格化 3D 雕塑（stylized 3D sculpt），面数克制、造型概括，所有面用大块平面交代，转折处是柔软倒角，不做微观起伏。贴图：手绘贴图（hand-painted texture），颜色以平涂色块为主，色块边界清楚，表面看不出照片纹理与细微噪点。光：赛璐璐式分块光（cel-band lighting），亮部 / 灰部 / 暗部三段切开，每段内部是平整的色，阴影边缘干净不糊。质感基调：low poly feel、simplified planes、reduced surface detail、soft matte shading——低细节、哑光、概括，宁可少画也不加细节。展示模型：像 character turnaround model 的一格，均匀展示光、无戏剧性打光。"
+    }
+   ],
+   "shots": [
+    {
+     "k": "A 正面半身",
+     "text": "【取景·正面半身】832×1216 竖幅，只要上半身：画面上沿在头顶上方约两指，下沿裁在胸线下方一掌，不出现腰线以下的腿；要能看清高位松散丸子头、鬓角碎发、V 领蕾丝包边、大圈耳环、锁骨细链；正面平视，角色直视镜头、眼神冷、不笑。"
+    },
+    {
+     "k": "B 动作全身·站姿",
+     "text": "【姿势·动作全身·一】全身入画，站在圆形展示台上，重心压在右腿、左腿稍前并外撇，双手自然垂在身侧、手指放松，肩平、下巴略抬，视线平视镜头、不笑；白色毛绒披肩搭在双肩、前襟分开；半透黑纱从大腿延伸到脚踝，黑色漆皮尖头细高跟穿在脚上、双脚着地。"
+    },
+    {
+     "k": "C 动作全身·坐姿",
+     "text": "【姿势·动作全身·二】全身入画，坐在圆柱展示台边缘，双腿并拢、小腿自然垂下、双脚平踩地面，双手交叠放在大腿上、手指自然放松，上身略侧、头微偏，视线看向画面右外侧；黑色长风衣甲敞开披在肩上、长及小腿；高跟鞋穿在脚上、双脚着地不悬空。"
+    }
+   ]
+  }
+ }
+}

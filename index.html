@@ -1780,6 +1780,44 @@ body.light .ship-hud a.chip.on{background:#12212c;color:#fff}
   .ship-hud .in{flex-wrap:wrap;overflow:visible;row-gap:2px}
   .ship-hud .grow{display:none}
 }
+/* ===================== 详情页 · 页内放大 + 生图 prompt ===================== */
+.crew-zoom{position:relative;margin:18px 0 22px;border:1px solid #223246;
+  background:linear-gradient(180deg,rgba(8,14,22,.9),rgba(6,10,16,.96));
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.03),0 18px 40px rgba(0,0,0,.35)}
+.crew-zoom[hidden]{display:none}
+.cz-top{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid #1b2a3a}
+.cz-k{font:600 9px/1 ui-monospace,Consolas,monospace;letter-spacing:1.4px;color:#5d7f9c;border:1px solid #2b445c;padding:4px 7px}
+.cz-top b{font-size:13px;letter-spacing:.6px;color:#dbe8f3}
+.cz-hint{margin-left:auto;font-size:11px;color:#63788c}
+.cz-x{border:1px solid #2b445c;background:#0a121b;color:#9fb6c8;font-size:11px;padding:5px 9px;cursor:pointer}
+.cz-x:hover{color:#e6f2fb;border-color:#3f6a8d}
+.cz-grid{display:grid;grid-template-columns:minmax(0,1.12fr) minmax(0,1fr);gap:22px;padding:16px;align-items:start}
+.cz-grid.solo{grid-template-columns:minmax(0,1fr)}
+.cz-pic{position:sticky;top:76px;margin:0;display:flex;flex-direction:column;align-items:center;gap:9px;min-width:0}
+.cz-grid.solo .cz-pic{position:static;margin:0 auto;width:100%;max-width:820px}
+.cz-pic img{display:block;width:auto;max-width:100%;max-height:calc(100vh - 148px);height:auto;object-fit:contain;
+  background:#04070a;box-shadow:0 14px 36px rgba(0,0,0,.55)}
+.cz-pic figcaption{font:500 10px/1.5 ui-monospace,Consolas,monospace;letter-spacing:.5px;color:#71879b;text-align:center}
+.cz-prompt{border-left:1px solid #1b2a3a;padding-left:18px;min-width:0}
+.cz-ph{display:flex;align-items:baseline;gap:9px;padding:0 0 10px;border-bottom:1px solid #1b2a3a}
+.cz-ph b{font:600 10px/1 ui-monospace,Consolas,monospace;letter-spacing:1.2px;color:#63d7ff}
+.cz-ph span{font-size:11px;color:#6f8497;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cz-copy{margin-left:auto;flex:0 0 auto;border:1px solid #2b5468;background:#0b1a23;color:#8ed8ef;
+  font:600 10px/1 ui-monospace,Consolas,monospace;letter-spacing:.6px;padding:6px 9px;cursor:pointer}
+.cz-copy:hover{background:#103042;color:#d5f4ff}
+.cz-sec{margin-top:14px}
+.cz-sec h4{margin:0;font:600 10.5px/1.5 ui-monospace,Consolas,monospace;letter-spacing:.7px;color:#8fa8bb}
+.cz-sec pre{margin:6px 0 0;white-space:pre-wrap;overflow-wrap:anywhere;font:12px/1.78 ui-monospace,Consolas,'Microsoft YaHei',monospace;
+  color:#c6d5e2;background:#070c12;border:1px solid #16222f;padding:10px 12px}
+.crew-zoom.on{box-shadow:inset 0 0 0 1px rgba(99,215,255,.12),0 18px 44px rgba(0,0,0,.45)}
+@media (max-width:900px){
+  .cz-grid{grid-template-columns:minmax(0,1fr);gap:14px;padding:12px}
+  .cz-pic{position:static}
+  .cz-pic img{max-height:62vh}
+  .cz-prompt{border-left:0;border-top:1px solid #1b2a3a;padding-left:0;padding-top:14px}
+  .cz-hint{display:none}
+  .cz-sec pre{font-size:11.5px}
+}
 </style>
 </head>
 <body>
@@ -1859,6 +1897,20 @@ body.light .ship-hud a.chip.on{background:#12212c;color:#fff}
 (function(){
   var D = window.XS_DATA;
   var app = document.getElementById('app');
+  /* 生图 prompt 独立数据（不塞进人物对象，人物字段结构改动互不影响） */
+  var PROMPTS = null, PROMPT_WAIT = [];
+  function withPrompts(fn){ if(PROMPTS) fn(); else PROMPT_WAIT.push(fn); }
+  (function loadPrompts(){
+    fetch('prompts.json', {cache: 'no-cache'}).then(function(r){
+      if(!r.ok) throw 0;
+      return r.json();
+    }).then(function(d){
+      PROMPTS = (d && d.items) || {};
+    }).catch(function(){ PROMPTS = {}; }).then(function(){
+      var q = PROMPT_WAIT.splice(0);
+      q.forEach(function(f){ try{ f(); }catch(e){} });
+    });
+  })();
   var esc = function(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){
     return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); };
   var pct = function(a,b){ return b ? Math.round(a/b*1000)/10 : 0; };
@@ -2274,7 +2326,11 @@ body.light .ship-hud a.chip.on{background:#12212c;color:#fff}
   }
   document.addEventListener('click', function(e){
     var img = e.target.closest('img[data-full]');
-    if(img){ e.preventDefault(); lbOpen(img); SND.click(); return; }
+    if(img){
+      e.preventDefault();
+      if(img.closest('.crew-page')){ crewZoom(img); return; }
+      lbOpen(img); SND.click(); return;
+    }
     if(e.target.closest('#lb')){
       if(Date.now() - LBR.swipe < 550) return;
       var coarse = window.matchMedia && window.matchMedia('(pointer:coarse)').matches;
@@ -3216,6 +3272,61 @@ body.light .ship-hud a.chip.on{background:#12212c;color:#fff}
   }
 
   /* ---------- 人物详情 ---------- */
+  /* ---------- 详情页 · 页内放大 + prompt ---------- */
+  function czPromptHTML(p){
+    var h = '<div class="cz-ph"><b>生图 PROMPT</b><span>' + esc(p.id) + (p.name ? ' · ' + esc(p.name) : '')
+      + '</span><button class="cz-copy" id="czCopy" type="button">复制全文</button></div><div class="cz-secs">';
+    (p.sections || []).forEach(function(s){
+      h += '<section class="cz-sec"><h4>' + esc(s.k) + '</h4><pre>' + esc(s.text) + '</pre></section>';
+    });
+    (p.shots || []).forEach(function(s){
+      h += '<section class="cz-sec"><h4>' + esc(s.k) + '</h4><pre>' + esc(s.text) + '</pre></section>';
+    });
+    return h + '</div>';
+  }
+  function czCopyText(text){
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(text).then(function(){ toast('prompt 全文已复制'); }, function(){ czCopyFallback(text); });
+    }else czCopyFallback(text);
+  }
+  function czCopyFallback(text){
+    var ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    try{ document.execCommand('copy'); toast('prompt 全文已复制'); }catch(e){}
+    document.body.removeChild(ta);
+  }
+  function fillCzPrompt(cid){
+    var host = document.getElementById('czPrompt');
+    if(!host) return;
+    withPrompts(function(){
+      var grid = document.getElementById('czGrid');
+      var p = PROMPTS && PROMPTS[cid];
+      if(!p || !p.prompt){
+        host.parentNode && host.parentNode.removeChild(host);
+        if(grid) grid.classList.add('solo');
+        return;
+      }
+      host.innerHTML = czPromptHTML(p);
+      var btn = document.getElementById('czCopy');
+      if(btn) btn.addEventListener('click', function(){ czCopyText(p.prompt); SND.click(); });
+    });
+  }
+  function crewZoom(img){
+    var box = document.getElementById('crewZoom');
+    if(!box) return;
+    var im = document.getElementById('czImg');
+    var src = img.getAttribute('data-full') || img.currentSrc || img.src;
+    if(im){ im.src = src; im.alt = img.alt || ''; }
+    var cap = document.getElementById('czCap');
+    if(cap) cap.textContent = img.getAttribute('data-cap') || img.alt || '';
+    box.hidden = false;
+    box.classList.add('on');
+    var y = box.getBoundingClientRect().top + (window.pageYOffset || document.documentElement.scrollTop) - 72;
+    window.scrollTo({top: y, behavior: RM.matches ? 'auto' : 'smooth'});
+    SND.click();
+  }
+
   function viewCrew(id){
     var c = crewById[id] || D.crews[0];
     rememberCrew(c.id);
@@ -3310,6 +3421,16 @@ body.light .ship-hud a.chip.on{background:#12212c;color:#fff}
     h += '</aside>';
     h += '</div>';
 
+    /* 页内放大 + 生图 prompt：不弹全屏、不黑屏 */
+    h += '<section class="crew-zoom" id="crewZoom" hidden>'
+      + '<div class="cz-top"><span class="cz-k">ENLARGED · IN PAGE</span><b>立绘放大</b>'
+      + '<span class="cz-hint">点任意立绘在此放大 · 旁边是生图 prompt</span>'
+      + '<button class="cz-x" id="czClose" type="button">收起 ×</button></div>'
+      + '<div class="cz-grid" id="czGrid">'
+      + '<figure class="cz-pic"><img id="czImg" alt=""><figcaption id="czCap"></figcaption></figure>'
+      + '<aside class="cz-prompt" id="czPrompt"></aside>'
+      + '</div></section>';
+
     /* 档案 / 克隆 */
     var keys = Object.keys(c.profile || {});
     var first = keys.slice(0, 6);
@@ -3386,6 +3507,14 @@ body.light .ship-hud a.chip.on{background:#12212c;color:#fff}
     h += '</div></section>';
 
     app.innerHTML = h;
+
+    var czClose = document.getElementById('czClose');
+    if(czClose) czClose.addEventListener('click', function(){
+      var b = document.getElementById('crewZoom');
+      if(b){ b.hidden = true; b.classList.remove('on'); }
+      SND.click();
+    });
+    fillCzPrompt(c.id);
 
     var actPick = app.querySelector('.rpick.on');
     if(actPick && actPick.scrollIntoView) actPick.scrollIntoView({block: 'nearest', inline: 'center'});
