@@ -662,7 +662,8 @@ body.dark main{max-width:1360px}
 .ov-av{flex:0 0 58px;height:74px;border-radius:7px;overflow:hidden;position:relative;cursor:pointer;
   border:1px solid #22303f;opacity:.45;filter:saturate(.45);transition:opacity .2s,transform .2s,box-shadow .2s,border-color .2s}
 .ov-av img{width:100%;height:100%;object-fit:cover;object-position:50% 14%}
-.ov-av:hover{opacity:.8;transform:translateY(-1px)}
+.ov-av:hover{opacity:.8;transform:translateY(-1px);border-color:#8fb6d6}
+.ov-av.press{opacity:.92;transform:scale(.95);border-color:var(--hud)}
 .ov-av.on{opacity:1;filter:none;border-color:#e8c072;box-shadow:0 0 0 1px rgba(232,192,114,.9),0 0 18px rgba(232,192,114,.4);transform:translateY(-2px)}
 .ov-av .no{position:absolute;left:0;right:0;bottom:0;text-align:center;font:600 8.5px/1.7 ui-monospace,SFMono-Regular,Consolas,monospace;color:#dfe7f2;background:linear-gradient(transparent,rgba(3,7,11,.9))}
 .ov-plate{position:relative;z-index:2;display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap;
@@ -2669,7 +2670,7 @@ body.light .ship-hud a.chip.on{background:#12212c;color:#fff}
         + ' data-fb="' + esc((c.main && c.main.thumb) || PH) + '" alt="' + esc(c.name) + '">'
         + '<span class="no">' + esc(c.id.replace('CREW-', '')) + '</span></div>';
     });
-    h += '</div><div class="ov-tip">点头像切换 · ← → 切换 · 点立绘放大 · 点属性轴看释义</div></div>';
+    h += '</div><div class="ov-tip">点头像切换 · 双击 / 长按进详情 · ← → 切换 · 点立绘放大 · 点属性轴看释义</div></div>';
     return h;
   }
 
@@ -2909,17 +2910,55 @@ body.light .ship-hud a.chip.on{background:#12212c;color:#fff}
     app.innerHTML = h;
 
     var ovEl = document.getElementById('ov');
+    var AV_TAP = null, AV_HOLD = null, AV_HOLD_FIRED = false;
     ovEl.addEventListener('click', function(e){
       var ax = e.target.closest('.ov-radar .ax');
       if(ax){ ovTip(Number(ax.getAttribute('data-i'))); SND.click(); return; }
       var av = e.target.closest('.ov-av');
-      if(av){ closeEqPop(); ovApply(Number(av.getAttribute('data-i')), 0); SND.swap(); return; }
+      if(av){
+        if(AV_HOLD_FIRED){ AV_HOLD_FIRED = false; return; }   /* 长按已进详情，吞掉这次 click */
+        var ai = Number(av.getAttribute('data-i'));
+        var now = Date.now();
+        if(AV_TAP && AV_TAP.i === ai && now - AV_TAP.t <= 300){
+          AV_TAP = null;                                     /* 双击：不重复选中，直接进详情 */
+          var ac = D.crews[ai];
+          if(ac){ location.hash = '#/crew/' + ac.id; SND.swap(); }
+          return;
+        }
+        AV_TAP = {i: ai, t: now};
+        closeEqPop(); ovApply(ai, 0); SND.swap(); return;
+      }
       var eq = e.target.closest('.ov-grow.eq');
       if(eq){ ovEqPop(eq.getAttribute('data-eq'), eq); SND.click(); return; }
       if(!e.target.closest('#eqPop')) closeEqPop();
       if(e.target.closest('#ovPrev')) ovStep(-1);
       else if(e.target.closest('#ovNext')) ovStep(1);
     });
+    /* 触屏兜底：长按 500ms 进详情，按下给一点按压反馈 */
+    ovEl.addEventListener('pointerdown', function(e){
+      var av = e.target.closest('.ov-av');
+      if(!av || e.pointerType !== 'touch') return;
+      AV_HOLD_FIRED = false;
+      av.classList.add('press');
+      var ai = Number(av.getAttribute('data-i'));
+      AV_HOLD = setTimeout(function(){
+        AV_HOLD_FIRED = true;
+        av.classList.remove('press');
+        var ac = D.crews[ai];
+        if(ac){
+          try{ if(navigator.vibrate) navigator.vibrate(12); }catch(err){}
+          location.hash = '#/crew/' + ac.id;
+        }
+      }, 500);
+    });
+    function avHoldEnd(e){
+      if(AV_HOLD){ clearTimeout(AV_HOLD); AV_HOLD = null; }
+      var av = e.target.closest && e.target.closest('.ov-av');
+      if(av) av.classList.remove('press');
+    }
+    ovEl.addEventListener('pointerup', avHoldEnd);
+    ovEl.addEventListener('pointercancel', avHoldEnd);
+    ovEl.addEventListener('pointerleave', avHoldEnd);
     ovEl.addEventListener('mouseover', function(e){
       var ax = e.target.closest('.ov-radar .ax');
       if(ax){
