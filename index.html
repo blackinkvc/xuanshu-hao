@@ -1944,6 +1944,22 @@ body.light .ship-hud a.chip.on{background:#12212c;color:#fff}
 .pwdwr .perr:empty{display:none}
 .pwdwr.bad .pin{border-color:#c9575a;animation:pwdShake .18s 2}
 @keyframes pwdShake{50%{transform:translateX(2px)}}
+/* 版本记录 */
+a.buildstamp{color:inherit;text-decoration:none;border-bottom:1px dashed rgba(160,180,200,.35)}
+a.buildstamp:hover{border-bottom-color:rgba(200,220,240,.7)}
+#buildStamp{text-decoration:none;border-bottom:1px dashed rgba(160,180,200,.35)}
+.clwrap{padding:4px 16px 10px}
+.clrow{display:grid;grid-template-columns:58px 182px 74px 1fr;gap:12px;align-items:start;padding:8px 0;border-top:1px solid rgba(128,148,168,.16);font-size:12px;line-height:1.55}
+.clrow:first-child{border-top:0}
+.clv{color:#d8b26a;font-weight:700}
+.clt{color:#8fa2b5;white-space:nowrap}
+.clsha code{font-size:11px;color:#9fb3c6;background:rgba(128,148,168,.12);padding:1px 5px;border-radius:3px}
+.cln{color:#c9d6e2}
+.clnote{color:#8fa2b5;font-size:11.5px;line-height:1.6;margin:0 0 12px}
+body.light .clnote{color:#6b7c8c}
+body.light .cln{color:#33414f}
+body.light .clt{color:#6b7c8c}
+@media(max-width:780px){.clrow{grid-template-columns:1fr;gap:2px}.clt{white-space:normal}}
 </style>
 </head>
 <body>
@@ -1986,6 +2002,7 @@ body.light .ship-hud a.chip.on{background:#12212c;color:#fff}
     <a href="#/rooms" data-r="rooms">房间</a>
     <a href="#/lib" data-r="lib">素材库</a>
     <a href="#/trash" data-r="trash">垃圾站</a>
+    <a href="#/changelog" data-r="changelog">版本记录</a>
   </nav>
   </div>
 
@@ -2010,6 +2027,7 @@ body.light .ship-hud a.chip.on{background:#12212c;color:#fff}
       <button class="pbtn" id="pwdGo" type="button">确认</button>
       <div class="perr" id="pwdErr" role="alert"></div>
     </div>
+    <div class="row"><span>当前构建<a class="rn" id="buildStamp" href="#/changelog">—</a></span></div>
     <div class="row"><span>本地记忆（上次查看 / 时间种子）</span><button class="pbtn danger" id="btnReset" type="button">清除</button></div>
   </div>
   <div id="toast" role="status" aria-live="polite"></div>
@@ -2024,7 +2042,8 @@ body.light .ship-hud a.chip.on{background:#12212c;color:#fff}
   <div class="cap"></div>
 </div>
 
-<script src="data.js"></script>
+<script src="data.js?v=202611110326"></script>
+<script src="changelog.js?v=202611110326"></script>
 <script>
 (function(){
   var D = window.XS_DATA;
@@ -4696,6 +4715,27 @@ body.light .ship-hud a.chip.on{background:#12212c;color:#fff}
     var tabs = document.querySelectorAll('#tabs a');
     for(var i=0;i<tabs.length;i++) tabs[i].classList.toggle('on', tabs[i].getAttribute('data-r')===route);
   }
+  function viewChangelog(){
+    var list = window.XS_CHANGELOG || [];
+    var h = '';
+    h += '<div class="crumb-hud"><a href="#/">总览</a><span class="sl">/</span><span class="cur">版本记录</span>'
+      + '<a class="back" href="#/">← 舰桥</a></div>';
+    h += '<h2 class="sec">版本记录<span class="hint">共 ' + list.length + ' 次提交 · 按时间倒序，最新一笔在最上</span></h2>';
+    h += '<p class="clnote">版本号规则：按提交时间从早到晚顺序递增，最早一笔 v0.1，每笔 +0.1。时间为 UTC+8，精确到分钟；commit 为前七位，可与仓库对号。只更新版本戳与版本记录数据的元数据提交不单列。</p>';
+    h += '<div class="panel clwrap">';
+    list.forEach(function(it){
+      h += '<div class="clrow">'
+        + '<span class="clv">' + esc(it.v) + '</span>'
+        + '<span class="clt">' + esc(it.t) + '</span>'
+        + '<span class="clsha"><code>' + esc(it.sha) + '</code></span>'
+        + '<span class="cln">' + esc(it.note) + '</span>'
+        + '</div>';
+    });
+    h += '</div>';
+    app.innerHTML = h;
+    window.scrollTo(0, 0);
+  }
+
   function render(){
     if(lb.classList.contains('on')){
       LBR.open = false;
@@ -4730,7 +4770,7 @@ body.light .ship-hud a.chip.on{background:#12212c;color:#fff}
     document.body.classList.toggle('shipmode', isShip);
     if(!(isDetail || isCrewRoot)) document.documentElement.style.removeProperty('--accent');
     var bb = document.getElementById('backBtn');
-    if(bb) bb.hidden = !(isDetail || isCrewRoot || isShip || isLib || isGear || isRooms || hash === '#/board' || hash === '#/trash');
+    if(bb) bb.hidden = !(isDetail || isCrewRoot || isShip || isLib || isGear || isRooms || hash === '#/board' || hash === '#/trash' || hash === '#/changelog');
     if(isShip){ viewShip(hash); nav('ship'); }
     else if(isDetail){ viewCrew(hash.slice(7)); nav('crew'); }
     else if(isCrewRoot){ viewCrewPicker(); nav('crew'); }
@@ -4739,14 +4779,21 @@ body.light .ship-hud a.chip.on{background:#12212c;color:#fff}
     else if(isLib){ viewLib(hash.replace(/^#\/lib/, '')); nav('lib'); }
     else if(hash === '#/board'){ viewBoard(); nav('board'); }
     else if(hash === '#/trash'){ viewTrash(); nav('trash'); }
+    else if(hash === '#/changelog'){ viewChangelog(); nav('changelog'); }
     else { viewOverview(); nav('overview'); }
   }
+
+  var BUILD_STAMP = '2026-11-11 03:26 (UTC+8)', BUILD_DATA_V = '202611110326', BUILD_COMMIT = '';
+  var _bs = document.getElementById('buildStamp');
+  if(_bs) _bs.textContent = BUILD_STAMP + ' · 数据 v' + BUILD_DATA_V + (BUILD_COMMIT ? ' · commit ' + BUILD_COMMIT : '');
 
   var m = D.meta;
   document.getElementById('foot').innerHTML =
     '玄枢号项目 · 工作台 &nbsp;|&nbsp; ' + m.crewCount + ' 位舰员 / ' + m.artwork + ' 张入档 / ' + m.missing + ' 个待补姿势位 / ' + m.trash + ' 件废稿<br>'
     + '上线范围：<code>01_舰员档案库</code> + <code>03_弃用图区</code>；<code>02_人物示例图库</code>、<code>04_待存档工作稿</code>、<code>05_未归档散稿</code> 仅本地保留。<br>'
-    + '数据源：' + esc(m.note);
+    + '数据源：' + esc(m.note)
+    + '<br><a class="buildstamp" href="#/changelog" title="查看版本记录">构建 <b>' + BUILD_STAMP + '</b> · 数据 v' + BUILD_DATA_V
+    + (BUILD_COMMIT ? ' · commit <code>' + BUILD_COMMIT + '</code>' : '') + '</a>';
 
   window.addEventListener('hashchange', function(){ SND.page(); render(); });
   window.addEventListener('resize', fitShipFrame);
