@@ -1894,15 +1894,12 @@ body.light .ship-hud a.chip.on{background:#12212c;color:#fff}
     var n = c.id.replace('CREW-','').toLowerCase();
     return 'assets/c/crew-' + n + '/crew-' + n + '-float.png';
   }
-  /* 方形头像：001–007 小写 png，008–025 大写 CREW 前缀 png，026–030 webp，031–039 暂无头像 */
-  var AV_WEBP = {'CREW-026':1,'CREW-027':1,'CREW-028':1,'CREW-029':1,'CREW-030':1};
-  var AV_UPPER = {'CREW-008':1,'CREW-009':1,'CREW-010':1,'CREW-011':1,'CREW-012':1,'CREW-013':1,'CREW-014':1,'CREW-015':1,'CREW-016':1,'CREW-017':1,'CREW-018':1,'CREW-019':1,'CREW-020':1,'CREW-021':1,'CREW-022':1,'CREW-023':1,'CREW-024':1,'CREW-025':1};
+  /* 头像墙展示用 320px webp 派生图（原图 1920 不直接进列表），031–039 暂无头像走缩略图 */
   var AV_MISSING = {'CREW-031':1,'CREW-032':1,'CREW-033':1,'CREW-034':1,'CREW-035':1,'CREW-036':1,'CREW-037':1,'CREW-038':1,'CREW-039':1};
   function avatarOf(c){
     if(AV_MISSING[c.id]) return (c.main && c.main.thumb) || PH;
     var n = c.id.replace('CREW-','').toLowerCase();
-    var name = (AV_UPPER[c.id] ? 'CREW-' : 'crew-') + n + '-avatar.' + (AV_WEBP[c.id] ? 'webp' : 'png');
-    return 'assets/c/crew-' + n + '/' + name;
+    return 'assets/c/crew-' + n + '/crew-' + n + '-avatar-s.webp';
   }
   document.addEventListener('error', function(e){
     var img = e.target;
