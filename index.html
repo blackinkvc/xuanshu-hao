@@ -1562,6 +1562,9 @@ body.no-motion .hud-page{animation:none}
   font:600 8.5px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:.6px;color:var(--ink-5)}
 .deck-node .nmeta span{white-space:nowrap}
 .deck-node .nmeta b{color:var(--ink-3);font-weight:600}
+.deck-node .nmeta .amt{color:var(--hud-3)}
+.deck-node .nuse{margin-top:4px;font-size:9.5px;line-height:1.5;color:var(--ink-5);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .deck-links{display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin:2px 0 8px 8px;padding-left:0}
 .deck-links .lk{display:inline-flex;align-items:center;gap:4px;height:18px;padding:0 6px;
   border:1px solid var(--line3);color:var(--ink-4);font:600 7.5px/1 ui-monospace,SFMono-Regular,Consolas,monospace;
@@ -1572,8 +1575,23 @@ body.no-motion .hud-page{animation:none}
 .deck-links .mode{margin-left:auto;font:600 7.5px/1 ui-monospace,SFMono-Regular,Consolas,monospace;
   letter-spacing:.5px;color:var(--ink-5);white-space:nowrap}
 
-.room-detail-col{min-width:0;position:sticky;top:56px}
+.room-detail-col{min-width:0;position:sticky;top:56px;max-height:calc(100vh - 68px);overflow:auto}
 .rdetail{border:1px solid var(--line);background:rgba(var(--panel-rgb),.72);position:relative}
+.rd-head{padding:11px 13px 10px;border-bottom:1px solid var(--line2);background:rgba(var(--bg3-rgb),.35)}
+.rd-head .rno{font:600 9px/1 ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:1.2px;color:var(--hud-3)}
+.rd-head h2{margin:5px 0 3px;font-size:17px;line-height:1.25;letter-spacing:1.2px;color:var(--ink-0);font-weight:600}
+.rd-head .rmeta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  font:600 8.5px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:.8px;color:var(--ink-5)}
+.rd-head .rmeta b{color:var(--hud-3);font-weight:600}
+.rd-fields{display:grid;grid-template-columns:104px minmax(0,1fr);margin:0}
+.rd-fields dt{font:600 8px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:.6px;color:var(--ink-5);
+  padding:5px 6px 5px 0;border-bottom:1px solid var(--line2);word-break:break-all}
+.rd-fields dd{margin:0;font-size:10.5px;line-height:1.6;color:var(--ink-2);padding:5px 0;border-bottom:1px solid var(--line2);
+  word-break:break-word}
+.rd-fields dt span{display:block;font:600 7px/1.4 ui-monospace,SFMono-Regular,Consolas,monospace;
+  letter-spacing:.3px;color:var(--ink-5);opacity:.75}
+.rd-note{font-size:9px;line-height:1.6;color:var(--ink-5);padding:8px 13px 10px;letter-spacing:.4px}
+.rd-note a{color:var(--hud-3)}
 .rd-photo{position:relative;aspect-ratio:16/7;overflow:hidden;background:var(--deep);border-bottom:1px solid var(--line)}
 .rd-photo img{width:100%;height:100%;object-fit:cover;cursor:zoom-in;filter:saturate(.85) brightness(.9);
   -webkit-mask-image:linear-gradient(180deg,#000 62%,rgba(0,0,0,.3) 100%);
@@ -1647,9 +1665,11 @@ body.no-motion .hud-page{animation:none}
 }
 @media (max-width:820px){
   .deck-wrap{grid-template-columns:minmax(0,1fr)}
-  .room-detail-col{position:static;order:-1}
+  .room-detail-col{position:static;order:-1;max-height:none;overflow:visible}
   .room-detail-col .rd-empty{display:none}
+  .rdetail{max-height:none;overflow:visible}
   .rd-photo{aspect-ratio:16/6}
+  .rd-fields{grid-template-columns:92px minmax(0,1fr)}
 }
 @media (max-width:760px){
   .gi-head{display:none}
@@ -1941,10 +1961,38 @@ body.light .ship-hud a.chip.on{background:#12212c;color:#fff}
     + '</g>'
     + '<g fill="#bfe8ff" opacity=".6"><circle cx="26" cy="87" r="2.4"/><circle cx="94" cy="87" r="2.4"/></g>'
     + '</svg>');
-  function floatOf(c){
-    if(!FLOAT_OK[c.id]) return '';
+  /* 悬浮立绘候选：grav 新引力座版优先，其次旧版；路径固定，不加哈希/版本号 */
+  var FLOAT_CACHE = {}, FLOAT_WAIT = {};
+  function floatCandidates(c){
+    if(!FLOAT_OK[c.id]) return [];
     var n = c.id.replace('CREW-','').toLowerCase();
-    return 'assets/c/crew-' + n + '/crew-' + n + '-float.png';
+    return ['assets/c/crew-' + n + '/grav/crew-' + n + '-float.png',
+            'assets/c/crew-' + n + '/crew-' + n + '-float.png'];
+  }
+  function floatOf(c){
+    var a = floatCandidates(c);
+    return a.length ? a[a.length - 1] : '';
+  }
+  /* HEAD 静默探测：命中即返回，缺失继续下一候选；同人并发只探一次，结果缓存避免反复 404 */
+  function resolveFloat(c, done){
+    if(FLOAT_CACHE.hasOwnProperty(c.id)){ done(FLOAT_CACHE[c.id]); return; }
+    if(FLOAT_WAIT[c.id]){ FLOAT_WAIT[c.id].push(done); return; }
+    FLOAT_WAIT[c.id] = [done];
+    var cands = floatCandidates(c), i = 0;
+    function finish(p){
+      FLOAT_CACHE[c.id] = p || '';
+      var q = FLOAT_WAIT[c.id] || [];
+      delete FLOAT_WAIT[c.id];
+      q.forEach(function(f){ try{ f(FLOAT_CACHE[c.id]); }catch(e){} });
+    }
+    function step(){
+      if(i >= cands.length){ finish(''); return; }
+      var p = cands[i++];
+      fetch(p, {method: 'HEAD', cache: 'no-store'}).then(function(r){
+        if(r && r.ok) finish(p); else step();
+      }, step);
+    }
+    step();
   }
   /* 头像墙展示用 320px webp 派生图（原图 1920 不直接进列表），031–039 暂无头像走缩略图 */
   var AV_MISSING = {'CREW-031':1,'CREW-032':1,'CREW-033':1,'CREW-034':1,'CREW-035':1,'CREW-036':1,'CREW-037':1,'CREW-038':1,'CREW-039':1};
@@ -2416,6 +2464,7 @@ body.light .ship-hud a.chip.on{background:#12212c;color:#fff}
     var h = '';
     list.forEach(function(f, i){
       h += '<figure class="ov-frame"><div class="pic"><img loading="lazy" decoding="async" src="' + esc(f.s) + '"'
+        + ' srcset="' + esc(f.f) + ' 1x, ' + esc(f.s) + ' 2x"'
         + ' data-fb="' + esc(f.f) + '" alt="' + esc(c.name + ' ' + f.t) + '"></div>'
         + '<figcaption><b>' + esc(f.t) + '</b><span class="idx">' + (i < 9 ? '0' : '') + (i + 1) + '</span></figcaption></figure>';
     });
@@ -2662,6 +2711,20 @@ body.light .ship-hud a.chip.on{background:#12212c;color:#fff}
         if(port) port.classList.toggle('ph', !fs);
         var miss = document.getElementById('ovPMiss');
         if(miss) miss.hidden = !!fs;
+        /* 与中区同一条解析链：grav 优先，缺失回退旧版 */
+        if(fs){
+          resolveFloat(c, function(p){
+            if(OV_IDX !== i) return;
+            var m2 = document.getElementById('ovPMini');
+            if(!m2) return;
+            m2.src = p || fs;
+            m2.alt = c.name + (p ? ' 悬浮立绘' : ' 悬浮立绘占位');
+            var pt2 = document.getElementById('ovPPort');
+            if(pt2) pt2.classList.toggle('ph', !p);
+            var ms2 = document.getElementById('ovPMiss');
+            if(ms2) ms2.hidden = !!p;
+          });
+        }
       }
       var pno = document.getElementById('ovPNo');
       if(pno) pno.textContent = c.id;
@@ -2710,6 +2773,22 @@ body.light .ship-hud a.chip.on{background:#12212c;color:#fff}
       img.alt = c.name + ' 立绘';
       img.setAttribute('data-full', (c.main && c.main.src) || src);
       img.setAttribute('data-cap', c.id + ' ' + c.name + ' · ' + (c.main ? c.main.title : '立绘'));
+    }
+    /* grav 版优先：静默探测后替换，缺失则保留旧版 */
+    if(FLOAT_OK[c.id]){
+      resolveFloat(c, function(p){
+        if(OV_IDX !== i) return;
+        var im = document.getElementById('ovImg');
+        if(!im) return;
+        if(p){
+          if(im.getAttribute('src') !== p){ im.src = p; ovFill(im, p, i); }
+          fig.classList.add('cut'); fig.classList.remove('soft');
+        }else{
+          var msrc = figSrc(c);
+          if(msrc && im.getAttribute('src') !== msrc){ im.src = msrc; ovFill(im, msrc, i); }
+          fig.classList.add('soft'); fig.classList.remove('cut');
+        }
+      });
     }
     var hudNo = document.getElementById('ovHudNo');
     if(hudNo) hudNo.textContent = c.id;
@@ -3099,7 +3178,9 @@ body.light .ship-hud a.chip.on{background:#12212c;color:#fff}
       var p = pct(c.done, c.planned);
       h += '<a class="ph-card' + (c.id === last ? ' last-on' : '') + '" href="#/crew/' + esc(c.id) + '">'
         + '<span class="ph-im">'
-        +   (c.main ? '<img loading="lazy" decoding="async" src="' + esc(c.main.thumb) + '" alt="' + esc(c.name) + '">' : '')
+        +   (c.main ? '<img loading="lazy" decoding="async" src="' + esc(c.main.src) + '"'
+          + ' srcset="' + esc(c.main.thumb) + ' 1x, ' + esc(c.main.src) + ' 2x"'
+          + ' data-fb="' + esc(c.main.thumb) + '" alt="' + esc(c.name) + '">' : '')
         +   '<span class="ph-no">' + esc(c.id) + '</span>'
         +   (c.missing ? '<span class="hud-miss ph-pend">待补 ' + c.missing + '</span>' : '')
         +   (c.id === last ? '<span class="ph-last">上次查看</span>' : '')
@@ -3488,7 +3569,9 @@ body.light .ship-hud a.chip.on{background:#12212c;color:#fff}
       h += '<div class="film-track">';
       s.items.slice().sort(function(a, b){ return a.no < b.no ? -1 : 1; }).forEach(function(it){
         h += '<div class="fcell"><div class="fim"><span class="fno">' + esc(it.no) + '</span>'
-          + '<img loading="lazy" decoding="async" src="' + esc(it.thumb) + '" alt="' + esc(it.title) + '" data-full="' + esc(it.src)
+          + '<img loading="lazy" decoding="async" src="' + esc(it.src) + '"'
+          + ' srcset="' + esc(it.thumb) + ' 1x, ' + esc(it.src) + ' 2x"'
+          + ' data-fb="' + esc(it.thumb) + '" alt="' + esc(it.title) + '" data-full="' + esc(it.src)
           + '" data-cap="' + esc(c.id + ' · ' + s.id + ' · ' + it.no + ' ' + it.title) + '"></div>'
           + '<div class="ftx"><b>' + esc(it.no) + '</b><span>' + esc(it.title) + '</span></div></div>';
       });
@@ -3497,7 +3580,9 @@ body.light .ship-hud a.chip.on{background:#12212c;color:#fff}
         var ps = (c.main && c.main.thumb) ? c.main.thumb : PH;
         var pf = (c.main && c.main.src) ? c.main.src : PH;
         h += '<div class="fcell ph"><div class="fim"><span class="fno">' + esc(x.no) + '</span>'
-          + '<img loading="lazy" decoding="async" src="' + esc(ps) + '" alt="' + esc(x.no + ' ' + x.title) + '" data-full="' + esc(pf)
+          + '<img loading="lazy" decoding="async" src="' + esc(pf) + '"'
+          + ' srcset="' + esc(ps) + ' 1x, ' + esc(pf) + ' 2x"'
+          + ' alt="' + esc(x.no + ' ' + x.title) + '" data-full="' + esc(pf)
           + '" data-fb="' + esc(pf) + '" data-cap="' + esc(c.id + ' · ' + s.id + ' · ' + x.no + ' ' + x.title + '（待补 · 现以主图占位）') + '">'
           + '<span class="pht">待补</span></div>'
           + '<div class="ftx"><b>' + esc(x.no) + '</b><span>' + esc(x.title) + '</span></div></div>';
@@ -3759,7 +3844,7 @@ body.light .ship-hud a.chip.on{background:#12212c;color:#fff}
   }
 
   /* ---------- 舱室页 #/rooms ---------- */
-  var ROOMS = null, ROOMS_META = null, ROOMS_BUSY = false, ROOMS_ERR = false, ROOM_BY = {}, RQ = '', ROOMS_Q = [];
+  var ROOMS = null, ROOMS_META = null, ROOMS_BUSY = false, ROOMS_ERR = false, ROOM_BY = {}, ROOM_S = {}, RQ = '', ROOMS_Q = [];
 
   function roomsLoad(cb){
     if(ROOMS) return cb();
@@ -3771,9 +3856,25 @@ body.light .ship-hud a.chip.on{background:#12212c;color:#fff}
       .then(function(j){
         ROOMS = j.rooms || [];
         ROOMS_META = j.meta || {};
-        ROOM_BY = {};
-        ROOMS.forEach(function(x){ ROOM_BY[x.id] = x; });
+        ROOM_BY = {}; ROOM_S = {};
+        ROOMS.forEach(function(x){
+          ROOM_BY[x['房间编号']] = x;
+          ROOM_S[x['房间编号']] = [x['房间编号'], x['房间名'], x['用途'], x['单元编号'], x['分区'],
+            x['家具清单'], x['设备清单'], x['特殊要求']].join(' ').toLowerCase();
+        });
         ROOMS_ERR = false;
+        // 面积合计校验：设计值 229,117.5 m²，容差 ±0.05
+        var expected = Number(ROOMS_META.areaTotal || 229117.5);
+        var tol = Number(ROOMS_META.areaTolerance || 0.05);
+        var sum = 0;
+        ROOMS.forEach(function(x){ sum += Number(x['面积m2']) || 0; });
+        var ok = Math.abs(sum - expected) <= tol;
+        window.__ROOMS_AUDIT__ = {count: ROOMS.length, area: Math.round(sum * 10) / 10, expected: expected, tolerance: tol, ok: ok};
+        if(!ok){
+          console.error('[rooms] 面积合计与设计表不符：页面 ' + sum.toFixed(1) + ' m² / 设计 ' + expected.toFixed(1) + ' m²');
+        }else{
+          console.info('[rooms] 面积校验通过：' + ROOMS.length + ' 间 / ' + sum.toFixed(1) + ' m²');
+        }
       })
       .catch(function(){ ROOMS = null; ROOMS_ERR = true; })
       .then(function(){
@@ -3784,109 +3885,74 @@ body.light .ship-hud a.chip.on{background:#12212c;color:#fff}
   }
 
   function roomById(id){ return ROOM_BY[id] || null; }
-  function roomSegMeta(k){
-    var segs = (ROOMS_META && ROOMS_META.segs) || [];
-    for(var i = 0; i < segs.length; i++) if(segs[i].k === k) return segs[i];
+  function roomDeckMeta(k){
+    var ds = (ROOMS_META && ROOMS_META.decks) || [];
+    for(var i = 0; i < ds.length; i++) if(ds[i].k === k) return ds[i];
     return null;
   }
-  function roomStatusCls(s){ return s === '在用' ? 'st-ok' : (s === '检修' ? 'st-warn' : 'st-off'); }
-  function roomPhoto(r){
-    if(r.photo){
-      return '<img loading="lazy" decoding="async" src="' + esc(r.photo) + '" alt="' + esc(r.id + ' ' + r.name) + '"'
-        + ' data-full="' + esc(r.photo) + '" data-cap="' + esc(r.id + ' · ' + r.name + ' · ' + (r.desc || '')) + '">';
-    }
-    return '<div class="ph"><i>' + esc(r.id) + '</i><em>待补图</em></div>';
-  }
+  function roomVal(v){ return (v === undefined || v === null || String(v) === '') ? '—' : String(v); }
   function roomQuery(o){
     var a = [];
-    if(o.seg && o.seg !== 'all') a.push('seg=' + encodeURIComponent(o.seg));
+    if(o.deck && o.deck !== 'all') a.push('deck=' + encodeURIComponent(o.deck));
     if(o.id) a.push('id=' + encodeURIComponent(o.id));
     return a.length ? '?' + a.join('&') : '';
   }
   function roomCard(r, active){
-    var seg = roomSegMeta(r.seg);
-    var stCls = r.status === '在用' ? '' : (r.status === '检修' ? ' warn' : ' off');
-    return '<a class="deck-node rcard' + (active ? ' on' : '') + '" href="#/rooms' + roomQuery({seg: r.seg, id: r.id}) + '">'
-      + '<div class="nl1"><span class="rno">' + esc(r.id) + '</span><b>' + esc(r.name) + '</b>'
-      +   '<em>' + esc(r.en || '') + '</em>'
-      +   '<span class="gst"><span class="hud-status' + stCls + '">' + esc(r.status) + '</span></span></div>'
-      + '<div class="nmeta"><span>容纳 <b>' + esc(r.cap) + '</b></span>'
-      +   '<span>设备 <b>' + (r.equip || []).length + '</b></span>'
-      +   '<span>邻接 <b>' + (r.links || []).length + '</b></span>'
-      +   '<span>' + esc(r.deck) + ' · ' + esc(r.zone) + '</span>'
-      +   '<span>' + esc(seg ? seg.mark + ' ' + seg.label : r.seg) + '</span></div>'
+    var deck = roomDeckMeta(r['甲板']);
+    return '<a class="deck-node' + (active ? ' on' : '') + '" href="#/rooms' + roomQuery({id: r['房间编号']}) + '">'
+      + '<div class="nl1"><span class="rno">' + esc(r['房间编号']) + '</span><b>' + esc(r['房间名']) + '</b>'
+      +   '<span class="gst"><span class="amt">' + esc(roomVal(r['面积m2'])) + ' m²</span></span></div>'
+      + '<div class="nmeta"><span>单元 <b>' + esc(r['单元编号']) + '</b></span>'
+      +   '<span>分区 <b>' + esc(r['分区']) + '</b></span>'
+      +   '<span>定员 <b>' + esc(r['定员']) + '</b></span>'
+      +   '<span>' + esc(deck ? deck.label : r['甲板']) + '</span></div>'
+      + '<div class="nuse">' + esc(roomVal(r['用途'])) + '</div>'
       + '</a>';
   }
-  function roomLinkStrip(r){
-    var ls = r.links || [];
-    if(!ls.length) return '';
-    return '<div class="deck-links">' + ls.map(function(l){
-      var t = roomById(l.id);
-      return '<a class="lk" href="#/rooms' + roomQuery({seg: (t || {}).seg || r.seg, id: l.id}) + '">'
-        + '<b>' + esc(l.id) + '</b><span>' + esc((t || {}).name || '—') + '</span></a>';
-    }).join('') + '<span class="mode">↳ ADJACENT</span></div>';
-  }
   function roomDetail(r){
-    var seg = roomSegMeta(r.seg);
-    var eqs = (r.equip || []).map(function(id){
-      var it = null;
-      (GEAR || []).forEach(function(x){ if(x.id === id) it = x; });
-      return '<a class="eqc" href="#/gear?eq=' + encodeURIComponent(id) + '"><b>' + esc(id) + '</b>' + esc(it ? it.name : '待补条目') + '</a>';
-    }).join('');
-    var nbs = (r.links || []).map(function(l){
-      var t = roomById(l.id);
-      return '<a class="nb" href="#/rooms' + roomQuery({seg: (t || {}).seg || r.seg, id: l.id}) + '">'
-        + '<em>' + esc(l.id) + '</em><span>' + esc((t || {}).name || '—') + '</span>'
-        + '<span class="md">' + esc(l.modeName || l.mode) + '</span>'
-        + '<span class="tm">' + esc(l.dir || '双向') + ' · ' + esc(l.sec) + ' s</span></a>';
+    var fields = (ROOMS_META && ROOMS_META.sourceFields) || [];
+    var deck = roomDeckMeta(r['甲板']);
+    var rows = fields.map(function(k){
+      return '<dt>' + esc(k) + '</dt><dd>' + esc(roomVal(r[k])) + '</dd>';
     }).join('');
     return '<article class="rdetail hud-brk">'
-      + '<div class="rd-photo"><span class="rno">' + esc(r.id) + '</span>' + roomPhoto(r) + '</div>'
-      + '<div class="rd-body">'
-      +   '<div class="rd-cr"><span>' + esc(r.deck) + '</span><span>/</span><span>' + esc(r.zone) + '</span>'
-      +     '<span>/</span><span>' + esc(seg ? seg.mark + ' ' + seg.label : r.seg) + '</span></div>'
-      +   '<h2>' + esc(r.name) + '<span class="pill ' + roomStatusCls(r.status) + '">' + esc(r.status) + '</span>'
-      +     '<span class="pill blue">' + esc(r.id) + '</span></h2>'
-      +   '<p class="ds">' + esc(r.desc) + '</p>'
-      +   '<dl>'
-      +     '<dt>舱段</dt><dd>' + esc(seg ? seg.mark + ' ' + seg.label : r.seg) + '</dd>'
-      +     '<dt>容纳</dt><dd>' + esc(r.cap) + '</dd>'
-      +     '<dt>门制</dt><dd>' + esc(r.doorName || r.door) + '</dd>'
-      +     '<dt>气压</dt><dd>' + esc(r.pressure ? (r.pressure.label + (r.pressure.pa ? ' · ' + (r.pressure.pa > 0 ? '+' : '') + r.pressure.pa + ' Pa' : '')) : '—') + '</dd>'
-      +     '<dt>避险</dt><dd>' + (r.shelter ? '是 · 本舱为避险点' : '否') + '</dd>'
-      +     '<dt>撤离</dt><dd>' + esc(r.evac || '—') + '</dd>'
-      +   '</dl>'
-      +   '<div class="rd-blk"><b>功能 <i>FUNCTIONS</i></b><ul class="fn">'
-      +     (r.func || []).map(function(f){ return '<li>' + esc(f) + '</li>'; }).join('') + '</ul></div>'
-      +   '<div class="rd-blk"><b>设备清单 <i>EQUIPMENT · ' + (r.equip || []).length + '</i></b><div class="eqs">'
-      +     (eqs || '<span class="tiny">本舱未挂接装备条目。</span>') + '</div></div>'
-      +   '<div class="rd-blk"><b>邻接舱室 <i>ADJACENCY · ' + (r.links || []).length + '</i></b>'
-      +     (nbs || '<span class="tiny">无登记邻接。</span>') + '</div>'
-      + '</div></article>';
+      + '<div class="rd-head">'
+      +   '<span class="rno">' + esc(r['房间编号']) + '</span>'
+      +   '<h2>' + esc(r['房间名']) + '</h2>'
+      +   '<div class="rmeta"><span>' + esc(deck ? deck.label : r['甲板']) + '</span><span>/</span>'
+      +     '<span>分区 <b>' + esc(r['分区']) + '</b></span><span>/</span>'
+      +     '<span>单元 <b>' + esc(r['单元编号']) + '</b></span><span>/</span>'
+      +     '<span><b>' + esc(r['面积m2']) + '</b> m²</span></div>'
+      + '</div>'
+      + '<dl class="rd-fields">' + rows + '</dl>'
+      + '<div class="rd-note">以上字段逐项取自 <b>' + esc((ROOMS_META && ROOMS_META.source) || '房间明细_v3.csv')
+      +   '</b> 的同名列，未做换算或改写。 <a href="#/rooms">返回房间列表</a></div>'
+      + '</article>';
   }
   function viewRooms(q){
     var p = {};
-    var pathId = String(q || '').match(/^\/?(RM-[A-Za-z0-9-]+)/i);
+    var s = String(q || '');
+    var pathId = s.match(/^\/([^?]+)/);
     if(pathId){
-      p.id = pathId[1];
+      p.id = decodeURIComponent(pathId[1]);
     }else{
-      (q || '').replace(/^\?/, '').split('&').forEach(function(kv){
+      s.replace(/^\?/, '').split('&').forEach(function(kv){
         if(!kv) return;
         var a = kv.split('=');
         p[decodeURIComponent(a[0])] = decodeURIComponent(a[1] || '');
       });
     }
-    var seg = p.seg || 'all', id = p.id || '';
+    var deck = p.deck || 'all', id = p.id || '';
     var h = '<section class="hud-page rooms-page">';
-    h += '<div class="crumb-hud"><a href="#/">总览</a><span class="sl">/</span><span class="cur">舱室与动线</span>'
+    h += '<div class="crumb-hud"><a href="#/">总览</a><span class="sl">/</span><span class="cur">舱室明细</span>'
       + '<a class="back" href="#/">← 舰桥</a></div>';
-    h += '<div class="page-hud-head"><span class="ph-k">DECK · FLOW / ADJACENCY</span>'
-      + '<h1>舱室与动线</h1><span class="sub" id="roomSub">索引加载中…</span></div>';
+    h += '<div class="page-hud-head"><span class="ph-k">DECK · ROOM REGISTER</span>'
+      + '<h1>舱室明细</h1><span class="sub" id="roomSub">索引加载中…</span></div>';
     h += '<div class="rooms-cmd hud-brk">'
-      + '<span class="cmd-tag">TRACK&gt; <b>DECK FLOW</b></span>'
+      + '<span class="cmd-tag">REG&gt; <b>BY DECK</b></span>'
       + '<div id="roomChips"></div>'
       + '<label class="hud-input gsearch"><svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/></svg>'
-      + '<input id="rq" type="search" value="' + esc(RQ) + '" placeholder="搜索编号 / 房间名 / 功能" aria-label="搜索舱室"></label>'
+      + '<input id="rq" type="search" value="' + esc(RQ) + '" placeholder="搜索编号 / 房间名 / 用途 / 单元" aria-label="搜索舱室"></label>'
       + '<span class="gcount" id="roomCount"></span></div>';
     h += '<div class="deck-wrap">'
       + '<div class="deck-tracks" id="roomBody"><div class="gi-empty">正在读取 rooms.json…</div></div>'
@@ -3901,28 +3967,37 @@ body.light .ship-hud a.chip.on{background:#12212c;color:#fff}
           + '<button class="btn" type="button" onclick="location.reload()">重试</button></div>';
         return;
       }
+      var decks = (ROOMS_META && ROOMS_META.decks) || [];
+      if(deck !== 'all' && !roomDeckMeta(deck)) deck = 'all';
       var sub = document.getElementById('roomSub');
       if(sub){
-        var pairs = 0, mounts = 0;
-        ROOMS.forEach(function(r){ pairs += (r.links || []).length; mounts += (r.equip || []).length; });
-        sub.textContent = ROOMS.length + ' 间舱室 · ' + Math.round(pairs / 2) + ' 组邻接 · ' + mounts + ' 处设备挂接';
+        var areaTxt = Number(ROOMS_META.areaTotal).toFixed(1).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+        sub.textContent = ROOMS.length + ' 间舱室 · ' + decks.length + ' 个甲板 · '
+          + ROOMS_META.unitCount + ' 个气密单元 · 面积 ' + areaTxt + ' m²';
       }
       var chips = document.getElementById('roomChips');
-      chips.innerHTML = '<a class="hud-chip' + (seg === 'all' ? ' on' : '') + '" href="#/rooms">全部 <i>' + ROOMS.length + '</i></a>'
-        + ((ROOMS_META && ROOMS_META.segs) || []).map(function(s){
-            var n = ROOMS.filter(function(r){ return r.seg === s.k; }).length;
-            return '<a class="hud-chip' + (seg === s.k ? ' on' : '') + '" href="#/rooms' + roomQuery({seg: s.k}) + '">'
-              + esc(s.mark + ' ' + s.label) + ' <i>' + n + '</i></a>';
+      chips.innerHTML = '<a class="hud-chip' + (deck === 'all' ? ' on' : '') + '" href="#/rooms">全部 <i>' + ROOMS.length + '</i></a>'
+        + decks.map(function(d){
+            return '<a class="hud-chip' + (deck === d.k ? ' on' : '') + '" href="#/rooms' + roomQuery({deck: d.k}) + '" title="'
+              + esc(d.label) + '">' + esc(d.k) + ' <i>' + d.count + '</i></a>';
           }).join('');
       var det = document.getElementById('roomDetail');
       var cur = id ? roomById(id) : null;
-      det.innerHTML = cur ? roomDetail(cur) : '<div class="rd-empty"><b>未选择舱室</b>点击左侧轨道上的节点，查看舱室详情、设备清单与邻接动线。</div>';
+      if(cur){
+        det.innerHTML = roomDetail(cur);
+      }else if(id){
+        det.innerHTML = '<div class="rd-empty"><b>该编号不在设计表</b>'
+          + esc(id) + ' 不属于 房间明细_v3.csv 的 ' + ROOMS.length + ' 个房间编号，可能来自旧舱室索引。'
+          + '<a href="#/rooms">查看全部房间</a></div>';
+      }else{
+        det.innerHTML = '<div class="rd-empty"><b>未选择舱室</b>点击左侧房间，查看 16 项设计字段；数据逐列取自 房间明细_v3.csv。</div>';
+      }
       function paint(){
         var k = RQ.trim().toLowerCase();
         var list = ROOMS.filter(function(r){
-          if(seg !== 'all' && r.seg !== seg) return false;
+          if(deck !== 'all' && r['甲板'] !== deck) return false;
           if(!k) return true;
-          return (r.id + ' ' + r.name + ' ' + (r.en || '') + ' ' + (r.func || []).join(' ') + ' ' + r.desc).toLowerCase().indexOf(k) >= 0;
+          return (ROOM_S[r['房间编号']] || '').indexOf(k) >= 0;
         });
         var cnt = document.getElementById('roomCount');
         if(cnt) cnt.textContent = '显示 ' + list.length + ' / ' + ROOMS.length + ' 间';
@@ -3930,15 +4005,15 @@ body.light .ship-hud a.chip.on{background:#12212c;color:#fff}
           host.innerHTML = '<div class="gi-empty">没有符合条件的舱室。 <a href="#/rooms">清除筛选</a></div>';
           return;
         }
-        var segs = (ROOMS_META && ROOMS_META.segs) || [];
         var html = '';
-        segs.forEach(function(s){
-          var rows = list.filter(function(r){ return r.seg === s.k; });
+        decks.forEach(function(d){
+          if(deck !== 'all' && d.k !== deck) return;
+          var rows = list.filter(function(r){ return r['甲板'] === d.k; });
           if(!rows.length) return;
-          html += '<section class="deck-seg"><div class="deck-h"><span class="mk">' + esc(s.mark) + '</span><b>'
-            + esc(s.label) + '</b><span class="wh">' + esc(s.where || '') + '</span>'
-            + '<span class="ct">' + rows.length + ' 间 · TRACK ' + esc(s.mark) + '</span></div><div class="deck-track">'
-            + rows.map(function(r){ return roomCard(r, r.id === id) + roomLinkStrip(r); }).join('')
+          html += '<section class="deck-seg"><div class="deck-h"><span class="mk">' + esc(d.k) + '</span><b>'
+            + esc(d.label) + '</b><span class="wh">' + d.count + ' 间 · 合计 ' + d.area + ' m²</span>'
+            + '<span class="ct">显示 ' + rows.length + ' / ' + d.count + '</span></div><div class="deck-track">'
+            + rows.map(function(r){ return roomCard(r, r['房间编号'] === id); }).join('')
             + '</div></section>';
         });
         host.innerHTML = html;
