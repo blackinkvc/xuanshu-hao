@@ -8,16 +8,16 @@
  "limit_bytes": 1572864,
  "full": {
   "file": "xuanshu_interior_lod0.glb",
-  "bytes": 32355504,
-  "mb": 30.86
+  "bytes": 64314592,
+  "mb": 61.34
  },
- "count": 37,
+ "count": 76,
  "chunks": [
   {
    "id": "C01",
    "file": "chunks/xuanshu_interior_C01.glb",
-   "bytes": 1136652,
-   "mb": 1.08,
+   "bytes": 1324876,
+   "mb": 1.26,
    "decks": [
     "A",
     "B"
@@ -43,11 +43,11 @@
     "UNIT-OBS-003"
    ],
    "rooms": 44,
-   "faces": 55796,
-   "triangles": 116264,
+   "faces": 53080,
+   "triangles": 75319,
    "bbox": {
     "min": [
-     42.0,
+     41.87,
      -16.69,
      1.84
     ],
@@ -63,7 +63,7 @@
   {
    "id": "C02",
    "file": "chunks/xuanshu_interior_C02.glb",
-   "bytes": 897996,
+   "bytes": 898008,
    "mb": 0.86,
    "decks": [
     "B"
@@ -81,8 +81,8 @@
      2.0
     ],
     "max": [
-     67.92,
-     -6.88,
+     65.62,
+     -6.78,
      3.66
     ]
    },
@@ -92,8 +92,42 @@
   {
    "id": "C03",
    "file": "chunks/xuanshu_interior_C03.glb",
-   "bytes": 1074704,
-   "mb": 1.02,
+   "bytes": 969420,
+   "mb": 0.92,
+   "decks": [
+    "B"
+   ],
+   "units": [
+    "UNIT-MED-001",
+    "UNIT-MED-004",
+    "UNIT-MED-006",
+    "UNIT-MED-007",
+    "UNIT-MED-008",
+    "UNIT-MED-009"
+   ],
+   "rooms": 4,
+   "faces": 60265,
+   "triangles": 126712,
+   "bbox": {
+    "min": [
+     57.38,
+     -16.69,
+     1.84
+    ],
+    "max": [
+     97.74,
+     16.69,
+     5.12
+    ]
+   },
+   "oversize": false,
+   "self_contained": true
+  },
+  {
+   "id": "C04",
+   "file": "chunks/xuanshu_interior_C04.glb",
+   "bytes": 1402100,
+   "mb": 1.34,
    "decks": [
     "B",
     "C"
@@ -106,12 +140,6 @@
     "UNIT-EVA-002",
     "UNIT-EVA-003",
     "UNIT-HIB-003",
-    "UNIT-MED-001",
-    "UNIT-MED-004",
-    "UNIT-MED-006",
-    "UNIT-MED-007",
-    "UNIT-MED-008",
-    "UNIT-MED-009",
     "UNIT-PSY-001",
     "UNIT-PSY-002",
     "UNIT-REP-001",
@@ -119,9 +147,9 @@
     "UNIT-REP-004",
     "UNIT-RIT-002"
    ],
-   "rooms": 49,
-   "faces": 53098,
-   "triangles": 110704,
+   "rooms": 45,
+   "faces": 55460,
+   "triangles": 84843,
    "bbox": {
     "min": [
      42.0,
@@ -138,9 +166,9 @@
    "self_contained": true
   },
   {
-   "id": "C04",
-   "file": "chunks/xuanshu_interior_C04.glb",
-   "bytes": 898024,
+   "id": "C05",
+   "file": "chunks/xuanshu_interior_C05.glb",
+   "bytes": 898036,
    "mb": 0.86,
    "decks": [
     "C"
@@ -167,39 +195,10 @@
    "self_contained": true
   },
   {
-   "id": "C05",
-   "file": "chunks/xuanshu_interior_C05.glb",
-   "bytes": 898076,
-   "mb": 0.86,
-   "decks": [
-    "C"
-   ],
-   "units": [
-    "UNIT-HIB-003"
-   ],
-   "rooms": 0,
-   "faces": 57876,
-   "triangles": 123192,
-   "bbox": {
-    "min": [
-     67.42,
-     -13.58,
-     -5.0
-    ],
-    "max": [
-     74.88,
-     -10.54,
-     -3.94
-    ]
-   },
-   "oversize": false,
-   "self_contained": true
-  },
-  {
    "id": "C06",
    "file": "chunks/xuanshu_interior_C06.glb",
-   "bytes": 869952,
-   "mb": 0.83,
+   "bytes": 1033904,
+   "mb": 0.99,
    "decks": [
     "C",
     "D"
@@ -213,13 +212,13 @@
     "UNIT-STO-005"
    ],
    "rooms": 15,
-   "faces": 47122,
-   "triangles": 97348,
+   "faces": 59380,
+   "triangles": 120578,
    "bbox": {
     "min": [
      42.0,
      -16.09,
-     -12.43
+     -12.21
     ],
     "max": [
      112.04,
@@ -233,8 +232,8 @@
   {
    "id": "C07",
    "file": "chunks/xuanshu_interior_C07.glb",
-   "bytes": 1078648,
-   "mb": 1.03,
+   "bytes": 849680,
+   "mb": 0.81,
    "decks": [
     "D"
    ],
@@ -242,13 +241,42 @@
     "UNIT-ATM-001"
    ],
    "rooms": 0,
-   "faces": 58860,
-   "triangles": 122052,
+   "faces": 53416,
+   "triangles": 110032,
+   "bbox": {
+    "min": [
+     72.73,
+     -3.96,
+     -12.43
+    ],
+    "max": [
+     83.53,
+     -2.7,
+     -9.96
+    ]
+   },
+   "oversize": false,
+   "self_contained": true
+  },
+  {
+   "id": "C08",
+   "file": "chunks/xuanshu_interior_C08.glb",
+   "bytes": 856816,
+   "mb": 0.82,
+   "decks": [
+    "D"
+   ],
+   "units": [
+    "UNIT-ATM-001"
+   ],
+   "rooms": 0,
+   "faces": 54168,
+   "triangles": 112572,
    "bbox": {
     "min": [
      69.84,
      -6.93,
-     -12.43
+     -12.4
     ],
     "max": [
      89.16,
@@ -260,10 +288,10 @@
    "self_contained": true
   },
   {
-   "id": "C08",
-   "file": "chunks/xuanshu_interior_C08.glb",
-   "bytes": 676672,
-   "mb": 0.65,
+   "id": "C09",
+   "file": "chunks/xuanshu_interior_C09.glb",
+   "bytes": 608852,
+   "mb": 0.58,
    "decks": [
     "D"
    ],
@@ -280,8 +308,8 @@
     "UNIT-WTP-004"
    ],
    "rooms": 16,
-   "faces": 36896,
-   "triangles": 76436,
+   "faces": 30453,
+   "triangles": 60238,
    "bbox": {
     "min": [
      42.0,
@@ -298,10 +326,10 @@
    "self_contained": true
   },
   {
-   "id": "C09",
-   "file": "chunks/xuanshu_interior_C09.glb",
-   "bytes": 1423076,
-   "mb": 1.36,
+   "id": "C10",
+   "file": "chunks/xuanshu_interior_C10.glb",
+   "bytes": 1180688,
+   "mb": 1.13,
    "decks": [
     "D"
    ],
@@ -309,8 +337,8 @@
     "UNIT-WTR-001"
    ],
    "rooms": 2,
-   "faces": 51234,
-   "triangles": 113452,
+   "faces": 37774,
+   "triangles": 78351,
    "bbox": {
     "min": [
      104.76,
@@ -327,8 +355,37 @@
    "self_contained": true
   },
   {
-   "id": "C10",
-   "file": "chunks/xuanshu_interior_C10.glb",
+   "id": "C11",
+   "file": "chunks/xuanshu_interior_C11.glb",
+   "bytes": 1250364,
+   "mb": 1.19,
+   "decks": [
+    "D"
+   ],
+   "units": [
+    "UNIT-WTR-001"
+   ],
+   "rooms": 4,
+   "faces": 37775,
+   "triangles": 83932,
+   "bbox": {
+    "min": [
+     105.25,
+     -9.68,
+     -12.16
+    ],
+    "max": [
+     128.67,
+     -2.97,
+     -9.31
+    ]
+   },
+   "oversize": false,
+   "self_contained": true
+  },
+  {
+   "id": "C12",
+   "file": "chunks/xuanshu_interior_C12.glb",
    "bytes": 1065644,
    "mb": 1.02,
    "decks": [
@@ -356,8 +413,8 @@
    "self_contained": true
   },
   {
-   "id": "C11",
-   "file": "chunks/xuanshu_interior_C11.glb",
+   "id": "C13",
+   "file": "chunks/xuanshu_interior_C13.glb",
    "bytes": 828128,
    "mb": 0.79,
    "decks": [
@@ -385,8 +442,8 @@
    "self_contained": true
   },
   {
-   "id": "C12",
-   "file": "chunks/xuanshu_interior_C12.glb",
+   "id": "C14",
+   "file": "chunks/xuanshu_interior_C14.glb",
    "bytes": 828120,
    "mb": 0.79,
    "decks": [
@@ -414,8 +471,8 @@
    "self_contained": true
   },
   {
-   "id": "C13",
-   "file": "chunks/xuanshu_interior_C13.glb",
+   "id": "C15",
+   "file": "chunks/xuanshu_interior_C15.glb",
    "bytes": 828116,
    "mb": 0.79,
    "decks": [
@@ -443,10 +500,10 @@
    "self_contained": true
   },
   {
-   "id": "C14",
-   "file": "chunks/xuanshu_interior_C14.glb",
-   "bytes": 1494988,
-   "mb": 1.43,
+   "id": "C16",
+   "file": "chunks/xuanshu_interior_C16.glb",
+   "bytes": 1144716,
+   "mb": 1.09,
    "decks": [
     "D",
     "S1",
@@ -456,13 +513,7 @@
    ],
    "units": [
     "UNIT-ADM-001",
-    "UNIT-ADM-002",
-    "UNIT-ARC-001",
-    "UNIT-ARC-003",
     "UNIT-ATM-004",
-    "UNIT-EDU-001",
-    "UNIT-EDU-003",
-    "UNIT-HIB-006",
     "UNIT-HUL-001",
     "UNIT-HUL-002",
     "UNIT-HUL-003",
@@ -470,91 +521,24 @@
     "UNIT-HUL-005",
     "UNIT-MNT-009",
     "UNIT-MNT-010",
-    "UNIT-REP-003",
     "UNIT-TRN-001",
-    "UNIT-TRN-002",
     "UNIT-TRN-004",
     "UNIT-WTR-001",
     "UNIT-WTR-003"
    ],
-   "rooms": 95,
-   "faces": 54176,
-   "triangles": 116618,
+   "rooms": 43,
+   "faces": 47405,
+   "triangles": 76632,
    "bbox": {
     "min": [
      104.76,
-     -182.84,
-     -182.84
+     -47.13,
+     -12.16
     ],
     "max": [
      289.51,
-     182.84,
+     176.56,
      182.84
-    ]
-   },
-   "oversize": false,
-   "self_contained": true
-  },
-  {
-   "id": "C15",
-   "file": "chunks/xuanshu_interior_C15.glb",
-   "bytes": 1115032,
-   "mb": 1.06,
-   "decks": [
-    "T2"
-   ],
-   "units": [
-    "UNIT-HAB-001",
-    "UNIT-HAB-002"
-   ],
-   "rooms": 189,
-   "faces": 46188,
-   "triangles": 92448,
-   "bbox": {
-    "min": [
-     212.34,
-     -185.3,
-     -47.91
-    ],
-    "max": [
-     229.65,
-     179.0,
-     185.3
-    ]
-   },
-   "oversize": false,
-   "self_contained": true
-  },
-  {
-   "id": "C16",
-   "file": "chunks/xuanshu_interior_C16.glb",
-   "bytes": 1375068,
-   "mb": 1.31,
-   "decks": [
-    "T2",
-    "T3"
-   ],
-   "units": [
-    "UNIT-ENT-001",
-    "UNIT-ENT-004",
-    "UNIT-FOD-001",
-    "UNIT-HAB-003",
-    "UNIT-HAB-004",
-    "UNIT-HYG-003"
-   ],
-   "rooms": 240,
-   "faces": 58968,
-   "triangles": 118152,
-   "bbox": {
-    "min": [
-     212.34,
-     -189.3,
-     -185.3
-    ],
-    "max": [
-     229.65,
-     190.91,
-     189.3
     ]
    },
    "oversize": false,
@@ -563,33 +547,27 @@
   {
    "id": "C17",
    "file": "chunks/xuanshu_interior_C17.glb",
-   "bytes": 1567844,
-   "mb": 1.5,
+   "bytes": 514148,
+   "mb": 0.49,
    "decks": [
-    "T3"
+    "T1"
    ],
    "units": [
-    "UNIT-FOD-004",
-    "UNIT-GER-001",
-    "UNIT-GER-002",
-    "UNIT-GER-003",
-    "UNIT-HYG-002",
-    "UNIT-HYG-005",
-    "UNIT-MED-003"
+    "UNIT-ADM-002"
    ],
-   "rooms": 33,
-   "faces": 57391,
-   "triangles": 124534,
+   "rooms": 9,
+   "faces": 11933,
+   "triangles": 28741,
    "bbox": {
     "min": [
      212.34,
-     -190.91,
-     -189.3
+     46.02,
+     -176.56
     ],
     "max": [
      229.65,
-     189.3,
-     184.35
+     182.84,
+     47.13
     ]
    },
    "oversize": false,
@@ -598,27 +576,33 @@
   {
    "id": "C18",
    "file": "chunks/xuanshu_interior_C18.glb",
-   "bytes": 1358364,
-   "mb": 1.3,
+   "bytes": 604384,
+   "mb": 0.58,
    "decks": [
-    "T3"
+    "T1"
    ],
    "units": [
-    "UNIT-MED-003"
+    "UNIT-ARC-001",
+    "UNIT-ARC-003",
+    "UNIT-EDU-001",
+    "UNIT-EDU-003",
+    "UNIT-HIB-006",
+    "UNIT-REP-003",
+    "UNIT-TRN-002"
    ],
-   "rooms": 0,
-   "faces": 48859,
-   "triangles": 107410,
+   "rooms": 43,
+   "faces": 23605,
+   "triangles": 34104,
    "bbox": {
     "min": [
      212.34,
-     -157.51,
-     -184.35
+     -182.84,
+     -182.84
     ],
     "max": [
      229.65,
-     -48.34,
-     -104.86
+     181.3,
+     182.84
     ]
    },
    "oversize": false,
@@ -627,29 +611,27 @@
   {
    "id": "C19",
    "file": "chunks/xuanshu_interior_C19.glb",
-   "bytes": 1559568,
-   "mb": 1.49,
+   "bytes": 846032,
+   "mb": 0.81,
    "decks": [
-    "T3"
+    "T2"
    ],
    "units": [
-    "UNIT-MED-003",
-    "UNIT-MKT-001",
-    "UNIT-MKT-003"
+    "UNIT-HAB-001"
    ],
-   "rooms": 15,
-   "faces": 55840,
-   "triangles": 122736,
+   "rooms": 87,
+   "faces": 31587,
+   "triangles": 40072,
    "bbox": {
     "min": [
      212.34,
-     -92.98,
-     -190.91
+     47.11,
+     47.06
     ],
     "max": [
      229.65,
-     188.69,
-     190.91
+     179.0,
+     179.0
     ]
    },
    "oversize": false,
@@ -658,27 +640,27 @@
   {
    "id": "C20",
    "file": "chunks/xuanshu_interior_C20.glb",
-   "bytes": 92980,
-   "mb": 0.09,
+   "bytes": 855388,
+   "mb": 0.82,
    "decks": [
-    "T4"
+    "T2"
    ],
    "units": [
-    "UNIT-EDU-004"
+    "UNIT-HAB-001"
    ],
-   "rooms": 34,
-   "faces": 3234,
-   "triangles": 6492,
+   "rooms": 87,
+   "faces": 31587,
+   "triangles": 36224,
    "bbox": {
     "min": [
      212.34,
-     37.02,
-     -189.62
+     -47.91,
+     157.64
     ],
     "max": [
      229.65,
-     160.73,
-     -105.57
+     95.85,
+     185.5
     ]
    },
    "oversize": false,
@@ -687,30 +669,27 @@
   {
    "id": "C21",
    "file": "chunks/xuanshu_interior_C21.glb",
-   "bytes": 1379820,
-   "mb": 1.32,
+   "bytes": 863756,
+   "mb": 0.82,
    "decks": [
-    "T4"
+    "T2"
    ],
    "units": [
-    "UNIT-ENT-002",
-    "UNIT-ENT-003",
-    "UNIT-HAB-005",
-    "UNIT-HAB-006"
+    "UNIT-HAB-002"
    ],
-   "rooms": 228,
-   "faces": 52200,
-   "triangles": 104712,
+   "rooms": 102,
+   "faces": 32145,
+   "triangles": 41341,
    "bbox": {
     "min": [
      212.34,
-     -193.31,
-     -107.8
+     -178.99,
+     47.12
     ],
     "max": [
      229.65,
-     194.22,
-     193.31
+     -47.06,
+     179.0
     ]
    },
    "oversize": false,
@@ -719,30 +698,27 @@
   {
    "id": "C22",
    "file": "chunks/xuanshu_interior_C22.glb",
-   "bytes": 1088968,
-   "mb": 1.04,
+   "bytes": 870788,
+   "mb": 0.83,
    "decks": [
-    "T4",
-    "T5"
+    "T2"
    ],
    "units": [
-    "UNIT-FOD-003",
-    "UNIT-HAB-007",
-    "UNIT-HAB-008"
+    "UNIT-HAB-002"
    ],
-   "rooms": 173,
-   "faces": 38484,
-   "triangles": 77256,
+   "rooms": 102,
+   "faces": 32145,
+   "triangles": 37187,
    "bbox": {
     "min": [
      212.34,
-     -197.3,
-     -193.31
+     -185.3,
+     -47.91
     ],
     "max": [
      229.65,
-     160.74,
-     191.27
+     -156.47,
+     97.84
     ]
    },
    "oversize": false,
@@ -751,32 +727,626 @@
   {
    "id": "C23",
    "file": "chunks/xuanshu_interior_C23.glb",
-   "bytes": 1448272,
-   "mb": 1.38,
+   "bytes": 863792,
+   "mb": 0.82,
    "decks": [
-    "T5",
-    "T6"
+    "T2"
    ],
    "units": [
-    "UNIT-FNR-002",
-    "UNIT-FNR-003",
+    "UNIT-HAB-003"
+   ],
+   "rooms": 102,
+   "faces": 32145,
+   "triangles": 41341,
+   "bbox": {
+    "min": [
+     212.34,
+     -179.0,
+     -178.99
+    ],
+    "max": [
+     229.65,
+     -47.12,
+     -47.06
+    ]
+   },
+   "oversize": false,
+   "self_contained": true
+  },
+  {
+   "id": "C24",
+   "file": "chunks/xuanshu_interior_C24.glb",
+   "bytes": 870824,
+   "mb": 0.83,
+   "decks": [
+    "T2"
+   ],
+   "units": [
+    "UNIT-HAB-003"
+   ],
+   "rooms": 102,
+   "faces": 32145,
+   "triangles": 37187,
+   "bbox": {
+    "min": [
+     212.34,
+     -97.82,
+     -185.5
+    ],
+    "max": [
+     229.65,
+     47.91,
+     -156.45
+    ]
+   },
+   "oversize": false,
+   "self_contained": true
+  },
+  {
+   "id": "C25",
+   "file": "chunks/xuanshu_interior_C25.glb",
+   "bytes": 863836,
+   "mb": 0.82,
+   "decks": [
+    "T2"
+   ],
+   "units": [
+    "UNIT-HAB-004"
+   ],
+   "rooms": 102,
+   "faces": 32145,
+   "triangles": 41341,
+   "bbox": {
+    "min": [
+     212.34,
+     47.06,
+     -179.0
+    ],
+    "max": [
+     229.65,
+     178.99,
+     -47.12
+    ]
+   },
+   "oversize": false,
+   "self_contained": true
+  },
+  {
+   "id": "C26",
+   "file": "chunks/xuanshu_interior_C26.glb",
+   "bytes": 870844,
+   "mb": 0.83,
+   "decks": [
+    "T2"
+   ],
+   "units": [
+    "UNIT-HAB-004"
+   ],
+   "rooms": 102,
+   "faces": 32145,
+   "triangles": 37187,
+   "bbox": {
+    "min": [
+     212.34,
+     156.47,
+     -97.84
+    ],
+    "max": [
+     229.65,
+     185.3,
+     47.91
+    ]
+   },
+   "oversize": false,
+   "self_contained": true
+  },
+  {
+   "id": "C27",
+   "file": "chunks/xuanshu_interior_C27.glb",
+   "bytes": 977408,
+   "mb": 0.93,
+   "decks": [
+    "T2",
+    "T3"
+   ],
+   "units": [
+    "UNIT-ENT-001",
+    "UNIT-ENT-004",
+    "UNIT-FOD-001",
+    "UNIT-FOD-004",
+    "UNIT-GER-001",
+    "UNIT-GER-002",
+    "UNIT-GER-003",
+    "UNIT-HYG-002",
+    "UNIT-HYG-003",
+    "UNIT-HYG-005"
+   ],
+   "rooms": 60,
+   "faces": 39651,
+   "triangles": 56315,
+   "bbox": {
+    "min": [
+     212.34,
+     -190.91,
+     -189.3
+    ],
+    "max": [
+     229.65,
+     190.91,
+     189.35
+    ]
+   },
+   "oversize": false,
+   "self_contained": true
+  },
+  {
+   "id": "C28",
+   "file": "chunks/xuanshu_interior_C28.glb",
+   "bytes": 809872,
+   "mb": 0.77,
+   "decks": [
+    "T3"
+   ],
+   "units": [
+    "UNIT-MED-003"
+   ],
+   "rooms": 9,
+   "faces": 24903,
+   "triangles": 34286,
+   "bbox": {
+    "min": [
+     212.34,
+     -184.35,
+     -134.85
+    ],
+    "max": [
+     229.65,
+     -131.8,
+     -48.09
+    ]
+   },
+   "oversize": false,
+   "self_contained": true
+  },
+  {
+   "id": "C29",
+   "file": "chunks/xuanshu_interior_C29.glb",
+   "bytes": 792692,
+   "mb": 0.76,
+   "decks": [
+    "T3"
+   ],
+   "units": [
+    "UNIT-MED-003"
+   ],
+   "rooms": 18,
+   "faces": 24904,
+   "triangles": 55044,
+   "bbox": {
+    "min": [
+     221.91,
+     -164.34,
+     -101.96
+    ],
+    "max": [
+     222.19,
+     -159.25,
+     -93.83
+    ]
+   },
+   "oversize": false,
+   "self_contained": true
+  },
+  {
+   "id": "C30",
+   "file": "chunks/xuanshu_interior_C30.glb",
+   "bytes": 1532816,
+   "mb": 1.46,
+   "decks": [
+    "T3"
+   ],
+   "units": [
+    "UNIT-MED-003"
+   ],
+   "rooms": 0,
+   "faces": 49807,
+   "triangles": 88513,
+   "bbox": {
+    "min": [
+     212.34,
+     -159.64,
+     -184.35
+    ],
+    "max": [
+     229.65,
+     -48.34,
+     -101.6
+    ]
+   },
+   "oversize": false,
+   "self_contained": true
+  },
+  {
+   "id": "C31",
+   "file": "chunks/xuanshu_interior_C31.glb",
+   "bytes": 911552,
+   "mb": 0.87,
+   "decks": [
+    "T3"
+   ],
+   "units": [
+    "UNIT-MED-003"
+   ],
+   "rooms": 0,
+   "faces": 24903,
+   "triangles": 55030,
+   "bbox": {
+    "min": [
+     221.91,
+     -105.16,
+     -162.35
+    ],
+    "max": [
+     222.19,
+     -97.13,
+     -157.15
+    ]
+   },
+   "oversize": false,
+   "self_contained": true
+  },
+  {
+   "id": "C32",
+   "file": "chunks/xuanshu_interior_C32.glb",
+   "bytes": 816732,
+   "mb": 0.78,
+   "decks": [
+    "T3"
+   ],
+   "units": [
+    "UNIT-MED-003"
+   ],
+   "rooms": 0,
+   "faces": 24904,
+   "triangles": 55364,
+   "bbox": {
+    "min": [
+     221.91,
+     -97.47,
+     -166.83
+    ],
+    "max": [
+     222.19,
+     -89.22,
+     -162.01
+    ]
+   },
+   "oversize": false,
+   "self_contained": true
+  },
+  {
+   "id": "C33",
+   "file": "chunks/xuanshu_interior_C33.glb",
+   "bytes": 743704,
+   "mb": 0.71,
+   "decks": [
+    "T3"
+   ],
+   "units": [
+    "UNIT-MED-003"
+   ],
+   "rooms": 0,
+   "faces": 24903,
+   "triangles": 36004,
+   "bbox": {
+    "min": [
+     212.34,
+     -89.56,
+     -190.91
+    ],
+    "max": [
+     229.65,
+     49.22,
+     -166.08
+    ]
+   },
+   "oversize": false,
+   "self_contained": true
+  },
+  {
+   "id": "C34",
+   "file": "chunks/xuanshu_interior_C34.glb",
+   "bytes": 954436,
+   "mb": 0.91,
+   "decks": [
+    "T3"
+   ],
+   "units": [
+    "UNIT-MED-003"
+   ],
+   "rooms": 0,
+   "faces": 24904,
+   "triangles": 53851,
+   "bbox": {
+    "min": [
+     221.49,
+     -29.8,
+     -188.86
+    ],
+    "max": [
+     222.61,
+     -13.16,
+     -185.61
+    ]
+   },
+   "oversize": false,
+   "self_contained": true
+  },
+  {
+   "id": "C35",
+   "file": "chunks/xuanshu_interior_C35.glb",
+   "bytes": 1502448,
+   "mb": 1.43,
+   "decks": [
+    "T3",
+    "T4"
+   ],
+   "units": [
+    "UNIT-EDU-004",
+    "UNIT-ENT-002",
+    "UNIT-ENT-003",
+    "UNIT-MED-003",
+    "UNIT-MKT-001",
+    "UNIT-MKT-003"
+   ],
+   "rooms": 61,
+   "faces": 47530,
+   "triangles": 98307,
+   "bbox": {
+    "min": [
+     212.34,
+     -49.5,
+     -190.03
+    ],
+    "max": [
+     229.65,
+     194.22,
+     190.91
+    ]
+   },
+   "oversize": false,
+   "self_contained": true
+  },
+  {
+   "id": "C36",
+   "file": "chunks/xuanshu_interior_C36.glb",
+   "bytes": 919848,
+   "mb": 0.88,
+   "decks": [
+    "T4"
+   ],
+   "units": [
+    "UNIT-HAB-005"
+   ],
+   "rooms": 108,
+   "faces": 34179,
+   "triangles": 43838,
+   "bbox": {
+    "min": [
+     212.34,
+     61.09,
+     37.02
+    ],
+    "max": [
+     229.65,
+     189.6,
+     183.04
+    ]
+   },
+   "oversize": false,
+   "self_contained": true
+  },
+  {
+   "id": "C37",
+   "file": "chunks/xuanshu_interior_C37.glb",
+   "bytes": 931496,
+   "mb": 0.89,
+   "decks": [
+    "T4"
+   ],
+   "units": [
+    "UNIT-HAB-005"
+   ],
+   "rooms": 216,
+   "faces": 34180,
+   "triangles": 39341,
+   "bbox": {
+    "min": [
+     212.34,
+     -37.66,
+     156.53
+    ],
+    "max": [
+     229.65,
+     113.28,
+     193.41
+    ]
+   },
+   "oversize": false,
+   "self_contained": true
+  },
+  {
+   "id": "C38",
+   "file": "chunks/xuanshu_interior_C38.glb",
+   "bytes": 900300,
+   "mb": 0.86,
+   "decks": [
+    "T4"
+   ],
+   "units": [
+    "UNIT-HAB-006"
+   ],
+   "rooms": 108,
+   "faces": 33450,
+   "triangles": 43012,
+   "bbox": {
+    "min": [
+     212.34,
+     -183.04,
+     61.09
+    ],
+    "max": [
+     229.65,
+     -37.02,
+     189.6
+    ]
+   },
+   "oversize": false,
+   "self_contained": true
+  },
+  {
+   "id": "C39",
+   "file": "chunks/xuanshu_interior_C39.glb",
+   "bytes": 910732,
+   "mb": 0.87,
+   "decks": [
+    "T4"
+   ],
+   "units": [
+    "UNIT-HAB-006"
+   ],
+   "rooms": 216,
+   "faces": 33451,
+   "triangles": 38610,
+   "bbox": {
+    "min": [
+     212.34,
+     -193.31,
+     -37.66
+    ],
+    "max": [
+     229.65,
+     -151.05,
+     119.59
+    ]
+   },
+   "oversize": false,
+   "self_contained": true
+  },
+  {
+   "id": "C40",
+   "file": "chunks/xuanshu_interior_C40.glb",
+   "bytes": 921380,
+   "mb": 0.88,
+   "decks": [
+    "T4"
+   ],
+   "units": [
+    "UNIT-HAB-007"
+   ],
+   "rooms": 123,
+   "faces": 34017,
+   "triangles": 44301,
+   "bbox": {
+    "min": [
+     212.34,
+     -189.6,
+     -183.04
+    ],
+    "max": [
+     229.65,
+     -61.1,
+     -37.02
+    ]
+   },
+   "oversize": false,
+   "self_contained": true
+  },
+  {
+   "id": "C41",
+   "file": "chunks/xuanshu_interior_C41.glb",
+   "bytes": 928280,
+   "mb": 0.89,
+   "decks": [
+    "T4"
+   ],
+   "units": [
+    "UNIT-HAB-007"
+   ],
+   "rooms": 246,
+   "faces": 34018,
+   "triangles": 39589,
+   "bbox": {
+    "min": [
+     212.34,
+     -121.42,
+     -193.36
+    ],
+    "max": [
+     229.65,
+     37.65,
+     -149.62
+    ]
+   },
+   "oversize": false,
+   "self_contained": true
+  },
+  {
+   "id": "C42",
+   "file": "chunks/xuanshu_interior_C42.glb",
+   "bytes": 651264,
+   "mb": 0.62,
+   "decks": [
+    "T4",
+    "T5"
+   ],
+   "units": [
+    "UNIT-FOD-003",
+    "UNIT-HAB-008"
+   ],
+   "rooms": 50,
+   "faces": 27151,
+   "triangles": 37806,
+   "bbox": {
+    "min": [
+     212.34,
+     -197.3,
+     -189.63
+    ],
+    "max": [
+     229.65,
+     160.74,
+     191.41
+    ]
+   },
+   "oversize": false,
+   "self_contained": true
+  },
+  {
+   "id": "C43",
+   "file": "chunks/xuanshu_interior_C43.glb",
+   "bytes": 1555968,
+   "mb": 1.48,
+   "decks": [
+    "T5"
+   ],
+   "units": [
     "UNIT-HIB-007",
     "UNIT-HYG-004",
     "UNIT-MKT-002",
     "UNIT-MNT-006",
     "UNIT-MNT-007",
     "UNIT-STO-003",
-    "UNIT-TEX-001",
-    "UNIT-TEX-002"
+    "UNIT-TEX-001"
    ],
-   "rooms": 58,
-   "faces": 50192,
-   "triangles": 108504,
+   "rooms": 46,
+   "faces": 49380,
+   "triangles": 101986,
    "bbox": {
     "min": [
      212.2,
-     -200.65,
-     -201.3
+     -191.27,
+     -197.3
     ],
     "max": [
      229.8,
@@ -788,24 +1358,141 @@
    "self_contained": true
   },
   {
-   "id": "C24",
-   "file": "chunks/xuanshu_interior_C24.glb",
-   "bytes": 1477076,
-   "mb": 1.41,
+   "id": "C44",
+   "file": "chunks/xuanshu_interior_C44.glb",
+   "bytes": 31632,
+   "mb": 0.03,
+   "decks": [
+    "T5"
+   ],
+   "units": [
+    "UNIT-TEX-002"
+   ],
+   "rooms": 3,
+   "faces": 853,
+   "triangles": 1624,
+   "bbox": {
+    "min": [
+     212.34,
+     -51.59,
+     50.16
+    ],
+    "max": [
+     229.65,
+     196.66,
+     197.3
+    ]
+   },
+   "oversize": false,
+   "self_contained": true
+  },
+  {
+   "id": "C45",
+   "file": "chunks/xuanshu_interior_C45.glb",
+   "bytes": 748516,
+   "mb": 0.71,
+   "decks": [
+    "T6"
+   ],
+   "units": [
+    "UNIT-FNR-002",
+    "UNIT-FNR-003"
+   ],
+   "rooms": 9,
+   "faces": 33728,
+   "triangles": 42618,
+   "bbox": {
+    "min": [
+     212.34,
+     -200.65,
+     -201.3
+    ],
+    "max": [
+     229.65,
+     52.64,
+     -51.2
+    ]
+   },
+   "oversize": false,
+   "self_contained": true
+  },
+  {
+   "id": "C46",
+   "file": "chunks/xuanshu_interior_C46.glb",
+   "bytes": 851160,
+   "mb": 0.81,
+   "decks": [
+    "T6"
+   ],
+   "units": [
+    "UNIT-HAB-009"
+   ],
+   "rooms": 60,
+   "faces": 31894,
+   "triangles": 39469,
+   "bbox": {
+    "min": [
+     212.34,
+     51.24,
+     51.2
+    ],
+    "max": [
+     229.65,
+     194.49,
+     194.49
+    ]
+   },
+   "oversize": false,
+   "self_contained": true
+  },
+  {
+   "id": "C47",
+   "file": "chunks/xuanshu_interior_C47.glb",
+   "bytes": 866412,
+   "mb": 0.83,
+   "decks": [
+    "T6"
+   ],
+   "units": [
+    "UNIT-HAB-009"
+   ],
+   "rooms": 60,
+   "faces": 31894,
+   "triangles": 35862,
+   "bbox": {
+    "min": [
+     212.34,
+     -52.06,
+     165.55
+    ],
+    "max": [
+     229.65,
+     113.21,
+     201.45
+    ]
+   },
+   "oversize": false,
+   "self_contained": true
+  },
+  {
+   "id": "C48",
+   "file": "chunks/xuanshu_interior_C48.glb",
+   "bytes": 1377292,
+   "mb": 1.31,
    "decks": [
     "T6",
     "E1"
    ],
    "units": [
     "UNIT-AGR-001",
-    "UNIT-HAB-009",
+    "UNIT-AGR-002",
     "UNIT-HAB-011",
     "UNIT-RIT-001",
     "UNIT-RIT-003"
    ],
-   "rooms": 111,
-   "faces": 52992,
-   "triangles": 106164,
+   "rooms": 69,
+   "faces": 60205,
+   "triangles": 119109,
    "bbox": {
     "min": [
      212.34,
@@ -815,54 +1502,55 @@
     "max": [
      273.65,
      203.01,
-     201.37
+     196.04
     ]
    },
    "oversize": false,
    "self_contained": true
   },
   {
-   "id": "C25",
-   "file": "chunks/xuanshu_interior_C25.glb",
-   "bytes": 1245340,
-   "mb": 1.19,
+   "id": "C49",
+   "file": "chunks/xuanshu_interior_C49.glb",
+   "bytes": 1261628,
+   "mb": 1.2,
    "decks": [
-    "E1"
+    "E1",
+    "E2"
    ],
    "units": [
-    "UNIT-AGR-002",
     "UNIT-AGR-003",
+    "UNIT-AGR-004",
     "UNIT-GEN-001"
    ],
    "rooms": 33,
-   "faces": 55170,
-   "triangles": 110448,
+   "faces": 55649,
+   "triangles": 110869,
    "bbox": {
     "min": [
      260.34,
-     -133.52,
+     -105.31,
      -139.34
     ],
     "max": [
      273.65,
      133.3,
-     85.77
+     137.3
     ]
    },
    "oversize": false,
    "self_contained": true
   },
   {
-   "id": "C26",
-   "file": "chunks/xuanshu_interior_C26.glb",
-   "bytes": 1203368,
+   "id": "C50",
+   "file": "chunks/xuanshu_interior_C50.glb",
+   "bytes": 1203380,
    "mb": 1.15,
    "decks": [
     "E2"
    ],
    "units": [
-    "UNIT-AGR-004",
-    "UNIT-AGR-005"
+    "UNIT-AGR-005",
+    "UNIT-AGR-006"
    ],
    "rooms": 36,
    "faces": 54612,
@@ -871,29 +1559,28 @@
     "min": [
      260.34,
      -137.53,
-     -135.43
+     -137.3
     ],
     "max": [
      273.65,
-     129.21,
-     137.3
+     137.53,
+     88.35
     ]
    },
    "oversize": false,
    "self_contained": true
   },
   {
-   "id": "C27",
-   "file": "chunks/xuanshu_interior_C27.glb",
-   "bytes": 1203388,
+   "id": "C51",
+   "file": "chunks/xuanshu_interior_C51.glb",
+   "bytes": 1203372,
    "mb": 1.15,
    "decks": [
-    "E2",
     "E3"
    ],
    "units": [
-    "UNIT-AGR-006",
-    "UNIT-AGR-007"
+    "UNIT-AGR-007",
+    "UNIT-AGR-008"
    ],
    "rooms": 36,
    "faces": 54612,
@@ -901,12 +1588,12 @@
    "bbox": {
     "min": [
      260.34,
-     -108.38,
-     -137.3
+     -141.54,
+     -139.37
     ],
     "max": [
      273.65,
-     137.53,
+     132.98,
      141.3
     ]
    },
@@ -914,55 +1601,27 @@
    "self_contained": true
   },
   {
-   "id": "C28",
-   "file": "chunks/xuanshu_interior_C28.glb",
-   "bytes": 1251212,
-   "mb": 1.19,
+   "id": "C52",
+   "file": "chunks/xuanshu_interior_C52.glb",
+   "bytes": 1359412,
+   "mb": 1.3,
    "decks": [
-    "E3"
-   ],
-   "units": [
-    "UNIT-AGR-008",
-    "UNIT-AGR-009",
-    "UNIT-GEN-003"
-   ],
-   "rooms": 33,
-   "faces": 55278,
-   "triangles": 110664,
-   "bbox": {
-    "min": [
-     260.34,
-     -141.54,
-     -147.71
-    ],
-    "max": [
-     273.65,
-     141.83,
-     90.92
-    ]
-   },
-   "oversize": false,
-   "self_contained": true
-  },
-  {
-   "id": "C29",
-   "file": "chunks/xuanshu_interior_C29.glb",
-   "bytes": 567168,
-   "mb": 0.54,
-   "decks": [
+    "E3",
     "E4",
     "E5"
    ],
    "units": [
+    "UNIT-AGR-009",
     "UNIT-AGR-010",
     "UNIT-AGR-011",
+    "UNIT-GEN-003",
     "UNIT-PRT-001",
     "UNIT-PRT-002",
     "UNIT-PRT-003"
    ],
-   "rooms": 78,
-   "faces": 29130,
-   "triangles": 58560,
+   "rooms": 93,
+   "faces": 57581,
+   "triangles": 114997,
    "bbox": {
     "min": [
      260.34,
@@ -979,10 +1638,10 @@
    "self_contained": true
   },
   {
-   "id": "C30",
-   "file": "chunks/xuanshu_interior_C30.glb",
-   "bytes": 1507716,
-   "mb": 1.44,
+   "id": "C53",
+   "file": "chunks/xuanshu_interior_C53.glb",
+   "bytes": 1474564,
+   "mb": 1.41,
    "decks": [
     "E5"
    ],
@@ -990,13 +1649,42 @@
     "UNIT-REC-004"
    ],
    "rooms": 15,
-   "faces": 54150,
-   "triangles": 117696,
+   "faces": 49807,
+   "triangles": 92680,
    "bbox": {
     "min": [
      260.34,
      -25.97,
      -150.05
+    ],
+    "max": [
+     273.65,
+     141.19,
+     -50.05
+    ]
+   },
+   "oversize": false,
+   "self_contained": true
+  },
+  {
+   "id": "C54",
+   "file": "chunks/xuanshu_interior_C54.glb",
+   "bytes": 1492208,
+   "mb": 1.42,
+   "decks": [
+    "E5"
+   ],
+   "units": [
+    "UNIT-REC-004"
+   ],
+   "rooms": 0,
+   "faces": 49807,
+   "triangles": 97868,
+   "bbox": {
+    "min": [
+     260.34,
+     75.69,
+     -128.87
     ],
     "max": [
      273.65,
@@ -1008,28 +1696,30 @@
    "self_contained": true
   },
   {
-   "id": "C31",
-   "file": "chunks/xuanshu_interior_C31.glb",
-   "bytes": 156964,
-   "mb": 0.15,
+   "id": "C55",
+   "file": "chunks/xuanshu_interior_C55.glb",
+   "bytes": 1048496,
+   "mb": 1.0,
    "decks": [
+    "E5",
     "E6"
    ],
    "units": [
-    "UNIT-AGR-012"
+    "UNIT-AGR-012",
+    "UNIT-REC-004"
    ],
    "rooms": 15,
-   "faces": 5736,
-   "triangles": 11532,
+   "faces": 31967,
+   "triangles": 69226,
    "bbox": {
     "min": [
      260.34,
      -118.13,
-     51.26
+     -19.51
     ],
     "max": [
      273.65,
-     144.97,
+     149.3,
      154.07
     ]
    },
@@ -1037,10 +1727,10 @@
    "self_contained": true
   },
   {
-   "id": "C32",
-   "file": "chunks/xuanshu_interior_C32.glb",
-   "bytes": 1531636,
-   "mb": 1.46,
+   "id": "C56",
+   "file": "chunks/xuanshu_interior_C56.glb",
+   "bytes": 1476944,
+   "mb": 1.41,
    "decks": [
     "E6"
    ],
@@ -1048,17 +1738,17 @@
     "UNIT-ATM-005"
    ],
    "rooms": 15,
-   "faces": 54852,
-   "triangles": 119388,
+   "faces": 49807,
+   "triangles": 92901,
    "bbox": {
     "min": [
      260.34,
      -154.33,
-     -151.96
+     -99.09
     ],
     "max": [
      273.65,
-     -25.99,
+     -114.87,
      99.09
     ]
    },
@@ -1066,21 +1756,77 @@
    "self_contained": true
   },
   {
-   "id": "C33",
-   "file": "chunks/xuanshu_interior_C33.glb",
-   "bytes": 1552692,
-   "mb": 1.48,
+   "id": "C57",
+   "file": "chunks/xuanshu_interior_C57.glb",
+   "bytes": 1480476,
+   "mb": 1.41,
    "decks": [
-    "E6",
-    "I1"
+    "E6"
    ],
    "units": [
-    "UNIT-MNT-001",
+    "UNIT-ATM-005"
+   ],
+   "rooms": 0,
+   "faces": 49807,
+   "triangles": 96680,
+   "bbox": {
+    "min": [
+     260.34,
+     -153.29,
+     -151.96
+    ],
+    "max": [
+     273.65,
+     -25.99,
+     -1.21
+    ]
+   },
+   "oversize": false,
+   "self_contained": true
+  },
+  {
+   "id": "C58",
+   "file": "chunks/xuanshu_interior_C58.glb",
+   "bytes": 928196,
+   "mb": 0.89,
+   "decks": [
+    "E6"
+   ],
+   "units": [
+    "UNIT-ATM-005"
+   ],
+   "rooms": 0,
+   "faces": 27658,
+   "triangles": 60873,
+   "bbox": {
+    "min": [
+     267.43,
+     -95.75,
+     -131.9
+    ],
+    "max": [
+     268.67,
+     -76.79,
+     -119.45
+    ]
+   },
+   "oversize": false,
+   "self_contained": true
+  },
+  {
+   "id": "C59",
+   "file": "chunks/xuanshu_interior_C59.glb",
+   "bytes": 1474760,
+   "mb": 1.41,
+   "decks": [
+    "E6"
+   ],
+   "units": [
     "UNIT-WTP-005"
    ],
-   "rooms": 21,
-   "faces": 55502,
-   "triangles": 120536,
+   "rooms": 15,
+   "faces": 49807,
+   "triangles": 92693,
    "bbox": {
     "min": [
      260.34,
@@ -1088,7 +1834,36 @@
      -154.07
     ],
     "max": [
-     346.98,
+     273.65,
+     144.97,
+     -51.43
+    ]
+   },
+   "oversize": false,
+   "self_contained": true
+  },
+  {
+   "id": "C60",
+   "file": "chunks/xuanshu_interior_C60.glb",
+   "bytes": 1491224,
+   "mb": 1.42,
+   "decks": [
+    "E6"
+   ],
+   "units": [
+    "UNIT-WTP-005"
+   ],
+   "rooms": 0,
+   "faces": 49807,
+   "triangles": 97823,
+   "bbox": {
+    "min": [
+     260.34,
+     77.69,
+     -132.33
+    ],
+    "max": [
+     273.65,
      153.3,
      52.65
     ]
@@ -1097,85 +1872,207 @@
    "self_contained": true
   },
   {
-   "id": "C34",
-   "file": "chunks/xuanshu_interior_C34.glb",
-   "bytes": 41052,
-   "mb": 0.04,
+   "id": "C61",
+   "file": "chunks/xuanshu_interior_C61.glb",
+   "bytes": 1129552,
+   "mb": 1.08,
    "decks": [
+    "E6",
     "I1"
    ],
    "units": [
-    "UNIT-MNT-002"
+    "UNIT-MNT-001",
+    "UNIT-MNT-002",
+    "UNIT-MNT-003",
+    "UNIT-MNT-008",
+    "UNIT-STO-001",
+    "UNIT-WTP-005"
+   ],
+   "rooms": 22,
+   "faces": 34887,
+   "triangles": 72378,
+   "bbox": {
+    "min": [
+     267.76,
+     -21.96,
+     -22.97
+    ],
+    "max": [
+     395.32,
+     153.23,
+     8.82
+    ]
+   },
+   "oversize": false,
+   "self_contained": true
+  },
+  {
+   "id": "C62",
+   "file": "chunks/xuanshu_interior_C62.glb",
+   "bytes": 834124,
+   "mb": 0.8,
+   "decks": [
+    "I2"
+   ],
+   "units": [
+    "UNIT-HIB-001"
+   ],
+   "rooms": 3,
+   "faces": 25797,
+   "triangles": 57756,
+   "bbox": {
+    "min": [
+     502.67,
+     -22.52,
+     5.33
+    ],
+    "max": [
+     539.1,
+     21.96,
+     8.82
+    ]
+   },
+   "oversize": false,
+   "self_contained": true
+  },
+  {
+   "id": "C63",
+   "file": "chunks/xuanshu_interior_C63.glb",
+   "bytes": 830104,
+   "mb": 0.79,
+   "decks": [
+    "I2"
+   ],
+   "units": [
+    "UNIT-HIB-001"
    ],
    "rooms": 6,
-   "faces": 1114,
-   "triangles": 2236,
+   "faces": 25798,
+   "triangles": 46973,
    "bbox": {
     "min": [
-     348.38,
-     -21.96,
-     5.34
+     502.79,
+     -16.35,
+     5.4
     ],
     "max": [
-     375.7,
-     21.96,
-     8.82
+     538.34,
+     -14.81,
+     7.0
     ]
    },
    "oversize": false,
    "self_contained": true
   },
   {
-   "id": "C35",
-   "file": "chunks/xuanshu_interior_C35.glb",
-   "bytes": 26212,
-   "mb": 0.02,
+   "id": "C64",
+   "file": "chunks/xuanshu_interior_C64.glb",
+   "bytes": 1380,
+   "mb": 0.0,
    "decks": [
-    "I1"
+    "I2"
    ],
    "units": [
-    "UNIT-MNT-003"
+    "UNIT-HIB-002"
    ],
-   "rooms": 3,
-   "faces": 586,
-   "triangles": 1180,
+   "rooms": 1,
+   "faces": 12,
+   "triangles": 24,
    "bbox": {
     "min": [
-     377.1,
-     -21.96,
-     5.34
+     503.47,
+     -21.26,
+     5.5
     ],
     "max": [
-     395.32,
-     21.96,
-     8.82
+     506.37,
+     -20.46,
+     6.5
     ]
    },
    "oversize": false,
    "self_contained": true
   },
   {
-   "id": "C36",
-   "file": "chunks/xuanshu_interior_C36.glb",
-   "bytes": 16320,
-   "mb": 0.02,
+   "id": "C65",
+   "file": "chunks/xuanshu_interior_C65.glb",
+   "bytes": 1380,
+   "mb": 0.0,
    "decks": [
-    "I1"
+    "I2"
    ],
    "units": [
-    "UNIT-MNT-008"
+    "UNIT-HIB-004"
    ],
-   "rooms": 3,
-   "faces": 352,
-   "triangles": 712,
+   "rooms": 1,
+   "faces": 12,
+   "triangles": 24,
    "bbox": {
     "min": [
-     377.1,
+     503.47,
+     -21.26,
+     5.5
+    ],
+    "max": [
+     506.37,
+     -20.46,
+     6.5
+    ]
+   },
+   "oversize": false,
+   "self_contained": true
+  },
+  {
+   "id": "C66",
+   "file": "chunks/xuanshu_interior_C66.glb",
+   "bytes": 1380,
+   "mb": 0.0,
+   "decks": [
+    "I2"
+   ],
+   "units": [
+    "UNIT-HIB-005"
+   ],
+   "rooms": 1,
+   "faces": 12,
+   "triangles": 24,
+   "bbox": {
+    "min": [
+     503.47,
+     -21.26,
+     5.5
+    ],
+    "max": [
+     506.37,
+     -20.46,
+     6.5
+    ]
+   },
+   "oversize": false,
+   "self_contained": true
+  },
+  {
+   "id": "C67",
+   "file": "chunks/xuanshu_interior_C67.glb",
+   "bytes": 20948,
+   "mb": 0.02,
+   "decks": [
+    "I2"
+   ],
+   "units": [
+    "UNIT-LAB-003"
+   ],
+   "rooms": 1,
+   "faces": 613,
+   "triangles": 880,
+   "bbox": {
+    "min": [
+     406.0,
      -21.96,
      5.34
     ],
     "max": [
-     395.32,
+     440.15,
      21.96,
      8.82
     ]
@@ -1184,43 +2081,259 @@
    "self_contained": true
   },
   {
-   "id": "C37",
-   "file": "chunks/xuanshu_interior_C37.glb",
-   "bytes": 1562868,
-   "mb": 1.49,
+   "id": "C68",
+   "file": "chunks/xuanshu_interior_C68.glb",
+   "bytes": 33148,
+   "mb": 0.03,
    "decks": [
-    "I1",
-    "I2",
+    "I2"
+   ],
+   "units": [
+    "UNIT-MNT-004"
+   ],
+   "rooms": 5,
+   "faces": 1016,
+   "triangles": 1674,
+   "bbox": {
+    "min": [
+     406.0,
+     -21.96,
+     5.34
+    ],
+    "max": [
+     440.15,
+     21.96,
+     8.82
+    ]
+   },
+   "oversize": false,
+   "self_contained": true
+  },
+  {
+   "id": "C69",
+   "file": "chunks/xuanshu_interior_C69.glb",
+   "bytes": 26792,
+   "mb": 0.03,
+   "decks": [
+    "I2"
+   ],
+   "units": [
+    "UNIT-MNT-005"
+   ],
+   "rooms": 6,
+   "faces": 732,
+   "triangles": 1236,
+   "bbox": {
+    "min": [
+     441.55,
+     -21.96,
+     5.34
+    ],
+    "max": [
+     468.87,
+     21.96,
+     8.82
+    ]
+   },
+   "oversize": false,
+   "self_contained": true
+  },
+  {
+   "id": "C70",
+   "file": "chunks/xuanshu_interior_C70.glb",
+   "bytes": 17500,
+   "mb": 0.02,
+   "decks": [
+    "I2"
+   ],
+   "units": [
+    "UNIT-REC-003"
+   ],
+   "rooms": 3,
+   "faces": 419,
+   "triangles": 728,
+   "bbox": {
+    "min": [
+     470.27,
+     -21.96,
+     5.34
+    ],
+    "max": [
+     481.66,
+     21.96,
+     8.82
+    ]
+   },
+   "oversize": false,
+   "self_contained": true
+  },
+  {
+   "id": "C71",
+   "file": "chunks/xuanshu_interior_C71.glb",
+   "bytes": 18760,
+   "mb": 0.02,
+   "decks": [
+    "I2"
+   ],
+   "units": [
+    "UNIT-STO-002"
+   ],
+   "rooms": 4,
+   "faces": 449,
+   "triangles": 788,
+   "bbox": {
+    "min": [
+     483.06,
+     -21.96,
+     5.34
+    ],
+    "max": [
+     501.27,
+     21.96,
+     8.82
+    ]
+   },
+   "oversize": false,
+   "self_contained": true
+  },
+  {
+   "id": "C72",
+   "file": "chunks/xuanshu_interior_C72.glb",
+   "bytes": 32824,
+   "mb": 0.03,
+   "decks": [
     "I3"
    ],
    "units": [
-    "UNIT-DEF-003",
-    "UNIT-HIB-001",
-    "UNIT-HIB-002",
-    "UNIT-HIB-004",
-    "UNIT-HIB-005",
-    "UNIT-LAB-003",
-    "UNIT-MNT-004",
-    "UNIT-MNT-005",
-    "UNIT-PWR-002",
-    "UNIT-PWR-003",
-    "UNIT-PWR-004",
-    "UNIT-PWR-006",
-    "UNIT-REC-003",
-    "UNIT-STO-001",
-    "UNIT-STO-002"
+    "UNIT-DEF-003"
    ],
-   "rooms": 45,
-   "faces": 51612,
-   "triangles": 118236,
+   "rooms": 2,
+   "faces": 1120,
+   "triangles": 1593,
    "bbox": {
     "min": [
-     306.0,
-     -22.52,
+     546.0,
+     -21.96,
      -5.66
     ],
     "max": [
+     570.41,
+     21.96,
+     -2.18
+    ]
+   },
+   "oversize": false,
+   "self_contained": true
+  },
+  {
+   "id": "C73",
+   "file": "chunks/xuanshu_interior_C73.glb",
+   "bytes": 24208,
+   "mb": 0.02,
+   "decks": [
+    "I3"
+   ],
+   "units": [
+    "UNIT-PWR-002"
+   ],
+   "rooms": 2,
+   "faces": 721,
+   "triangles": 1096,
+   "bbox": {
+    "min": [
+     546.0,
+     -21.96,
+     5.34
+    ],
+    "max": [
+     618.86,
+     21.96,
+     8.82
+    ]
+   },
+   "oversize": false,
+   "self_contained": true
+  },
+  {
+   "id": "C74",
+   "file": "chunks/xuanshu_interior_C74.glb",
+   "bytes": 20864,
+   "mb": 0.02,
+   "decks": [
+    "I3"
+   ],
+   "units": [
+    "UNIT-PWR-003"
+   ],
+   "rooms": 2,
+   "faces": 570,
+   "triangles": 912,
+   "bbox": {
+    "min": [
+     546.0,
+     -21.96,
+     5.34
+    ],
+    "max": [
+     618.86,
+     21.96,
+     8.82
+    ]
+   },
+   "oversize": false,
+   "self_contained": true
+  },
+  {
+   "id": "C75",
+   "file": "chunks/xuanshu_interior_C75.glb",
+   "bytes": 24528,
+   "mb": 0.02,
+   "decks": [
+    "I3"
+   ],
+   "units": [
+    "UNIT-PWR-004"
+   ],
+   "rooms": 4,
+   "faces": 672,
+   "triangles": 1116,
+   "bbox": {
+    "min": [
+     658.08,
+     -21.96,
+     5.34
+    ],
+    "max": [
      712.72,
+     21.96,
+     8.82
+    ]
+   },
+   "oversize": false,
+   "self_contained": true
+  },
+  {
+   "id": "C76",
+   "file": "chunks/xuanshu_interior_C76.glb",
+   "bytes": 791016,
+   "mb": 0.75,
+   "decks": [
+    "I3"
+   ],
+   "units": [
+    "UNIT-PWR-006"
+   ],
+   "rooms": 6,
+   "faces": 28417,
+   "triangles": 62708,
+   "bbox": {
+    "min": [
+     620.26,
+     -21.96,
+     4.93
+    ],
+    "max": [
+     656.68,
      21.96,
      8.82
     ]
