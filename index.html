@@ -1667,6 +1667,45 @@ body.light .crew-stage{background:rgba(245,248,251,.55)}
 body.light .hud-input input{color:#25333f}
 body.light .hud-input input::placeholder{color:#93a1af}
 
+/* ===================== 舰船设计板块 ===================== */
+.ship-entry{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:0 0 14px;padding:11px 16px;
+  border:1px solid var(--line3);border-radius:12px;color:var(--text);
+  background:linear-gradient(90deg,rgba(95,208,255,.10),transparent 62%),var(--panel)}
+.ship-entry:hover{text-decoration:none;border-color:var(--line4)}
+.ship-entry .se-k{font-size:10px;letter-spacing:.18em;color:var(--amber);border:1px solid var(--line3);
+  border-radius:999px;padding:2px 9px;white-space:nowrap}
+.ship-entry b{font-size:15px;letter-spacing:.02em}
+.ship-entry .se-s{font-size:11.5px;color:var(--muted)}
+.ship-entry .se-go{margin-left:auto;font-size:12px;color:var(--blue);white-space:nowrap}
+body.shipmode main#app{max-width:none;padding:0}
+body.shipmode #foot{display:none}
+.ship-hud{background:var(--panel);border-bottom:1px solid var(--line)}
+.ship-hud .in{max-width:1240px;margin:0 auto;padding:7px 14px;display:flex;align-items:center;gap:4px;
+  overflow-x:auto;scrollbar-width:none}
+.ship-hud .in::-webkit-scrollbar{display:none}
+.ship-hud .ttl{font-size:10.5px;letter-spacing:.16em;color:var(--faint);white-space:nowrap;
+  padding-right:10px;margin-right:4px;border-right:1px solid var(--line)}
+.ship-hud a.chip{font-size:12.5px;color:var(--muted);border-radius:999px;padding:4px 11px;white-space:nowrap}
+.ship-hud a.chip:hover{background:var(--line2);color:var(--text);text-decoration:none}
+.ship-hud a.chip.on{background:var(--text);color:#fff}
+body.dark .ship-hud a.chip.on{background:#5fd0ff;color:#04121b}
+body.light .ship-hud a.chip.on{background:#12212c;color:#fff}
+.ship-hud .grow{flex:1;min-width:6px}
+.ship-hud .xchips{display:flex;gap:4px;align-items:center;white-space:nowrap}
+.ship-hud .xchips a{font-size:11px;color:var(--muted);border:1px solid var(--line);border-radius:999px;
+  padding:2px 9px}
+.ship-hud .xchips a:hover{border-color:var(--line4);color:var(--text);text-decoration:none}
+.ship-hud .xchips a.on{border-color:var(--blue);color:var(--blue)}
+.ship-hud .xchips .lb{font-size:10.5px;color:var(--faint);padding-right:2px}
+.ship-frame{display:block;width:100%;border:0;background:#07111a}
+@media (max-width:780px){
+  .ship-entry{gap:8px;padding:10px 12px}
+  .ship-entry .se-s{display:none}
+  .ship-entry .se-go{margin-left:0}
+  .ship-hud .ttl{display:none}
+  .ship-hud .in{flex-wrap:wrap;overflow:visible;row-gap:2px}
+  .ship-hud .grow{display:none}
+}
 </style>
 </head>
 <body>
@@ -1703,6 +1742,7 @@ body.light .hud-input input::placeholder{color:#93a1af}
   <nav class="tabs" id="tabs">
     <a href="#/" data-r="overview">总览</a>
     <a href="#/crew" data-r="crew">舰员详情</a>
+    <a href="#/ship" data-r="ship">舰船设计</a>
     <a href="#/board" data-r="board">完成度看板</a>
     <a href="#/gear" data-r="gear">装备</a>
     <a href="#/rooms" data-r="rooms">房间</a>
@@ -2560,7 +2600,10 @@ body.light .hud-input input::placeholder{color:#93a1af}
 
   function viewOverview(){
     var m = D.meta;
-    var h = '<section class="ov" id="ov">'
+    var h = '<a class="ship-entry" href="#/ship"><span class="se-k">SHIP · 舰船设计</span>'
+      + '<b>玄枢号 · 760 m 双环自转舰</b><span class="se-s">设计总览 / 22 层甲板 / 内部深化 / 三维舰体 / 157 单元 / 总账</span>'
+      + '<span class="se-go">进入 →</span></a>';
+    h += '<section class="ov" id="ov">'
       + '<span class="ov-brk tl"></span><span class="ov-brk tr"></span><span class="ov-brk bl"></span><span class="ov-brk br"></span>';
     h += ovBar(m);
     h += '<div class="ov-stage">'
@@ -3680,6 +3723,65 @@ body.light .hud-input input::placeholder{color:#93a1af}
     });
   }
 
+  /* ---------- 舰船设计（独立路由，iframe 承载静态子页） ---------- */
+  var SHIP_TABS = [['', '总览'], ['deck', '甲板图'], ['doc', '内部深化'], ['3d', '三维舰体'],
+                   ['units', '单元库'], ['render', '渲染图集'], ['log', '总账']];
+  function shipTheme(){ return document.body.classList.contains('light') ? 'light' : 'dark'; }
+  function viewShip(hash){
+    var q = {}, qi = hash.indexOf('?');
+    if(qi >= 0){
+      hash.slice(qi + 1).split('&').forEach(function(kv){
+        if(!kv) return;
+        var a = kv.split('=');
+        q[decodeURIComponent(a[0])] = decodeURIComponent(a[1] || '');
+      });
+    }
+    var base = qi >= 0 ? hash.slice(0, qi) : hash;
+    var sub = base.replace(/^#\/ship\/?/, '');
+    var known = SHIP_TABS.some(function(t){ return t[0] === sub; });
+    if(!known) sub = '';
+    var th = shipTheme();
+    var src = 'ship/overview.html?theme=' + th;
+    if(sub === 'deck') src = 'ship/deck.html' + (q.d ? '#' + q.d : '');
+    else if(sub === 'doc') src = 'ship/interior.html?theme=' + th;
+    else if(sub === 'log') src = 'ship/ledger.html?theme=' + th;
+    else if(sub === 'render') src = 'ship/gallery.html?theme=' + th;
+    else if(sub === 'units') src = 'ship/units/index.html?theme=' + th;
+    else if(sub === '3d'){
+      var unit = q.unit ? '&unit=' + encodeURIComponent(q.unit) : '';
+      src = q.mode === 'interior'
+        ? 'ship/3d/index.html?model=hifi&lod=0&glb=models/xuanshu_interior_lod0.glb&manifest=models/manifest_interior.json' + unit
+        : 'ship/3d/index.html?lod=1&model=hifi' + unit;
+    }
+    var h = '<div class="ship-hud"><div class="in"><span class="ttl">舰船设计</span>';
+    SHIP_TABS.forEach(function(t){
+      h += '<a class="chip' + (t[0] === sub ? ' on' : '') + '" href="#/ship' + (t[0] ? '/' + t[0] : '') + '">' + t[1] + '</a>';
+    });
+    h += '<span class="grow"></span>';
+    if(sub === 'deck'){
+      h += '<span class="xchips"><span class="lb">直达</span>'
+        + '<a class="' + (!q.d ? 'on' : '') + '" href="#/ship/deck">总览</a>'
+        + '<a class="' + (q.d === 'A:fire' ? 'on' : '') + '" href="#/ship/deck?d=A:fire">A · 火灾</a>'
+        + '<a class="' + (q.d === 'T3' ? 'on' : '') + '" href="#/ship/deck?d=T3">T3 环层</a></span>';
+    }else if(sub === '3d'){
+      h += '<span class="xchips"><a class="' + (q.mode === 'interior' ? '' : 'on') + '" href="#/ship/3d">外壳</a>'
+        + '<a class="' + (q.mode === 'interior' ? 'on' : '') + '" href="#/ship/3d?mode=interior">内构</a>'
+        + (q.unit ? '<span class="lb">定位 ' + esc(q.unit) + '</span>' : '') + '</span>';
+    }
+    h += '</div></div><iframe class="ship-frame" id="shipFrame" src="' + esc(src)
+      + '" title="玄枢号舰船设计" loading="eager"></iframe>';
+    app.innerHTML = h;
+    fitShipFrame();
+    window.scrollTo(0, 0);
+  }
+  function fitShipFrame(){
+    var f = document.getElementById('shipFrame');
+    if(!f) return;
+    var top = (document.querySelector('header.top') || {offsetHeight: 0}).offsetHeight
+            + (document.querySelector('.ship-hud') || {offsetHeight: 0}).offsetHeight;
+    f.style.height = Math.max(420, window.innerHeight - top) + 'px';
+  }
+
   /* ---------- 路由 ---------- */
   function nav(route){
     var tabs = document.querySelectorAll('#tabs a');
@@ -3701,6 +3803,7 @@ body.light .hud-input input::placeholder{color:#93a1af}
     var hash = location.hash || '#/';
     if(RSTACK[RSTACK.length-1] !== hash) RSTACK.push(hash);
     var isDetail = hash.indexOf('#/crew/') === 0 && hash.length > 7;
+    var isShip = hash.indexOf('#/ship') === 0;
     var isCrewRoot = !isDetail && hash.indexOf('#/crew') === 0;
     var isLib = hash.indexOf('#/lib') === 0;
     var isGear = hash.indexOf('#/gear') === 0;
@@ -3715,10 +3818,12 @@ body.light .hud-input input::placeholder{color:#93a1af}
       return;
     }
     applyThemeClass();
+    document.body.classList.toggle('shipmode', isShip);
     if(!(isDetail || isCrewRoot)) document.documentElement.style.removeProperty('--accent');
     var bb = document.getElementById('backBtn');
-    if(bb) bb.hidden = !(isDetail || isCrewRoot || isLib || isGear || isRooms || hash === '#/board' || hash === '#/trash');
-    if(isDetail){ viewCrew(hash.slice(7)); nav('crew'); }
+    if(bb) bb.hidden = !(isDetail || isCrewRoot || isShip || isLib || isGear || isRooms || hash === '#/board' || hash === '#/trash');
+    if(isShip){ viewShip(hash); nav('ship'); }
+    else if(isDetail){ viewCrew(hash.slice(7)); nav('crew'); }
     else if(isCrewRoot){ viewCrewPicker(); nav('crew'); }
     else if(isRooms){ viewRooms(hash.replace(/^#\/rooms/, '')); nav('rooms'); }
     else if(isGear){ viewGear(hash.replace(/^#\/gear/, '')); nav('gear'); }
@@ -3735,6 +3840,7 @@ body.light .hud-input input::placeholder{color:#93a1af}
     + '数据源：' + esc(m.note);
 
   window.addEventListener('hashchange', function(){ SND.page(); render(); });
+  window.addEventListener('resize', fitShipFrame);
   ['pointerdown', 'keydown', 'touchstart'].forEach(function(ev){
     document.addEventListener(ev, function(){ SND.arm(); }, {once: true, capture: true});
   });

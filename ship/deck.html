@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>玄枢号 · 多甲板平面图 v2</title>
+<style>
+  :root{
+    --bg:#0d1117; --bg2:#151b23; --bg3:#1c2430; --line:#2a3441;
+    --tx:#e6edf3; --tx2:#9aa7b6; --tx3:#6b7889;
+    --accent:#d9a441; --accent2:#5aa9d6;
+    --c-cmd:#2f5f8f; --c-work:#3d6b4a; --c-res:#8a5a3b; --c-pub:#6b4f8a;
+    --c-agri:#4f7a2c; --c-ind:#7d4640; --c-med:#3a6f7a; --c-struct:#39414c; --c-circ:#232b36;
+    --em-d:#3fa9f5; --em-f:#e8663d; --em-r:#c9d13a; --em-l:#c05ac0;
+    --shadow:0 8px 30px rgba(0,0,0,.45);
+  }
+  html[data-theme="light"]{
+    --bg:#f4f1ea; --bg2:#fbf9f4; --bg3:#ece7dc; --line:#d3cbbd;
+    --tx:#2a2620; --tx2:#5d574c; --tx3:#8a8275;
+    --accent:#a9761f; --accent2:#2c6f92;
+    --c-cmd:#8fb3d6; --c-work:#9dc3a5; --c-res:#d6ab88; --c-pub:#bda8d6;
+    --c-agri:#b3cf8a; --c-ind:#c99a94; --c-med:#9cc6cd; --c-struct:#cfc8bb; --c-circ:#e4ded1;
+    --em-d:#1f7fbf; --em-f:#c04a22; --em-r:#8a9216; --em-l:#9a3a9a;
+    --shadow:0 8px 30px rgba(80,70,50,.12);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--tx);
+    font-family:"Microsoft YaHei","PingFang SC","Noto Sans SC",system-ui,sans-serif;
+    font-size:13px;overflow:hidden}
+  header{display:flex;align-items:center;gap:16px;padding:10px 16px;background:var(--bg2);
+    border-bottom:1px solid var(--line)}
+  header h1{font-size:15px;margin:0;letter-spacing:.08em;font-weight:600}
+  header .sub{color:var(--tx2);font-size:11.5px}
+  header .sp{flex:1}
+  button{background:var(--bg3);color:var(--tx);border:1px solid var(--line);
+    border-radius:6px;padding:5px 10px;font-size:12px;cursor:pointer;font-family:inherit}
+  button:hover{border-color:var(--accent2)}
+  button.on{background:var(--accent);color:#1a1408;border-color:var(--accent);font-weight:600}
+  .app{display:grid;grid-template-columns:190px 1fr 300px;height:calc(100vh - 49px)}
+  aside.side{background:var(--bg2);border-right:1px solid var(--line);overflow:auto;padding:8px}
+  aside.side .grp{color:var(--tx3);font-size:10.5px;letter-spacing:.12em;margin:10px 4px 4px}
+  aside.side .it{display:flex;justify-content:space-between;gap:6px;padding:6px 8px;border-radius:6px;
+    cursor:pointer;color:var(--tx2);font-size:12px;border:1px solid transparent}
+  aside.side .it:hover{background:var(--bg3)}
+  aside.side .it.on{background:var(--bg3);border-color:var(--accent);color:var(--tx)}
+  aside.side .it .n{font-variant-numeric:tabular-nums;color:var(--tx3);font-size:11px}
+  main{position:relative;overflow:hidden;background:
+    radial-gradient(circle at 30% 10%,rgba(90,169,214,.06),transparent 60%),var(--bg)}
+  .toolbar{position:absolute;top:10px;left:10px;right:10px;display:flex;gap:6px;flex-wrap:wrap;
+    z-index:5;pointer-events:none}
+  .toolbar button{pointer-events:auto;box-shadow:var(--shadow)}
+  .canvas{position:absolute;inset:44px 0 0 0}
+  svg{width:100%;height:100%;display:block;cursor:grab}
+  svg.drag{cursor:grabbing}
+  .zrect{stroke:var(--bg);stroke-width:.35;transition:filter .12s}
+  .z-cmd{fill:var(--c-cmd)} .z-work{fill:var(--c-work)} .z-res{fill:var(--c-res)}
+  .z-pub{fill:var(--c-pub)} .z-agri{fill:var(--c-agri)} .z-ind{fill:var(--c-ind)}
+  .z-med{fill:var(--c-med)} .z-struct{fill:var(--c-struct)} .z-circ{fill:var(--c-circ)}
+  .zrect:hover{filter:brightness(1.25)}
+  .zsel{stroke:var(--accent);stroke-width:1.2}
+  .zlabel{fill:#f6f2e8;font-weight:500;pointer-events:none;
+    paint-order:stroke;stroke:rgba(0,0,0,.45);stroke-width:.5}
+  html[data-theme="light"] .zlabel{fill:#1f1b16;stroke:rgba(255,255,255,.6)}
+  .zsub{fill:rgba(255,255,255,.78);pointer-events:none}
+  html[data-theme="light"] .zsub{fill:rgba(20,18,14,.72)}
+  .hull{fill:none;stroke:var(--tx3);stroke-width:.6}
+  .grid{stroke:var(--line);stroke-width:.25;opacity:.5}
+  .corr{stroke:var(--tx3);stroke-width:.8;fill:none;opacity:.55;stroke-dasharray:2.5 2}
+  .hatch{stroke:var(--line);stroke-width:.45;opacity:.85}
+  .corr.dirty{stroke:var(--em-r);stroke-dasharray:3 2}
+  .corr.clean{stroke:var(--em-d)}
+  .route{stroke-width:1.6;fill:none;stroke-dasharray:4 3;opacity:.95}
+  .exit{stroke-width:1;fill:rgba(90,200,120,.25);stroke:rgba(90,200,120,.9)}
+  .ov-tooltip{position:fixed;pointer-events:none;background:var(--bg2);border:1px solid var(--line);
+    border-radius:6px;padding:6px 9px;font-size:11.5px;box-shadow:var(--shadow);z-index:20;
+    max-width:260px;line-height:1.5;display:none}
+  aside.detail{background:var(--bg2);border-left:1px solid var(--line);padding:12px;overflow:auto}
+  aside.detail h2{font-size:13px;margin:0 0 8px;color:var(--accent);letter-spacing:.05em}
+  .kv{display:grid;grid-template-columns:64px 1fr;gap:4px 8px;font-size:12px;margin-bottom:10px}
+  .kv .k{color:var(--tx3)}
+  .emrow{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px}
+  .tag{font-size:10.5px;padding:2px 6px;border-radius:10px;border:1px solid var(--line);color:var(--tx2)}
+  .tag.d{border-color:var(--em-d);color:var(--em-d)}
+  .tag.f{border-color:var(--em-f);color:var(--em-f)}
+  .tag.r{border-color:var(--em-r);color:var(--em-r)}
+  .tag.l{border-color:var(--em-l);color:var(--em-l)}
+  .note{font-size:11.5px;color:var(--tx2);line-height:1.65;border-left:2px solid var(--line);padding-left:8px}
+  .legend{position:absolute;left:12px;bottom:12px;display:flex;gap:10px;flex-wrap:wrap;
+    background:rgba(0,0,0,.18);border:1px solid var(--line);border-radius:8px;padding:8px 10px;
+    font-size:11px;color:var(--tx2);z-index:4;max-width:calc(100% - 24px)}
+  .legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+  .hint{position:absolute;right:12px;bottom:12px;font-size:11px;color:var(--tx3);z-index:4}
+  .statwrap{position:absolute;inset:44px 0 0 0;overflow:auto;padding:12px 16px}
+  table{border-collapse:collapse;width:100%;font-size:12px}
+  th,td{border-bottom:1px solid var(--line);padding:5px 8px;text-align:right}
+  th:first-child,td:first-child{text-align:left}
+  thead th{color:var(--tx3);font-weight:500;font-size:11px;position:sticky;top:0;background:var(--bg)}
+  tbody tr:hover{background:var(--bg3)}
+  .sep td{background:var(--bg2);color:var(--accent);font-weight:600;font-size:11.5px}
+  .overview-svg{width:100%;max-width:1180px;aspect-ratio:880/500;height:auto;display:block;margin:0 auto}
+  .bad{color:var(--em-f)}
+  .ok{color:#63c98a}
+  .mini{font-size:11px;color:var(--tx3);line-height:1.6;max-width:1100px;margin:8px auto 20px}
+
+  /* 站点内嵌：窄屏单列，避免横向溢出 */
+  @media (max-width:900px){
+    body{overflow:auto}
+    header{flex-wrap:wrap;gap:8px;padding:8px 12px}
+    header h1{font-size:13px}
+    header h1 .sub{display:none}
+    .app{grid-template-columns:1fr;height:auto}
+    aside.side{border-right:0;border-bottom:1px solid var(--line);max-height:30vh}
+    main{height:66vh}
+    aside.detail{border-left:0;border-top:1px solid var(--line);max-height:46vh}
+    .legend{font-size:10px;gap:6px;padding:6px 8px}
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>玄枢号 · 多甲板平面图 <span class="sub">v2.1 · 22 层 · 与《玄枢号_飞船设计_v1.md》（v2.1）分区名一致</span></h1>
+  <div class="sp"></div>
+  <button id="themeBtn">明暗切换</button>
+</header>
+<div class="app">
+  <aside class="side" id="deckList"></aside>
+  <main>
+    <div class="toolbar" id="toolbar"></div>
+    <div class="canvas" id="canvas"><svg id="plan" xmlns="http://www.w3.org/2000/svg"></svg></div>
+    <div class="statwrap" id="statwrap" style="display:none"></div>
+    <div class="legend" id="legend"></div>
+    <div class="hint">滚轮缩放 · 拖拽平移 · 点击分区看详情</div>
+  </main>
+  <aside class="detail" id="detail"></aside>
+</div>
+<div class="ov-tooltip" id="tip"></div>
+
+<script>
+/* =====================================================================
+   数据层：所有分区名与《玄枢号_飞船设计_v1.md》完全一致
+   ===================================================================== */
+const SEG = {
+  overview:{name:'总览与索引'},
+  core:{name:'核心段 A–D'},
+  spine:{name:'连接脊 S1–S3'},
+  ringT:{name:'居住环 T1–T6'},
+  ringE:{name:'农环 E1–E6'},
+  tail:{name:'工业尾段 I1–I3'}
+};
+
+const CATNAME={cmd:'指挥',work:'作业',res:'居住',pub:'公共',agri:'农业',ind:'工业',med:'医疗',struct:'结构',circ:'交通'};
+
+function Z(id,name,x,y,w,h,area,cat,staff,res,fn,posts,em){
+  return {id,name,x,y,w,h,area,cat,staff,res,fn,posts,em};
+}
+function SZ(id,name,a0,a1,area,cat,staff,res,fn,posts,em){
+  return {id,name,a0,a1,area,cat,staff,res,fn,posts,em};
+}
+
+const DECKS=[
+{id:'A',name:'A 甲板 · 指挥层',seg:'core',kind:'rect',len:132,wid:32,g:'0 g',
+ note:'原设 A 甲板 3 间（舰桥 RM-01 / 观测舱 RM-07 / 超算机房 RM-08）全部保留原位；新增指挥预备室、应急指挥所、舰长与参谋室、前装甲带。前装甲带包裹 01 区，舰桥到超算不超过 30 m。',
+ exits:[[66,15],[112,25]],
+ zones:[
+  Z('A-07','前装甲带与传感器桅',0,0,20,32,640,'struct',0,0,'3.2 m 复合装甲带贯穿全宽（20×32 m，面密度 7.36 t/m²，实体 4,710 t）；设计威胁为亚毫米冰粒 @0.045c，汽化-侵彻估算穿透 1.6 m，厚度裕度 2×；更大颗粒靠 1,200 km 前向雷达 + 激光烧蚀 + 变轨规避','无人值守（检修 2 人）',{d:2,f:0,r:1,l:0}),
+  Z('A-01','舰桥',20,2,36,12,432,'cmd',6,0,'航行指挥、火控、通讯、导航四席；01 区唯一对外观察口','舰长席 / 导航台(008 绯捌) / 通讯席(012 拾贰) / 火控席(010 舞拾) / 数据席(002 霜柒) / 传令',{d:1,f:1,r:0,l:2}),
+  Z('A-02','观测舱',58,2,18,12,216,'cmd',2,0,'光学与射电观测、星图目视校对','传感观测 2 席（022 贰拾贰主值）',{d:1,f:0,r:0,l:1}),
+  Z('A-03','超算机房',78,2,24,16,384,'work',2,0,'战术数据链、档案索引、导航解算','超算维护 2 席（023 贰拾叁）；档案三重副本之一',{d:1,f:2,r:0,l:1}),
+  Z('A-04','指挥预备室',104,2,15,12,180,'cmd',3,0,'作战官与副舰长待机、简报、战前推演','作战官 / 副舰长 / 参谋 3 席',{d:1,f:0,r:0,l:1}),
+  Z('A-06','舰长与参谋室',121,2,10,14,140,'cmd',2,0,'舰长办公、两议会联络、密级档案阅览','舰长（TBD）/ 参谋 1 席',{d:1,f:0,r:0,l:2}),
+  Z('A-05','应急指挥所',104,16,15,10,150,'cmd',0,0,'装甲堡垒，太阳耀斑与战损时的备用指挥位；可容 12 人 72 小时','备用，无人常驻',{d:0,f:0,r:0,l:2})
+ ]},
+
+{id:'B',name:'B 甲板 · 生活层',seg:'core',kind:'rect',len:132,wid:32,g:'0 g',
+ note:'原设 B 甲板 4 间（居住舱 RM-02 / 医疗舱 RM-03 / 食堂 RM-09 / 隔离检疫舱 RM-13）保留。食堂峰值 40 人，是「核心段唯一高密度聚集点」（原设称「全舰唯一」，见设计文档 §8-3）。',
+ exits:[[66,15],[112,22]],
+ zones:[
+  Z('B-01','居住舱',2,2,30,16,480,'res',24,24,'12 组上下铺 = 24 铺位；值勤 14 天轮换，非家属宿舍','舰员值勤铺位 24（三班轮换）',{d:1,f:1,r:0,l:1}),
+  Z('B-02','医疗舱',34,2,24,15,360,'med',3,0,'舰内外科、复温、基因修复舱 8 台','临床医官 3 席（013 拾叁主值）',{d:1,f:0,r:1,l:2}),
+  Z('B-03','食堂',60,2,40,18,720,'pub',4,0,'长桌 + 后区盥洗/卫生处理/织物再生；峰值 40 人','炊事 4 席；峰值容纳 40',{d:1,f:2,r:0,l:0}),
+  Z('B-04','隔离检疫舱',102,2,20,9,180,'med',2,0,'生物隔离、检疫、负压','护理与检疫 2 席（024 贰拾肆）',{d:1,f:0,r:1,l:2}),
+  Z('B-05','舰员休更与家属联络舱',102,13,20,10,200,'pub',4,0,'休更期舰员与家属通话、短时团聚','联络员 4 席',{d:1,f:0,r:0,l:1}),
+  Z('B-06','仪典静室',2,20,12,10,120,'pub',0,0,'小型告别式、默哀、私人悼念','无人常驻',{d:1,f:0,r:0,l:0})
+ ]},
+
+{id:'C',name:'C 甲板 · 作业层',seg:'core',kind:'rect',len:132,wid:32,g:'0 g',
+ note:'原设 C 甲板 9 间全部保留：机库 RM-04 / 生体维护舱 RM-05 / 禁闭室 RM-06 / 训练舱 RM-10 / 军械库 RM-11 / 外部观测平台 RM-12 / 禁闭与审讯 RM-14，新增舷侧气闸与对接环、EVA 装备间。',
+ exits:[[34,25],[66,15]],
+ zones:[
+  Z('C-01','机库',2,2,52,15,780,'work',8,0,'4 艘穿梭艇 / 2 艘可换装登陆舱 / 36 具探测器；修补臂 EQ-027','地勤 8 席（018 拾捌）',{d:2,f:2,r:0,l:1}),
+  Z('C-02','生体维护舱',56,2,20,15,300,'med',2,0,'3 座医疗级培养筒：器官与组织备件','生体维护 2 席',{d:1,f:0,r:0,l:2}),
+  Z('C-03','禁闭室',78,2,10,9,90,'work',1,0,'短时禁闭 ≤30 日，6 间','宪兵 1 席（020 贰拾）',{d:0,f:0,r:0,l:2}),
+  Z('C-05','储藏与军械库',100,2,20,15,300,'work',2,0,'弹药配给、装备台账、点防枪座备件','军械 2 席（014 拾肆）',{d:1,f:1,r:0,l:2}),
+  Z('C-04','训练舱',78,13,20,16,320,'work',6,0,'近战收势、护卫队形、术式间、接舷演练','训练 6 席（017 拾柒）；战队 00/07 待命',{d:1,f:1,r:0,l:1}),
+  Z('C-06','外部观测平台',100,19,20,10,200,'work',1,0,'半外露光学平台，远距目视与光学记录','侦察 1 席（021 贰壹）',{d:2,f:0,r:1,l:1}),
+  Z('C-07','禁闭与审讯',2,19,20,8,160,'work',2,0,'长期羁押、审讯、俘获处置','宪兵 2 席（015 拾伍主值）',{d:1,f:0,r:0,l:2}),
+  Z('C-08','舷侧气闸与对接环',24,19,15,12,180,'work',2,0,'舷侧双气闸、对接环、礼仪舷窗','气闸值勤 2 席（004 澜肆在此礼仪岗）',{d:2,f:0,r:0,l:2}),
+  Z('C-09','EVA 装备间',41,19,10,11,110,'work',1,0,'舱外服 12 套、系绳、工具','EVA 值勤 1 席',{d:2,f:0,r:0,l:1})
+ ]},
+
+{id:'D',name:'D 甲板 · 动力层',seg:'core',kind:'rect',len:132,wid:32,g:'0 g',
+ note:'原设 D 甲板 2 间（反应堆舱 RM-15 / 废物处理间 RM-16）保留；新增主冷却与排热交换、燃料仓与加注。整层被屏蔽层包裹，进出需负压过渡。',
+ exits:[[66,26],[120,30]],
+ zones:[
+  Z('D-01','反应堆舱',2,2,40,16,640,'ind',4,0,'2×150 MWth 聚变堆 + 40 MWth 应急堆；聚变堆芯与配电','动力 4 席（016 拾陆）',{d:1,f:2,r:2,l:2}),
+  Z('D-02','废物处理间',44,2,26,20,520,'ind',3,0,'三线分离、堆肥、蛋白回收 EQ-042、危废封存','损管/废物 3 席（019 拾玖）',{d:1,f:2,r:1,l:1}),
+  Z('D-03','主冷却与排热交换',72,2,20,15,300,'ind',2,0,'主回路换热、液滴散热器泵组','冷却 2 席',{d:1,f:1,r:2,l:1}),
+  Z('D-04','燃料仓与加注',94,1,20,30,600,'ind',1,0,'氘/氦-3 储罐、加注接口（贯穿全宽 20×30 m）；兼 8,000 t 应急水储备','燃料 1 席',{d:1,f:2,r:2,l:2})
+ ]},
+
+{id:'S1',name:'S1 · 前轴承与过渡气闸',seg:'spine',kind:'rect',len:40,wid:24,g:'0 g',gap:'轴承环体 / 旋转接头 / 结构',
+ note:'核心段（不自转）与主环（自转）之间的过渡节点；转与不转的边界，是全舰最关键的机械件。',
+ exits:[[20,12]],
+ zones:[
+  Z('S1-01','前轴承与过渡气闸',2,2,12,10,120,'work',2,0,'主轴承、过渡气闸、压差监测','轴承值勤 2 席',{d:2,f:1,r:0,l:2}),
+  Z('S1-02','旋转接头维护',16,2,10,6,60,'work',1,0,'电、水、气的旋转密封','维护 1 席',{d:1,f:1,r:0,l:1}),
+  Z('S1-03','贯通电梯厅',16,10,10,6,60,'circ',1,0,'核心段 ↔ 主环 T1 的贯通电梯','电梯值勤 1 席',{d:1,f:0,r:0,l:1})
+ ]},
+{id:'S2',name:'S2 · 中轴承与旋转接头',seg:'spine',kind:'rect',len:30,wid:24,g:'0 g',gap:'双向轴承 / 旋转节 / 结构',
+ note:'主环与农环之间；两环反向自转，此处是角动量交汇点。',
+ exits:[[15,12]],
+ zones:[
+  Z('S2-01','中轴承与旋转接头',2,2,12,10,120,'work',2,0,'双向轴承、反向自转配平','值勤 2 席',{d:2,f:1,r:0,l:2}),
+  Z('S2-02','配电与管路旋转节',16,2,10,6,60,'work',1,0,'主环/农环电力与水管旋转节','维护 1 席',{d:1,f:1,r:0,l:1}),
+  Z('S2-03','应急气闸',16,10,10,6,60,'work',1,0,'两环之间的应急通行','值勤 1 席',{d:2,f:0,r:0,l:2})
+ ]},
+{id:'S3',name:'S3 · 后轴承与过渡气闸',seg:'spine',kind:'rect',len:30,wid:24,g:'0 g',gap:'轴承环体 / 货流闸 / 结构',
+ note:'农环与工业尾段之间；补给矿石与制造件的主通道。',
+ exits:[[15,12]],
+ zones:[
+  Z('S3-01','后轴承与过渡气闸',2,2,12,10,120,'work',2,0,'后轴承、过渡气闸、货流闸','值勤 2 席',{d:2,f:1,r:0,l:2}),
+  Z('S3-02','旋转接头维护',16,2,10,6,60,'work',1,0,'旋转密封与滑环','维护 1 席',{d:1,f:1,r:0,l:1}),
+  Z('S3-03','贯通电梯厅',16,10,10,6,60,'circ',1,0,'农环 ↔ 工业尾段货梯','值勤 1 席',{d:1,f:0,r:0,l:1})
+ ]},
+
+{id:'T1',name:'T1 甲板 · 行政与教育（0.95 g）',seg:'ringT',kind:'ring',r:178,wid:18,n:4,g:'0.95 g',
+ note:'主环最内层。议会、学园、档案院、司法都在这层——权力与知识放在重力最低处，是刻意的：让决策者每天多走两层。',
+ zones:[
+  SZ('T1-S1','议事厅与行政院',0,90,5031,'pub',12,0,'两议会会场、民政部办公、环区长联席','议员/行政 12 席',{d:1,f:1,r:0,l:2}),
+  SZ('T1-S2','学园',90,180,5031,'pub',26,0,'6–18 岁 12 年制；生保/制造/档案三大块','教师 8 + 学生 18（单班）',{d:1,f:1,r:0,l:1}),
+  SZ('T1-S3','档案馆与图书馆',180,270,5031,'pub',8,0,'纸本 18 万册、冷存储离线副本、记忆砖外墙','档案 8 席',{d:1,f:1,r:0,l:2}),
+  SZ('T1-S4','司法与登记处',270,360,5031,'pub',5,0,'三级裁决、户籍与出生登记、031 联络官在此办公','司法 5 席',{d:1,f:0,r:0,l:2})
+ ]},
+{id:'T2',name:'T2 甲板 · 家庭住区甲（0.97 g）',seg:'ringT',kind:'ring',r:182,wid:18,n:4,g:'0.97 g',
+ note:'1,100 人的家庭居住层。四个住区按庭院类型命名，不是编号——让人有地址可报。',
+ zones:[
+  SZ('T2-S1','林荫住区',0,90,5143,'res',12,275,'家庭单元、托幼点、小菜圃','住区管理员 12 席',{d:1,f:1,r:0,l:0}),
+  SZ('T2-S2','水庭住区',90,180,5143,'res',12,275,'家庭单元、公共浴室、水景','住区管理员 12 席',{d:1,f:1,r:0,l:0}),
+  SZ('T2-S3','高庭住区',180,270,5143,'res',12,275,'家庭单元、天台园圃','住区管理员 12 席',{d:1,f:1,r:0,l:0}),
+  SZ('T2-S4','石庭住区',270,360,5143,'res',12,275,'家庭单元、手工坊','住区管理员 12 席',{d:1,f:1,r:0,l:0})
+ ]},
+{id:'T3',name:'T3 甲板 · 公共生活（0.99 g）',seg:'ringT',kind:'ring',r:186,wid:18,n:4,g:'0.99 g',
+ note:'市集、食堂、门诊、礼堂与浴场。全舰人口真正混在一起的地方，也是谣言传得最快的地方。',
+ zones:[
+  SZ('T3-S1','中央市集',0,90,5259,'pub',40,0,'贡献点交易、配给点、摊贩、舰务长办公点','摊主/店员 40 席',{d:1,f:2,r:0,l:1}),
+  SZ('T3-S2','公共食堂群',90,180,5259,'pub',22,0,'6 个食堂单元，峰值 900 人同时就餐','炊事/服务 22 席',{d:1,f:2,r:0,l:0}),
+  SZ('T3-S3','门诊与康养',180,270,5259,'med',12,0,'日常门诊 60 人次/日、心理慰疗、康养','医护 12 席（030 叁零在此）',{d:1,f:0,r:1,l:1}),
+  SZ('T3-S4','礼堂与浴场',270,360,5259,'pub',6,0,'全舰集会、代际交接、丧葬仪式、公共浴场','场务 6 席',{d:1,f:1,r:0,l:0})
+ ]},
+{id:'T4',name:'T4 甲板 · 家庭住区乙（1.01 g）',seg:'ringT',kind:'ring',r:190,wid:18,n:8,g:'1.01 g',
+ note:'1,120 人。两个家庭住区 + 单身住区 + 青年工读区 + 体育与泳池。舰员休更也在这层（单人舱 160 间）。体育区只占 45° 而非 90°：90° = 5,372 m² 相当于 280 人的住处，拿不出来；2,686 m² 已够训练池 + 器械 + 格斗垫 + 攀岩墙，篮球/排球/羽毛球因净高 2.9 m 全部做不了。',
+ exits:[[0,190]],
+ zones:[
+  SZ('T4-S1','家庭住区丙',0,90,5372,'res',12,300,'家庭单元、老年日间照料','住区管理员 12 席',{d:1,f:1,r:0,l:0}),
+  SZ('T4-S2','家庭住区丁',90,180,5372,'res',12,300,'家庭单元、儿童活动场','住区管理员 12 席',{d:1,f:1,r:0,l:0}),
+  SZ('T4-S3','单身住区',180,270,5372,'res',14,340,'单身舱 340 间、公共厨房','管理员 14 席',{d:1,f:1,r:0,l:0}),
+  SZ('T4-S4','青年工读区',270,315,2866,'res',10,180,'18–24 岁工读生宿舍与工坊（由 90° 压到 45°，人均 14.9 m²）','辅导员 10 席',{d:1,f:1,r:0,l:1}),
+  SZ('T4-S5','体育与泳池',315,360,2506,'pub',8,0,'训练池 25×8 m（4 水道 × 2 m，水深 1.35 m，独立循环 6 次/日）｜器械 420 m²｜乒乓 4 台 216 m²｜格斗与体操垫 300 m²｜攀岩横墙 60 m｜更衣淋浴 180 m²｜可移动看台 120 座 + 站立 80。净高 2.9 m，球类（篮球/排球/羽毛球）不可行','救生 2 席 / 器械指导 4 席 / 水处理 2 席',{d:1,f:2,r:0,l:1})
+ ]},
+{id:'T5',name:'T5 甲板 · 工坊与配给（1.03 g）',seg:'ringT',kind:'ring',r:194,wid:18,n:4,g:'1.03 g',
+ note:'轻工、食品加工、维修、战略物资。这层是「补不到货还能撑多久」的答案。',
+ zones:[
+  SZ('T5-S1','轻工与纺织',0,90,5485,'ind',24,0,'织物、服装、舰内耗材、3D 打印后处理','工 24 席',{d:1,f:2,r:0,l:1}),
+  SZ('T5-S2','食品加工',90,180,5485,'ind',20,0,'农环产物加工、蛋白合成、90 天应急口粮；旁设工业级生体培育厂 96 筒（§2.3）','工 20 席 + 生体培育 12 席（027 缺口）',{d:1,f:2,r:0,l:1}),
+  SZ('T5-S3','维修工坊',180,270,5485,'ind',26,0,'舱门、阀件、家具、个人装备维修','技工 26 席',{d:1,f:2,r:0,l:1}),
+  SZ('T5-S4','物资配给仓',270,360,5485,'ind',16,0,'三级库存、战略原料、水储备 8,000 t 的一部分','仓管 16 席',{d:1,f:1,r:0,l:2})
+ ]},
+{id:'T6',name:'T6 甲板 · 上层舱区（1.05 g）',seg:'ringT',kind:'ring',r:198,wid:18,n:4,g:'1.05 g',
+ note:'最外层，重力最高、视野最好。贵族居所、观景廊、仪典厅、上园。011 玄翎在此起舞，005 栖伍与 006 伴陆在此服务。',
+ zones:[
+  SZ('T6-S1','贵族居所',0,90,5598,'res',12,156,'持有方 36 人 + 服务资产 120 人；私产配额区','服务 12 席（005/006 在此）',{d:1,f:0,r:0,l:2}),
+  SZ('T6-S2','观景廊',90,180,5598,'pub',4,0,'全舰唯一连续环形舷窗；也是最大的结构薄弱段','值勤 4 席',{d:2,f:0,r:1,l:1}),
+  SZ('T6-S3','仪典厅',180,270,5598,'pub',8,0,'战前祭祀、战舞、贵族观演、全舰级仪式','礼仪/场务 8 席（011 玄翎/003 绫叁）',{d:1,f:1,r:0,l:2}),
+  SZ('T6-S4','上园',270,360,5598,'pub',6,0,'私人园圃、稀有植物、育种试验','园丁 6 席',{d:1,f:0,r:0,l:1})
+ ]},
+
+{id:'E1',name:'E1 甲板 · 谷类与块根（0.68 g）',seg:'ringE',kind:'ring',r:130,wid:14,n:3,g:'0.68 g',
+ note:'农环最内层。稻麦、块根、种子库——种子库同时是基因库的备份点之一。',
+ zones:[
+  SZ('E1-S1','稻麦田',0,120,3811,'agri',6,0,'四层立体稻麦，主粮','农务 6 席',{d:1,f:1,r:0,l:0}),
+  SZ('E1-S2','块根田',120,240,3811,'agri',4,0,'马铃薯、甘薯、木薯','农务 4 席',{d:1,f:1,r:0,l:0}),
+  SZ('E1-S3','种子库',240,360,3811,'agri',2,0,'12,000 份全基因组 + 60,000 枚冷冻胚胎（双备份之一）','种子库 2 席',{d:1,f:0,r:0,l:2})
+ ]},
+{id:'E2',name:'E2 甲板 · 豆科与油料（0.70 g）',seg:'ringE',kind:'ring',r:134,wid:14,n:3,g:'0.70 g',
+ note:'固氮作物与油料，决定蛋白与油脂自给率。',
+ zones:[
+  SZ('E2-S1','豆科田',0,120,3929,'agri',4,0,'大豆、豌豆、固氮轮作','农务 4 席',{d:1,f:1,r:0,l:0}),
+  SZ('E2-S2','油料田',120,240,3929,'agri',3,0,'油菜、向日葵、油料压榨','农务 3 席',{d:1,f:1,r:0,l:0}),
+  SZ('E2-S3','纤维田',240,360,3929,'agri',3,0,'棉、麻、纸浆原料','农务 3 席',{d:1,f:1,r:0,l:0})
+ ]},
+{id:'E3',name:'E3 甲板 · 果蔬与发酵（0.72 g）',seg:'ringE',kind:'ring',r:138,wid:14,n:3,g:'0.72 g',
+ note:'维生素与风味来源。长期封闭社会里，新鲜果蔬是硬通货。',
+ zones:[
+  SZ('E3-S1','叶菜田',0,120,4046,'agri',4,0,'水培叶菜，21 天一轮','农务 4 席',{d:1,f:1,r:0,l:0}),
+  SZ('E3-S2','果树林',120,240,4046,'agri',3,0,'矮化果树、浆果','农务 3 席',{d:1,f:1,r:0,l:0}),
+  SZ('E3-S3','菌菇与发酵',240,360,4046,'agri',3,0,'食用菌、酱油/醋/酒曲','农务 3 席',{d:1,f:2,r:0,l:0})
+ ]},
+{id:'E4',name:'E4 甲板 · 蛋白（0.74 g）',seg:'ringE',kind:'ring',r:142,wid:14,n:3,g:'0.74 g',
+ note:'水产、禽蛋、蛋白合成——蛋白自给率只有 78%，缺口靠行星采集。',
+ zones:[
+  SZ('E4-S1','水产池',0,120,4163,'agri',2,0,'罗非鱼、藻类、贝类','农务 2 席',{d:1,f:1,r:0,l:0}),
+  SZ('E4-S2','禽蛋舱',120,240,4163,'agri',1,0,'蛋鸡 1,200 羽、兔','农务 1 席',{d:1,f:2,r:0,l:0}),
+  SZ('E4-S3','蛋白合成',240,360,4163,'agri',2,0,'微生物蛋白、组织培养肉','农务 2 席',{d:1,f:1,r:0,l:1})
+ ]},
+{id:'E5',name:'E5 甲板 · 土壤与授粉（0.76 g）',seg:'ringE',kind:'ring',r:146,wid:14,n:3,g:'0.76 g',
+ note:'支撑层：土壤再生、授粉、堆肥。没有这层，上面四层三年就退化。',
+ zones:[
+  SZ('E5-S1','土壤再生',0,120,4279,'agri',2,0,'基质再生、微量元素回补','农务 2 席',{d:1,f:1,r:0,l:0}),
+  SZ('E5-S2','授粉与昆虫',120,240,4279,'agri',1,0,'蜂群、传粉昆虫、生物防治','农务 1 席',{d:1,f:1,r:0,l:0}),
+  SZ('E5-S3','堆肥与沼气',240,360,4279,'agri',2,0,'有机废物堆肥、沼气发电','农务 2 席',{d:1,f:2,r:0,l:1})
+ ]},
+{id:'E6',name:'E6 甲板 · 缓冲与洗涤（0.78 g）',seg:'ringE',kind:'ring',r:150,wid:14,n:3,g:'0.78 g',
+ note:'最外层。缓冲林、空气洗涤、水处理——生态闭环的最后一道。',
+ zones:[
+  SZ('E6-S1','缓冲林',0,120,4396,'agri',1,0,'高秆缓冲林、氧平衡、心理缓冲','农务 1 席',{d:1,f:1,r:0,l:0}),
+  SZ('E6-S2','空气洗涤',120,240,4396,'agri',1,0,'CO₂ 洗涤、分子筛、萨巴蒂尔反应','农务 1 席',{d:1,f:0,r:0,l:1}),
+  SZ('E6-S3','水处理',240,360,4396,'agri',1,0,'四级水循环、反渗透、紫外/臭氧','农务 1 席',{d:1,f:0,r:0,l:2})
+ ]},
+
+{id:'I1',name:'I1 甲板 · 制造层',seg:'tail',kind:'rect',len:100,wid:44,g:'0 g',
+ note:'结构件、增材、电子、备件。自给率：结构 96%、电子 74%、生物制剂 41%、高纯同位素 0%。',
+ exits:[[50,22],[90,38]],
+ zones:[
+  Z('I1-01','机加工厂',2,2,40,20,1800,'ind',10,0,'车铣刨磨、大件加工、修补臂备件','工 10 席',{d:1,f:2,r:0,l:1}),
+  Z('I1-02','增材制造厂',44,2,30,20,1200,'ind',8,0,'金属/聚合物增材 12 t/月','工 8 席',{d:1,f:2,r:0,l:1}),
+  Z('I1-03','电子与传感工坊',76,2,20,20,800,'ind',6,0,'传感器、控制板、线束','工 6 席',{d:1,f:2,r:0,l:1}),
+  Z('I1-04','备件仓',2,24,40,10,600,'ind',4,0,'三级库存之段级备件；档案第三副本（深埋抗辐射）','仓管 4 席',{d:1,f:1,r:0,l:2})
+ ]},
+{id:'I2',name:'I2 甲板 · 材料与休眠库',seg:'tail',kind:'rect',len:140,wid:44,g:'0 g',
+ note:'冶炼、化工、危化品、原料，以及 1,520 个休眠位的休眠库——把最不需要动的人放在最冷的地方。',
+ exits:[[70,22],[120,38]],
+ zones:[
+  Z('I2-01','冶炼与合金',2,2,30,20,1500,'ind',6,0,'行星矿石冶炼、合金配制','工 6 席',{d:1,f:2,r:1,l:1}),
+  Z('I2-02','化工与聚合物',34,2,24,20,1200,'ind',4,0,'聚合物、润滑剂、密封件前体','工 4 席',{d:1,f:2,r:1,l:1}),
+  Z('I2-03','危化品库',60,2,10,20,500,'ind',2,0,'独立负压，不与生活区共用回路','仓管 2 席（限时）',{d:1,f:2,r:2,l:2}),
+  Z('I2-04','原料仓',72,2,16,20,800,'ind',2,0,'矿石、废料、可回收原料','仓管 2 席',{d:1,f:1,r:1,l:1}),
+  Z('I2-05','休眠库',90,2,32,20,1600,'work',4,0,'1,520 个休眠位，−196 ℃；每 40 年轮换 400 人','休眠管理 4 席（22 人组）',{d:2,f:1,r:1,l:2})
+ ]},
+{id:'I3',name:'I3 甲板 · 推进与散热',seg:'tail',kind:'rect',len:188,wid:44,g:'0 g',
+ note:'主推进、泵组、散热桁架、尘埃屏蔽。散热桁架无装甲，是全舰最大受弹面积。',
+ exits:[[94,22],[160,38]],
+ zones:[
+  Z('I3-01','主推进器',2,2,64,20,3200,'ind',3,0,'磁约束聚变 + 磁喷嘴，排气 0.07c','推进 3 席',{d:1,f:1,r:2,l:2}),
+  Z('I3-02','磁流体泵组',68,2,32,20,1600,'ind',3,0,'燃料泵、磁流体回路','泵组 3 席',{d:1,f:2,r:2,l:1}),
+  Z('I3-03','散热桁架',102,2,48,20,2400,'ind',3,0,'液滴散热器等效 385,000 m²，900–1,200 K','散热 3 席',{d:2,f:1,r:2,l:0}),
+  Z('I3-04','尾气与尘埃屏蔽',152,2,24,20,1072,'struct',1,0,'迎尘屏蔽、诱饵、角反射器','值勤 1 席',{d:2,f:0,r:2,l:1})
+ ]}
+];
+
+/* =====================================================================
+   工具
+   ===================================================================== */
+const $=s=>document.querySelector(s);
+const state={deck:'OV',theme:'dark',mode:'none',sel:null,k:1,tx:0,ty:0};
+const NS='http://www.w3.org/2000/svg';
+const fmt=n=>n.toLocaleString('zh-CN');
+
+function deckById(id){return DECKS.find(d=>d.id===id);}
+function ringArea(r,wid){return 2*Math.PI*r*wid;}
+
+function deckStats(d){
+  if(d.kind==='ring'){
+    const total=ringArea(d.r,d.wid);
+    const res=d.zones.filter(z=>z.cat==='res');
+    const resArea=res.reduce((s,z)=>s+z.area,0);
+    const resPop=res.reduce((s,z)=>s+z.res,0);
+    const pub=d.zones.filter(z=>z.cat==='pub'||z.cat==='cmd').reduce((s,z)=>s+z.area,0);
+    return {total,usable:total,resArea,resPop,pub,perCap:resPop?resArea/resPop:0,staff:d.zones.reduce((s,z)=>s+z.staff,0)};
+  }
+  const total=d.len*d.wid;
+  const usable=d.zones.reduce((s,z)=>s+z.area,0);
+  const res=d.zones.filter(z=>z.cat==='res');
+  const resArea=res.reduce((s,z)=>s+z.area,0);
+  const resPop=res.reduce((s,z)=>s+z.res,0);
+  const pub=d.zones.filter(z=>z.cat==='pub'||z.cat==='cmd').reduce((s,z)=>s+z.area,0);
+  return {total,usable,resArea,resPop,pub,perCap:resPop?resArea/resPop:0,staff:d.zones.reduce((s,z)=>s+z.staff,0)};
+}
+
+/* =====================================================================
+   侧栏
+   ===================================================================== */
+function buildSide(){
+  const el=$('#deckList'); let h='';
+  h+=`<div class="grp">总览</div><div class="it ${state.deck==='OV'?'on':''}" data-d="OV"><span>总布置剖面与索引</span><span class="n">22 层</span></div>`;
+  for(const k of ['core','spine','ringT','ringE','tail']){
+    h+=`<div class="grp">${SEG[k].name}</div>`;
+    DECKS.filter(d=>d.seg===k).forEach(d=>{
+      const s=deckStats(d);
+      h+=`<div class="it ${state.deck===d.id?'on':''}" data-d="${d.id}"><span>${d.id}</span><span class="n">${s.resPop?fmt(s.resPop)+'人':fmt(s.staff)+'岗'}</span></div>`;
+    });
+  }
+  el.innerHTML=h;
+  el.querySelectorAll('.it').forEach(n=>n.onclick=()=>{state.deck=n.dataset.d;state.sel=null;resetView();buildSide();renderAll();});
+}
+
+/* =====================================================================
+   SVG 渲染
+   ===================================================================== */
+const svg=$('#plan');
+
+function resetView(){state.k=1;state.tx=0;state.ty=0;}
+
+// ---- 竖向动线（相邻层连通与疏散方向）----
+const VERT={
+  A:'前升降井 ×2 → S1 ｜ 后升降井 ×2 → B ｜ 疏散：经后井下到 B',
+  B:'中段升降井 ×2 直连 A/C ｜ 医疗旁专梯 → C ｜ 疏散：下 C 或经 S1 上 A',
+  C:'前升降井 ×1 → B ｜ 机库后壁货运开口 → D ｜ 疏散：机库开口下 D',
+  D:'升降井 ×2 → C ｜ 尾部加压通道 → I1 ｜ 疏散：向尾部 I1 或经 C 上行',
+  S1:'贯通电梯厅 ×1（跨「转/不转」唯一通道，双门互锁）',
+  S2:'贯通电梯厅 ×1，双层轿厢 → 主环 T1–T6 / 农环 E1–E6',
+  S3:'贯通电梯厅 ×1 → 农环 E6 与工业段 I1',
+  I1:'尾部加压通道 ← S3 ｜ 纵向主通道贯通 I2/I3 ｜ 疏散：向 S3 上行，或沿主通道退至 I2 前气闸',
+  I2:'纵向主通道 ×1 ｜ 休眠库旁气闸 ×2 ｜ 疏散：沿主通道向 I1 前气闸撤出',
+  I3:'纵向主通道 ×1 ｜ 推进舱横舱壁气闸 ×2 ｜ 疏散：向前经 I2 撤出（喷口侧禁止通行）'
+};
+function vertOf(d){
+  if(VERT[d.id]) return VERT[d.id];
+  if(d.id[0]==='T') return '0° / 180° 贯通电梯厅 ×2（径向串 T1–T6）｜ 4 条径向疏散通道 ｜ 疏散：向心走到 T1，经 S1 进核心段';
+  if(d.id[0]==='E') return 'S2（0°）/ S3（180°）电梯厅 ×2 ｜ 2 条径向通道 ｜ 疏散：向心走到 E1，经 S2 / S3 进连接脊';
+  return '';
+}
+
+function renderPlan(d){
+  $('#statwrap').style.display='none';
+  $('#canvas').style.display='block';
+  const isRing=d.kind==='ring';
+  const W=isRing?560:d.len+16, H=isRing?560:d.wid+16;
+  const vb=isRing?'-280 -280 560 560':`-8 -8 ${W} ${H}`;
+  svg.setAttribute('viewBox',vb);
+  let g='';
+
+  if(isRing){
+    // 全部 6 层环带（背景）+ 当前层高亮
+    for(let i=0;i<6;i++){
+      const r0=d.r-2+4*i, r1=r0+4;
+      const op=(Math.round(d.r)===Math.round(r0+2))?1:0.28;
+      g+=`<circle cx="0" cy="0" r="${r1}" fill="none" stroke="var(--line)" stroke-width="${4}" opacity="${op*0.9}"/>`;
+    }
+    // 环带分区（当前层，径向厚度按 5× 放大以便阅读）
+    d.zones.forEach(z=>{
+      const path=arcPath(d.r-10,d.r+10,z.a0,z.a1);
+      g+=`<path d="${path}" class="zrect z-${z.cat} ${state.sel===z.id?'zsel':''}" data-id="${z.id}" fill-rule="evenodd"/>`;
+      const path2=arcPath(d.r-11,d.r+11,z.a0,z.a1);
+      g+=`<path d="${path2}" fill="transparent" data-id="${z.id}" style="cursor:pointer"/>`;
+    });
+    // 扇区分界
+    d.zones.forEach(z=>{
+      [z.a0].forEach(a=>{
+        const rad=a*Math.PI/180;
+        g+=`<line x1="${Math.cos(rad)*(d.r-10)}" y1="${Math.sin(rad)*(d.r-10)}" x2="${Math.cos(rad)*(d.r+10)}" y2="${Math.sin(rad)*(d.r+10)}" stroke="var(--bg)" stroke-width=".8"/>`;
+      });
+    });
+    // 标签
+    d.zones.forEach(z=>{
+      const mid=(z.a0+z.a1)/2, rad=mid*Math.PI/180;
+      const x1=Math.cos(rad)*(d.r+12), y1=Math.sin(rad)*(d.r+12);
+      const x2=Math.cos(rad)*(d.r+30), y2=Math.sin(rad)*(d.r+30);
+      const tx=Math.cos(rad)*(d.r+34), ty=Math.sin(rad)*(d.r+34);
+      const anchor=Math.cos(rad)>0.15?'start':(Math.cos(rad)<-0.15?'end':'middle');
+      g+=`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="var(--tx3)" stroke-width="1"/>`;
+      g+=`<text x="${tx}" y="${ty}" text-anchor="${anchor}" class="zlabel" font-size="7">${z.name}</text>`;
+      g+=`<text x="${tx}" y="${ty+8}" text-anchor="${anchor}" class="zsub" font-size="5.6">${fmt(z.area)} m² · ${z.staff} 岗${z.res?' · '+z.res+' 人':''}</text>`;
+    });
+    // 中心
+    g+=`<circle cx="0" cy="0" r="${d.r-6}" fill="none" stroke="var(--line)" stroke-dasharray="2 4"/>`;
+    g+=`<text x="0" y="-8" text-anchor="middle" class="zlabel" font-size="8">${d.id} · ${d.g}</text>`;
+    g+=`<text x="0" y="6" text-anchor="middle" class="zsub" font-size="6">周 ${fmt(Math.round(2*Math.PI*d.r))} m × 宽 ${d.wid} m · ${d.id[0]==='T'?'2.18':'2.16'} rpm（反向）</text>`;
+    g+=`<text x="0" y="18" text-anchor="middle" class="zsub" font-size="5.4">层高 3.3 m · 环带径向间距图上放大 5× 以便阅读</text>`;
+    g+=`<text x="0" y="-252" text-anchor="middle" fill="var(--tx2)" font-size="6.2">竖向：${vertOf(d)}</text>`;
+    // 应急
+    if(state.mode!=='none') g+=ringEmergency(d);
+  }else{
+    // 外壳
+    g+=`<defs><pattern id="hatch" width="3.2" height="3.2" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <line x1="0" y1="0" x2="0" y2="3.2" class="hatch"/></pattern></defs>`;
+    g+=`<rect x="0" y="0" width="${d.len}" height="${d.wid}" class="hull"/>`;
+    g+=`<rect x="0" y="0" width="${d.len}" height="${d.wid}" fill="var(--c-circ)" opacity=".55"/>`;
+    // 未分区面积（走廊 / 竖井 / 结构）斜线底纹
+    g+=`<rect x="0" y="0" width="${d.len}" height="${d.wid}" fill="url(#hatch)" opacity=".55" style="pointer-events:none"/>`;
+    const vt=vertOf(d);
+    g+=`<text x="1.2" y="-3" fill="var(--tx2)" font-size="${Math.min(1.55, d.len*0.96/Math.max(vt.length,1)).toFixed(2)}">竖向：${vt}</text>`;
+    // 网格（10 m）
+    for(let x=10;x<d.len;x+=10) g+=`<line x1="${x}" y1="0" x2="${x}" y2="${d.wid}" class="grid"/>`;
+    for(let y=10;y<d.wid;y+=10) g+=`<line x1="0" y1="${y}" x2="${d.len}" y2="${y}" class="grid"/>`;
+    // 主通道
+    g+=`<line x1="0" y1="${d.wid*0.5}" x2="${d.len}" y2="${d.wid*0.5}" class="corr"/>`;
+    d.zones.forEach(z=>{
+      g+=`<rect x="${z.x}" y="${z.y}" width="${z.w}" height="${z.h}" rx="0.4"
+        class="zrect z-${z.cat} ${state.sel===z.id?'zsel':''}" data-id="${z.id}"/>`;
+      const fs=Math.min(2.0, z.w/(z.name.length*1.35), z.h*0.38);
+      const twoLines=z.w>14;
+      const cy=z.y+z.h/2;
+      g+=`<text x="${z.x+z.w/2}" y="${twoLines?cy-fs*0.25:cy+fs*0.35}" text-anchor="middle" class="zlabel" font-size="${fs}">${z.name}</text>`;
+      if(twoLines) g+=`<text x="${z.x+z.w/2}" y="${cy+fs*1.15}" text-anchor="middle" class="zsub" font-size="${fs*0.78}">${z.staff} 岗${z.res?' · '+z.res+' 人':''}</text>`;
+    });
+    const rem=d.len*d.wid-d.zones.reduce((s,z)=>s+z.area,0);
+    g+=`<text x="${d.len-1.5}" y="${d.wid-1.2}" text-anchor="end" class="zsub" font-size="1.15">${d.gap||'走廊 / 竖井 / 结构'} ${fmt(rem)} m²</text>`;
+    if(state.mode==='flow'){
+      d.zones.filter(z=>z.cat==='work'||z.cat==='ind').forEach((z,i)=>{
+        const y=z.y+z.h/2;
+        g+=`<line x1="${z.x}" y1="${y}" x2="${z.x+z.w}" y2="${y}" class="corr dirty" opacity=".55"/>`;
+      });
+    }
+    if(state.mode!=='none' && state.mode!=='flow') g+=rectEmergency(d);
+    // 出口
+    if(state.mode!=='none') d.exits.forEach(e=>{
+      g+=`<circle cx="${e[0]}" cy="${e[1]}" r="2.4" class="exit"/>`;
+      g+=`<text x="${e[0]}" y="${e[1]+.8}" text-anchor="middle" font-size="1.6" fill="#cfe" style="pointer-events:none">通</text>`;
+    });
+  }
+  svg.innerHTML=`<g id="vp" transform="translate(0,0) scale(1)">${g}</g>`;
+  applyTransform();
+  bindZones();
+}
+
+function arcPath(r0,r1,a0,a1){
+  const p=(r,a)=>[Math.cos(a*Math.PI/180)*r,Math.sin(a*Math.PI/180)*r];
+  const A=p(r1,a0),B=p(r1,a1),C=p(r0,a1),Dd=p(r0,a0);
+  const large=(a1-a0)>180?1:0;
+  return `M${A[0]},${A[1]} A${r1},${r1} 0 ${large} 1 ${B[0]},${B[1]} L${C[0]},${C[1]} A${r0},${r0} 0 ${large} 0 ${Dd[0]},${Dd[1]} Z`;
+}
+
+function emColor(m){
+  return {depress:'var(--em-d)',fire:'var(--em-f)',rad:'var(--em-r)',lock:'var(--em-l)'}[m];
+}
+const EMKEY={depress:'d',fire:'f',rad:'r',lock:'l'};
+
+function rectEmergency(d){
+  const k=EMKEY[state.mode]; let g='';
+  d.zones.forEach(z=>{
+    if(z.em[k]>0){
+      g+=`<rect x="${z.x}" y="${z.y}" width="${z.w}" height="${z.h}" fill="${emColor(state.mode)}"
+        opacity="${0.14+0.16*z.em[k]}" style="pointer-events:none"/>`;
+      const c=[z.x+z.w/2,z.y+z.h/2];
+      const e=d.exits.reduce((a,b)=>dist(a,c)<dist(b,c)?a:b,d.exits[0]);
+      g+=`<line x1="${c[0]}" y1="${c[1]}" x2="${e[0]}" y2="${e[1]}" class="route" stroke="${emColor(state.mode)}" style="pointer-events:none"/>`;
+    }
+  });
+  return g;
+}
+function ringEmergency(d){
+  const k=EMKEY[state.mode]; let g='';
+  d.zones.forEach(z=>{
+    if(z.em[k]>0){
+      const mid=(z.a0+z.a1)/2;
+      const path=arcPath(d.r-9,d.r+9,z.a0,z.a1);
+      g+=`<path d="${path}" fill="${emColor(state.mode)}" opacity=".22" style="pointer-events:none"/>`;
+      // 最近安全节点：0° 或 180°
+      const target=(mid<90||mid>270)?0:180;
+      const r=d.r;
+      const a1=mid*Math.PI/180, a2=target*Math.PI/180;
+      const x1=Math.cos(a1)*r,y1=Math.sin(a1)*r,x2=Math.cos(a2)*r,y2=Math.sin(a2)*r;
+      g+=`<path d="M${x1},${y1} A${r},${r} 0 0 ${target===0?0:1} ${x2},${y2}" class="route" stroke="${emColor(state.mode)}" style="pointer-events:none"/>`;
+    }
+  });
+  // 安全节点
+  [0,180].forEach(a=>{
+    const rad=a*Math.PI/180;
+    const x=Math.cos(rad)*d.r,y=Math.sin(rad)*d.r;
+    g+=`<circle cx="${x}" cy="${y}" r="4" class="exit"/><text x="${x}" y="${y+1.2}" text-anchor="middle" font-size="2.6" fill="#cfe" style="pointer-events:none">通</text>`;
+  });
+  return g;
+}
+function dist(a,b){return Math.hypot(a[0]-b[0],a[1]-b[1]);}
+
+function bindZones(){
+  svg.querySelectorAll('[data-id]').forEach(el=>{
+    el.addEventListener('mouseenter',ev=>showTip(ev,el.dataset.id));
+    el.addEventListener('mousemove',ev=>moveTip(ev));
+    el.addEventListener('mouseleave',hideTip);
+    el.addEventListener('click',ev=>{ev.stopPropagation();state.sel=el.dataset.id;renderAll();});
+  });
+}
+
+/* 缩放平移 */
+function applyTransform(){
+  const vp=svg.querySelector('#vp'); if(!vp)return;
+  vp.setAttribute('transform',`translate(${state.tx},${state.ty}) scale(${state.k})`);
+}
+svg.addEventListener('wheel',e=>{
+  e.preventDefault();
+  const r=svg.getBoundingClientRect();
+  const mx=e.clientX-r.left,my=e.clientY-r.top;
+  const vb=svg.viewBox.baseVal;
+  const ux=vb.x+mx/r.width*vb.width, uy=vb.y+my/r.height*vb.height;
+  const f=e.deltaY<0?1.12:1/1.12;
+  const nk=Math.min(14,Math.max(0.5,state.k*f));
+  const real=nk/state.k;
+  state.tx=ux-(ux-state.tx)*real; state.ty=uy-(uy-state.ty)*real; state.k=nk;
+  applyTransform();
+},{passive:false});
+let drag=null;
+svg.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY,tx:state.tx,ty:state.ty};svg.classList.add('drag');});
+window.addEventListener('pointermove',e=>{
+  if(!drag)return;
+  const r=svg.getBoundingClientRect(),vb=svg.viewBox.baseVal;
+  const sx=vb.width/r.width, sy=vb.height/r.height;
+  state.tx=drag.tx+(e.clientX-drag.x)*sx; state.ty=drag.ty+(e.clientY-drag.y)*sy;
+  applyTransform();
+});
+window.addEventListener('pointerup',()=>{drag=null;svg.classList.remove('drag');});
+
+/* 悬停提示 */
+function zoneById(id){for(const d of DECKS){const z=d.zones&&d.zones.find(x=>x.id===id);if(z)return {d,z};}return null;}
+function showTip(ev,id){
+  const f=zoneById(id); if(!f)return;
+  const {d,z}=f;
+  const tip=$('#tip');
+  tip.innerHTML=`<b>${z.name}</b> <span style="color:var(--tx3)">${z.id}</span><br>
+    ${fmt(z.area)} m² · 常驻 ${z.staff} 岗${z.res?' · 居住 '+fmt(z.res)+' 人':''}<br>
+    <span style="color:var(--tx2)">${z.fn}</span>`;
+  tip.style.display='block'; moveTip(ev);
+}
+function moveTip(ev){const t=$('#tip');t.style.left=(ev.clientX+14)+'px';t.style.top=(ev.clientY+14)+'px';}
+function hideTip(){$('#tip').style.display='none';}
+
+/* 详情面板 */
+function renderDetail(){
+  const el=$('#detail');
+  if(state.deck==='OV'||!state.sel){
+    const d=state.deck==='OV'?null:deckById(state.deck);
+    el.innerHTML=`<h2>${d?d.name:'总览索引'}</h2>
+      <div class="note">${d?d.note:'左侧选择甲板。点击图内分区看详情；顶部按钮叠加动线与应急层。'}</div>
+      ${d?`<div class="emrow"><span class="tag">${d.g}</span><span class="tag">${d.kind==='ring'?'环形展开':'矩形舱段'}</span></div>`:''}`;
+    return;
+  }
+  const f=zoneById(state.sel); if(!f){el.innerHTML='';return;}
+  const {d,z}=f;
+  const tags=[];
+  if(z.em.d)tags.push(`<span class="tag d">失压 ${'●'.repeat(z.em.d)}</span>`);
+  if(z.em.f)tags.push(`<span class="tag f">火灾 ${'●'.repeat(z.em.f)}</span>`);
+  if(z.em.r)tags.push(`<span class="tag r">辐射 ${'●'.repeat(z.em.r)}</span>`);
+  if(z.em.l)tags.push(`<span class="tag l">封锁 ${'●'.repeat(z.em.l)}</span>`);
+  el.innerHTML=`<h2>${z.name}</h2>
+    <div class="kv">
+      <div class="k">编号</div><div>${z.id}</div>
+      <div class="k">甲板</div><div>${d.name}</div>
+      <div class="k">面积</div><div>${fmt(z.area)} m²</div>
+      <div class="k">常驻</div><div>${z.staff} 岗</div>
+      <div class="k">居住</div><div>${z.res?fmt(z.res)+' 人':'—'}</div>
+      <div class="k">类别</div><div>${CATNAME[z.cat]}</div>
+    </div>
+    <h2 style="margin-top:14px">功能</h2>
+    <div class="note">${z.fn}</div>
+    <h2 style="margin-top:14px">岗位</h2>
+    <div class="note">${z.posts}</div>
+    <div class="emrow">${tags.join('')}</div>`;
+}
+
+/* 图例 */
+function renderLegend(){
+  const l=$('#legend');
+  if(state.deck==='OV'){l.style.display='none';return;}
+  l.style.display='flex';
+  const items=Object.entries(CATNAME).filter(([k])=>['cmd','work','res','pub','agri','ind','med','struct'].includes(k))
+    .map(([k,v])=>`<span><i style="background:var(--c-${k})"></i>${v}</span>`).join('');
+  let em='';
+  if(state.mode!=='none'&&state.mode!=='flow'){
+    em=`<span><i style="background:${emColor(state.mode)}"></i>${EMTEXT[state.mode].t}</span>`;
+  }
+  l.innerHTML=items+em;
+}
+const EMTEXT={
+  flow:{t:'污染/洁净流线'},
+  depress:{t:'失压处置',p:'处置：关 A-3 双门 → 就近避险舱 → 报损管长（009 零玖）→ 分区点名 → 复压前不得开门'},
+  fire:{t:'火灾处置',p:'处置：断电 → 灭火剂 → 隔离相邻舱 → 无人时排气窒息 → 复燃监视 6 小时'},
+  rad:{t:'辐射泄漏',p:'处置：撤人 → 关闭负压 → 洗消 → 医疗观察（013 拾叁）→ 屏蔽层检修'},
+  lock:{t:'封锁隔离',p:'处置：落闸 → 宪兵到位（015 拾伍/020 贰拾）→ 分区点名 → 两议会通报'}
+};
+
+/* =====================================================================
+   总览页
+   ===================================================================== */
+function renderOverview(){
+  $('#canvas').style.display='none';
+  $('#statwrap').style.display='block';
+  const S=1; // m
+  // 侧视：x 0..760, y -230..230
+  let g='';
+  const Y0=0;
+  g+=`<line x1="-10" y1="0" x2="770" y2="0" stroke="var(--line)" stroke-dasharray="3 4"/>`;
+  // 前装甲
+  g+=rectShape(0,-18,40,36,'struct','前装甲带');
+  // 核心段
+  g+=`<rect x="40" y="-18" width="132" height="36" fill="var(--c-cmd)" opacity=".9" stroke="var(--bg)" stroke-width=".6"/>`;
+  for(let i=0;i<4;i++){
+    g+=`<line x1="40" y1="${-18+i*9}" x2="172" y2="${-18+i*9}" stroke="var(--bg)" stroke-width=".4" opacity=".7"/>`;
+  }
+  ['A','B','C','D'].forEach((n,i)=>{
+    g+=`<text x="46" y="${-18+i*9+6.5}" font-size="6" fill="#fff" opacity=".95">${n}</text>`;
+  });
+  g+=`<text x="106" y="-22" text-anchor="middle" font-size="7" class="zlabel">核心段 132 m</text>`;
+  // S1
+  g+=rectShape(172,-12,40,24,'work','S1');
+  // 主环
+  g+=`<ellipse cx="227" cy="0" rx="15" ry="200" fill="none" stroke="var(--c-pub)" stroke-width="2.2" opacity=".9"/>`;
+  g+=`<text x="227" y="-208" text-anchor="middle" font-size="7" class="zlabel">主环 T1–T6 · ⌀404 m · 中径 R188 · 2.18 rpm · 1.0 g</text>`;
+  // S2
+  g+=rectShape(242,-12,30,24,'work','S2');
+  // 农环
+  g+=`<ellipse cx="287" cy="0" rx="15" ry="152" fill="none" stroke="var(--c-agri)" stroke-width="2.2" opacity=".9"/>`;
+  g+=`<text x="287" y="162" text-anchor="middle" font-size="7" class="zlabel">农环 E1–E6 · ⌀308 m · 中径 R140 · 反向 2.16 rpm · 0.73 g</text>`;
+  // S3
+  g+=rectShape(302,-12,30,24,'work','S3');
+  // 工业
+  g+=`<rect x="332" y="-22" width="428" height="44" fill="var(--c-ind)" opacity=".9" stroke="var(--bg)" stroke-width=".6"/>`;
+  [[332,'I1 制造 100 m'],[432,'I2 材料/休眠 140 m'],[572,'I3 推进/散热 188 m']].forEach(([x,t])=>{
+    g+=`<line x1="${x}" y1="-22" x2="${x}" y2="22" stroke="var(--bg)" stroke-width=".8"/>`;
+    g+=`<text x="${x+8}" y="4" font-size="6.5" fill="#fff">${t}</text>`;
+  });
+  // 喷口
+  g+=`<path d="M760,-14 L776,-20 L776,20 L760,14 Z" fill="var(--c-ind)" opacity=".8"/>`;
+  g+=`<text x="784" y="4" font-size="5.5" fill="var(--tx2)">喷口</text>`;
+  // 散热
+  g+=`<g opacity=".8">`;
+  for(let i=0;i<6;i++){
+    g+=`<line x1="${600+i*18}" y1="-22" x2="${600+i*18}" y2="-42" stroke="var(--em-r)" stroke-width="1.2"/>`;
+    g+=`<line x1="${600+i*18}" y1="22" x2="${600+i*18}" y2="42" stroke="var(--em-r)" stroke-width="1.2"/>`;
+  }
+  g+=`</g><text x="655" y="-46" font-size="5.5" fill="var(--tx2)">散热桁架</text>`;
+
+  // 尺寸线
+  g+=`<line x1="0" y1="212" x2="760" y2="212" stroke="var(--tx3)" stroke-width=".5"/>`;
+  g+=`<line x1="0" y1="208" x2="0" y2="216" stroke="var(--tx3)"/><line x1="760" y1="208" x2="760" y2="216" stroke="var(--tx3)"/>`;
+  g+=`<text x="380" y="222" text-anchor="middle" font-size="7" fill="var(--tx2)">总长 760 m</text>`;
+  g+=`<line x1="-24" y1="-200" x2="-24" y2="200" stroke="var(--tx3)" stroke-width=".5"/>`;
+  g+=`<text x="-30" y="0" text-anchor="middle" font-size="7" fill="var(--tx2)" transform="rotate(-90,-30,0)">总高 416 m</text>`;
+  // 比例尺
+  g+=`<g transform="translate(20,232)"><line x1="0" y1="0" x2="100" y2="0" stroke="var(--tx2)" stroke-width="1.4"/>`;
+  g+=`<line x1="0" y1="-3" x2="0" y2="3" stroke="var(--tx2)"/><line x1="100" y1="-3" x2="100" y2="3" stroke="var(--tx2)"/>`;
+  g+=`<text x="50" y="10" text-anchor="middle" font-size="6" fill="var(--tx2)">100 m</text></g>`;
+
+  // 统计表
+  let rows='';
+  const groups=[['core','核心段 A–D'],['spine','连接脊 S1–S3'],['ringT','居住环 T1–T6'],['ringE','农环 E1–E6'],['tail','工业尾段 I1–I3']];
+  groups.forEach(([k,label])=>{
+    rows+=`<tr class="sep"><td colspan="7">${label}</td></tr>`;
+    DECKS.filter(d=>d.seg===k).forEach(d=>{
+      const s=deckStats(d);
+      const pubPct=s.usable?((s.pub/s.usable)*100):0;
+      rows+=`<tr><td>${d.id} · ${d.name.split('·')[1]?d.name.split('·')[1].trim():d.name}</td>
+        <td>${fmt(Math.round(s.total))}</td><td>${fmt(Math.round(s.usable))}</td>
+        <td>${s.resArea?fmt(Math.round(s.resArea)):'—'}</td>
+        <td>${s.resPop?fmt(s.resPop):'—'}</td>
+        <td>${s.resPop?s.perCap.toFixed(1):'—'}</td>
+        <td>${pubPct.toFixed(1)}%</td></tr>`;
+    });
+  });
+  const totalRes=DECKS.reduce((s,d)=>s+d.zones.filter(z=>z.cat==='res').reduce((a,z)=>a+z.res,0),0);
+  const totalResArea=DECKS.reduce((s,d)=>s+d.zones.filter(z=>z.cat==='res').reduce((a,z)=>a+z.area,0),0);
+  const totalUsable=DECKS.reduce((s,d)=>s+d.zones.reduce((a,z)=>a+z.area,0),0);
+  $('#statwrap').innerHTML=`
+    <svg class="overview-svg" viewBox="-50 -240 880 500" xmlns="http://www.w3.org/2000/svg">${g}</svg>
+    <table>
+      <thead><tr><th>甲板</th><th>舱段面积 m²</th><th>分区合计 m²</th><th>居住面积 m²</th><th>居住人数</th><th>人均 m²</th><th>公共空间占比</th></tr></thead>
+      <tbody>${rows}
+        <tr class="sep"><td>全舰合计</td><td>—</td><td>${fmt(Math.round(totalUsable))}</td><td>${fmt(Math.round(totalResArea))}</td><td>${fmt(totalRes)}</td><td>${(totalResArea/totalRes).toFixed(1)}</td><td>—</td></tr>
+      </tbody>
+    </table>
+    <div class="mini">
+      口径：①「舱段面积」= 甲板外包络（核心段 132×32、S 段长×24、环层 = 2πr×环宽、工业段 长×44）；
+      ②「分区合计」= 图上所有分区面积之和，差额为走廊、竖井、结构与屏蔽；
+      ③「居住面积」只含 cat=居住 的分区，人均 = 居住面积 / 居住人数；
+      ④「公共空间占比」= (公共 + 指挥) / 分区合计，不含走廊与交通核，因此偏保守；
+      ⑤ 环层为环形展开，面积按 2πr × 环宽 计算，与平面上看到的扇形一一对应。
+    </div>`;
+}
+
+function rectShape(x,y,w,h,cat,label){
+  return `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="var(--c-${cat})" stroke="var(--bg)" stroke-width=".6"/>
+    <text x="${x+w/2}" y="${y+h/2+2.4}" text-anchor="middle" font-size="6" fill="#fff">${label}</text>`;
+}
+
+/* =====================================================================
+   工具栏
+   ===================================================================== */
+function buildToolbar(){
+  const tb=$('#toolbar');
+  const btns=[['none','常规'],['flow','动线'],['depress','失压'],['fire','火灾'],['rad','辐射'],['lock','封锁']];
+  tb.innerHTML=btns.map(([k,t])=>`<button data-m="${k}" class="${state.mode===k?'on':''}">${t}</button>`).join('')
+    +`<button id="resetBtn">复位视图</button>`;
+  tb.querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>{state.mode=b.dataset.m;buildToolbar();renderAll();});
+  const rb=$('#resetBtn'); if(rb)rb.onclick=()=>{resetView();applyTransform();};
+}
+
+/* =====================================================================
+   主渲染
+   ===================================================================== */
+function renderAll(){
+  if(state.deck==='OV'){renderOverview();}
+  else{renderPlan(deckById(state.deck));}
+  renderDetail();renderLegend();
+  const proto=EMTEXT[state.mode]&&EMTEXT[state.mode].p;
+  $('.hint').textContent=proto||'滚轮缩放 · 拖拽平移 · 点击分区看详情';
+}
+
+$('#themeBtn').onclick=()=>{
+  state.theme=state.theme==='dark'?'light':'dark';
+  document.documentElement.dataset.theme=state.theme;
+  renderAll();
+};
+
+buildSide();buildToolbar();renderAll();
+
+/* 支持 #A / #T3 直接定位 */
+if(location.hash){
+  const parts=location.hash.slice(1).split(':');
+  const id=parts[0], mode=parts[1];
+  if(mode&&EMTEXT[mode])state.mode=mode;
+  if(id==='OV'||deckById(id)){state.deck=id;state.sel=null;resetView();buildSide();buildToolbar();renderAll();}
+}
+</script>
+</body>
+</html>

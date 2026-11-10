@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>玄枢号 · 单元库</title>
+<meta name="description" content="玄枢号 157 个单元全表：甲板、分区、类别、状态四维筛选。">
+<script>(function(){var t='dark';try{t=new URLSearchParams(location.search).get('theme')||((parent!==window&&parent.localStorage.getItem('xs_theme_v1'))||'dark');}catch(e){}document.documentElement.dataset.theme=(t==='light'?'light':'dark');})();</script>
+<link rel="stylesheet" href="../ship.css">
+</head>
+<body>
+<header class="ship-top"><div class="in"><div class="brand"><b>玄枢号 · 单元库</b><span>UNIT LIBRARY</span></div>
+<a class="back" href="../../#/ship">返回总站</a></div></header>
+<main class="wrap">
+  <p class="eyebrow">UNITS · 157 ENTRIES</p>
+  <h1 class="pg" style="font-size:28px">单元库</h1>
+  <p class="lede">全舰 <b>157 个一级单元</b>：舱位、气密、类别与出图状态。有甲板与分区的单元可直接跳到三维舰体定位。</p>
+
+  <div class="ufilters">
+    <label>甲板<select id="f-deck"></select></label>
+    <label>分区<select id="f-zone"></select></label>
+    <label>类别<select id="f-cat"></select></label>
+    <label>状态<select id="f-status"></select></label>
+  </div>
+  <div class="ustats" id="stats"></div>
+
+  <div class="ugrid" id="grid"></div>
+  <p class="tiny" style="margin-top:18px">数据源：三维工程 <b>units.json</b>（157 条，2026-11-10）。状态口径：文字占位 147 / 示意图 5 / 定稿图 4 / 已建模 0 / 已撤销 1。已撤销单元保留编号、不再复用。</p>
+</main>
+<div id="lb" aria-hidden="true"><button class="x" type="button" aria-label="关闭">×</button>
+<img alt=""><div class="cap"></div></div>
+<script src="units-data.js"></script>
+<script>
+(function(){
+  var D = window.UNIT_DATA, U = D.units.slice();
+  var DECK_ORDER = ['A','B','C','D','S1','S2','S3','T1','T2','T3','T4','T5','T6','E1','E2','E3','E4','E5','E6','I1','I2','I3',''];
+  var ST = [
+    ['text','文字占位','st-text'], ['draft','示意图','st-draft'], ['final','定稿图','st-final'],
+    ['modeled','已建模','st-modeled'], ['revoked','已撤销','st-revoked']
+  ];
+  var STMAP = {}; ST.forEach(function(s){ STMAP[s[0]] = s; });
+  function tier(u){ if(u.status==='revoked') return 'revoked'; if(u.modeled) return 'modeled'; if(u.status==='final') return 'final'; if(u.status==='draft') return 'draft'; return 'text'; }
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+  function fmt(n){ return (n===0||n)?Number(n).toLocaleString('zh-CN'):'—'; }
+
+  var decks = {};
+  U.forEach(function(u){ if(u.deckId) decks[u.deckId] = u.deckName || u.deckId; });
+  var zones = {}, cats = {};
+  U.forEach(function(u){
+    if(u.zoneId) zones[u.zoneId] = (u.deckId ? u.deckId + ' · ' : '') + (u.zoneName || '');
+    if(u.cat) cats[u.cat] = u.catName || u.cat;
+  });
+
+  function fill(id, first, pairs){
+    var el = document.getElementById(id);
+    el.innerHTML = '<option value="">' + first + '</option>' + pairs.map(function(p){
+      return '<option value="' + esc(p[0]) + '">' + esc(p[1]) + '</option>';
+    }).join('');
+  }
+  fill('f-deck', '全部甲板', DECK_ORDER.filter(function(k){ return k==='' ? U.some(function(u){return !u.deckId;}) : decks[k]; })
+    .map(function(k){ return [k, k==='' ? '位置待定' : (k + ' · ' + decks[k])]; }));
+  fill('f-zone', '全部分区', Object.keys(zones).sort().map(function(k){ return [k, k + ' · ' + zones[k].replace(/^[^·]+·\s*/,'')]; }));
+  fill('f-cat', '全部类别', Object.keys(cats).sort(function(a,b){ return cats[a].localeCompare(cats[b],'zh'); })
+    .map(function(k){ return [k, cats[k]]; }));
+  fill('f-status', '全部状态', ST.map(function(s){ return [s[0], s[1]]; }));
+
+  var grid = document.getElementById('grid'), stats = document.getElementById('stats');
+  function inFrame(){ try{ return parent !== window; }catch(e){ return false; } }
+  function go3d(id){
+    var h = '#/ship/3d?unit=' + encodeURIComponent(id);
+    if(inFrame()){ parent.location.hash = h; } else { location.href = '../../' + h; }
+  }
+  function card(u){
+    var t = tier(u), st = STMAP[t];
+    var hasPos = !!u.deckId;
+    var img = u.thumb ? '<img loading="lazy" src="../3d/' + esc(u.thumb) + '" alt="' + esc(u.name) + '" data-img="' + esc(u.thumb) + '">' : '';
+    var eq = (u.equipment && u.equipment.length) ? u.equipment.length + ' 项设备' : '';
+    var parts = u.partsList && u.partsList.length ? u.partsList.slice(0,3).join(' / ') + (u.partsList.length>3?' …':'') : '';
+    return '<article class="ucard' + (t==='revoked'?' revoked':'') + '">'
+      + '<div class="ushot">' + (img || '<div class="ph">文字占位 · 暂无图</div>') + '</div>'
+      + '<div class="uh"><span class="uid mono">' + esc(u.id) + '</span><span class="badge ' + st[2] + '">' + st[1] + '</span>'
+      + (t==='revoked' ? '<span class="tiny">编号保留 · 不复用</span>' : '') + '</div>'
+      + '<h3>' + esc(u.name) + '</h3>'
+      + '<div class="loc mono">' + (hasPos ? esc(u.deckId + ' · ' + (u.deckName||'') + ' / ' + (u.zoneId||'') + ' ' + (u.zoneName||'')) : '位置待定 · 无固定舱位') + '</div>'
+      + '<p class="fn">' + esc(u.fn || '') + '</p>'
+      + '<div class="umeta"><span>类别 <b>' + esc(u.catName || u.cat || '—') + '</b></span>'
+      + '<span>面积 <b>' + fmt(u.area) + '</b> m²</span>'
+      + '<span>气密 <b>' + fmt(u.parts) + '</b> 舱' + (parts ? '（' + esc(parts) + '）' : '') + '</span></div>'
+      + (eq ? '<div class="ueq">设备 <b>' + eq + '</b> · 定员 <b>' + fmt(u.staff) + '</b> 人</div>' : '')
+      + '<div class="ufoot"><span class="mm">' + (u.image ? '图：' + esc(u.imgKind === 'final' ? '定稿' : '示意') : '仅文字定义') + '</span>'
+      + '<button class="go" type="button" data-go="' + esc(u.id) + '"' + (hasPos ? '' : ' disabled') + '>'
+      + (hasPos ? '在舰上查看 →' : '无舱位') + '</button></div></article>';
+  }
+  function render(){
+    var d = document.getElementById('f-deck').value, z = document.getElementById('f-zone').value;
+    var c = document.getElementById('f-cat').value, s = document.getElementById('f-status').value;
+    var rows = U.filter(function(u){
+      if(d && (u.deckId||'') !== d) return false;
+      if(z && u.zoneId !== z) return false;
+      if(c && u.cat !== c) return false;
+      if(s && tier(u) !== s) return false;
+      return true;
+    });
+    grid.innerHTML = rows.length ? rows.map(card).join('') : '<div class="uempty">这组筛选下没有单元。</div>';
+    var cnt = {text:0,draft:0,final:0,modeled:0,revoked:0};
+    rows.forEach(function(u){ cnt[tier(u)]++; });
+    stats.innerHTML = '<span>当前 <b>' + rows.length + '</b> / ' + U.length + '</span>'
+      + ST.map(function(x){ return '<span class="s ' + x[0] + '">' + x[1] + ' <b>' + cnt[x[0]] + '</b></span>'; }).join('');
+  }
+  ['f-deck','f-zone','f-cat','f-status'].forEach(function(id){
+    document.getElementById(id).addEventListener('change', render);
+  });
+  grid.addEventListener('click', function(e){
+    var go = e.target.closest('[data-go]');
+    if(go && !go.disabled){ go3d(go.dataset.go); return; }
+    var im = e.target.closest('img[data-img]');
+    if(im){
+      var lb = document.getElementById('lb');
+      lb.querySelector('img').src = '../3d/' + im.dataset.img;
+      lb.querySelector('.cap').textContent = im.alt + ' · 点击任意处关闭';
+      lb.classList.add('on'); lb.setAttribute('aria-hidden','false');
+    }
+  });
+  document.getElementById('lb').addEventListener('click', function(){
+    this.classList.remove('on'); this.setAttribute('aria-hidden','true');
+    this.querySelector('img').removeAttribute('src');
+  });
+  addEventListener('keydown', function(e){ if(e.key==='Escape'){ var lb=document.getElementById('lb'); lb.classList.remove('on'); } });
+  render();
+})();
+</script>
+</body>
+</html>

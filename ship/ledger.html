@@ -1,0 +1,911 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>玄枢号 · 总账 v1→v3.3</title>
+<meta name="description" content="22 条被推翻的数：旧值、现值、哪版、原因。">
+<script>(function(){var t='dark';try{t=new URLSearchParams(location.search).get('theme')||((parent!==window&&parent.localStorage.getItem('xs_theme_v1'))||'dark');}catch(e){}document.documentElement.dataset.theme=(t==='light'?'light':'dark');})();</script>
+<link rel="stylesheet" href="ship.css">
+</head>
+<body>
+<header class="ship-top"><div class="in"><div class="brand"><b>玄枢号 · 舰船设计</b><span>XUANSHU / SHIP</span></div><a class="back" href="../#/ship">返回总站</a></div></header>
+<main class="wrap doc-layout"><aside class="toc" id="toc"><div class="t">总账 · 目录</div><a href="#0"><i>01</i>0. 怎么用</a><a href="#1"><i>02</i>1. 版本沿革</a><a href="#2"><i>03</i>2. 被推翻过的数（旧值 → 现值 → 原因）</a><a href="#3"><i>04</i>3. 当前关键数字总表</a><a href="#4"><i>05</i>4. 仍未闭合（谁接手都得先知道）</a><a href="#5"><i>06</i>5. 文件索引</a></aside><div class="doc-main"><div class="ledger-hero"><p class="eyebrow">LEDGER · v1 → v3.3</p><h1>玄枢号 · 总账</h1><p>22 条被推翻的数：旧值 → 现值 → 哪版 → 为什么。接手的人先看这一页，再进具体分册。</p><div class="rule">凡与本页冲突的数，以本页为准；本页与分册冲突时，先查「被推翻的数」有没有登记。</div></div><div class="md ledger"><h1 id="v1-v33">玄枢号 · 总账 v1 → v3.3</h1>
+<blockquote>
+<p>2026-11-10 ｜ <strong>一页看完全部版本、被推翻过的数、当前有效数</strong>
+用途：以后任何人（含我们自己）接手，<strong>先看这一页</strong>，再进具体分册。凡与本页冲突的数，以本页为准；本页与分册冲突时，先查本页「被推翻的数」有没有登记。</p>
+</blockquote>
+<hr />
+<h2 id="0">0. 怎么用</h2>
+<ol>
+<li><strong>要数字，看 §3。</strong> 那是当前唯一的有效口径，每行都标了出处。</li>
+<li><strong>要来历，看 §2。</strong> 每个被推翻的数都写明「旧值 → 现值 → 哪版 → 为什么」，避免又有人捡起旧值用。</li>
+<li><strong>要行动，看 §4。</strong> 那里只放「还没闭合、必须外部输入或用户裁决」的事项，不混进已定数里。</li>
+</ol>
+<p>一句话口径：<strong>12 GW 是主推进热，舰务按 68 MW 电载荷设计（因热泵泵功升为 105 MW 总电）</strong>。详见 §3.6。</p>
+<hr />
+<h2 id="1">1. 版本沿革</h2>
+<table>
+<thead>
+<tr>
+<th>版本</th>
+<th>一句话</th>
+<th>主要落点</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>v1.0</strong></td>
+<td>首版：功能、系统、编制、社会、10 万年机制、矛盾取舍、冲突清单</td>
+<td><code>玄枢号_飞船设计_v1.md</code> 前身</td>
+</tr>
+<tr>
+<td><strong>v1.1</strong></td>
+<td>修正总长分段为 40+132+100+60+428 = <strong>760 m</strong>；补环层几何与 6 组承力辐条；农环面积按图层校正 73,872 m²；休更驻地改 T4-S3；新增附录 A（22 层 <strong>90</strong> 分区为命名权威）；提出核心段利用率、体育缺位、S 段占位三条问题</td>
+<td>总长、附录 A</td>
+</tr>
+<tr>
+<td><strong>v2.0</strong></td>
+<td>解决上面两条：A-07 前装甲带 20×32 = 640 m²、D-04 燃料仓 20×30 = 600 m²（A 层利用率 40.8→50.7%、D 层 40.2→48.8%）；<strong>T4 拆 5 区</strong>，新增 S5 体育与泳池 2,686 m²；<strong>90 → 91 分区</strong>、分区合计 228,338 → <strong>229,118 m²</strong>、居住 48,138 → 45,452、人均 20.1 → <strong>18.9</strong>、公共占比 24.0 → 25.1%</td>
+<td>面积、分区、体育区</td>
+</tr>
+<tr>
+<td><strong>v2.1</strong></td>
+<td>只统一口径、不动面积人数：主环 <strong>⌀400</strong>、6 层 × 3.3 = 环厚 19.8 m；转速按中径反算 <strong>2.18 rpm</strong>、农环 <strong>2.16 rpm</strong> 反向；重力标签 0.95–1.05 g / 0.68–0.78 g；总宽 <strong>412</strong>；农环 <strong>⌀304</strong>；排热分两级 <strong>12 GW 巡航 / 90 GW 峰值</strong></td>
+<td>转速、重力、排热两级</td>
+</tr>
+<tr>
+<td><strong>v3.0-1</strong></td>
+<td>内部深化第一部分：91 区叠气密层 → <strong>175 个一级单元</strong>；门表 <strong>98 段 / 1,487 樘</strong>；逃生实算 65.6 m / 77 s；0 g 段仅 I3-01 不成立、礼堂 115 s 不成立、环→轴 21.9 min 为全舰瓶颈；附录 B 六条冲突</td>
+<td><code>玄枢号_内部深化_v3.md</code> §1、§7、附 B</td>
+</tr>
+<tr>
+<td><strong>v3.1</strong></td>
+<td>四项裁决：①<strong>主环 202 / ⌀404 / 总高总宽 416</strong>、农环 <strong>154 / ⌀308</strong>；②B-4「214 舱段」、B-5「食堂 18,000 m³」作废；③逃生三条改定（弃舰 <strong>4.4 min</strong>、礼堂 <strong>58 s</strong>、<strong>76 个避难角</strong>）；④新增 §1.7 净使用面积记账（扣 7,982 m²、人均 <strong>17.29</strong>）</td>
+<td>环径、逃生、人均</td>
+</tr>
+<tr>
+<td><strong>v3.2</strong></td>
+<td>第二轮裁决 + 第二部分收口：T4-S4 从 S5 划 180 m²（2,866 / 2,506）；F7 认下不加门、§7.10 建 R-1～R-4；避难角清单 CSV（76 / 2,280 m²）；第二部分 §2 生保、§3 热、§4 电、§5 水、§6 环转；T6 老幼更正为 <strong>53.1 m / 59.0 s</strong>；新增 B-7「12 GW 口径冲突」；设备清单 + 四张原理图</td>
+<td>第二部分全套</td>
+</tr>
+<tr>
+<td><strong>v3.3</strong></td>
+<td>三处收口：①排热按 <strong>103 MW → 32,300 m²</strong>（泵功 35 MW 计入）；②电平衡 <strong>68 → 105 MW</strong>，双堆并联各 78%，新增 <strong>B-8</strong>；③R-4 不加面积、改两条硬规则（0–6 岁不住 T6 / T6 步速 ≥0.88 m/s）；④12 GW 交叉引用落 §1.2 与 §3.7；⑤出本总账页</td>
+<td>本页</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="2">2. 被推翻过的数（旧值 → 现值 → 原因）</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>项</th>
+<th>旧值</th>
+<th>现值</th>
+<th>哪版</th>
+<th>为什么推翻</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>主环外径 / 直径</td>
+<td>200 / ⌀400</td>
+<td><strong>202 / ⌀404</strong></td>
+<td>v3.1</td>
+<td>4 m 层距 + 3.3 m 净高下，第 6 层楼面 R198 + 3.3 = 201.3 m，顶板兼压力壳取整 202；旧值差 1.3 m 半径，几何上放不下（B-1）</td>
+</tr>
+<tr>
+<td>2</td>
+<td>总宽 / 总高</td>
+<td>412 m</td>
+<td><strong>416 m</strong></td>
+<td>v3.1</td>
+<td>404 + 两侧各 6 m 结构包络</td>
+</tr>
+<tr>
+<td>3</td>
+<td>农环外径</td>
+<td>⌀304</td>
+<td><strong>154 / ⌀308</strong></td>
+<td>v3.1</td>
+<td>与主环同步校核后取 154</td>
+</tr>
+<tr>
+<td>4</td>
+<td>一级气密舱段</td>
+<td>214 个</td>
+<td><strong>175 个</strong></td>
+<td>v3.1</td>
+<td>v2.1 旧值无逐项明细，且与「1 atm、半压 ≥15 min」判据对不上（B-4 作废）</td>
+</tr>
+<tr>
+<td>5</td>
+<td>最大单舱容积</td>
+<td>18,000 m³（食堂）</td>
+<td><strong>10,240 m³（I3-01）</strong></td>
+<td>v3.1</td>
+<td>食堂 720 × 3.0 = 2,160 m³；18,000 是 90° 扇区量级（B-5 作废）</td>
+</tr>
+<tr>
+<td>6</td>
+<td>环上最远逃生距离</td>
+<td>161 m / 145 s</td>
+<td><strong>65.6 m / 77 s</strong></td>
+<td>v3</td>
+<td>舱壁由 90° 加密到 30°，单区失压不连锁</td>
+</tr>
+<tr>
+<td>7</td>
+<td>全舰弃舰时间</td>
+<td>21.9 min</td>
+<td><strong>4.4 min</strong></td>
+<td>v3.1</td>
+<td>加 6 条辐条气闸（共 8 组，2.4 m 净宽，12 人/次），路径 272.6 m、通道 15.6 人/s；新增 362 t</td>
+</tr>
+<tr>
+<td>8</td>
+<td>礼堂出厅时间</td>
+<td>115 s（8 樘）</td>
+<td><strong>58 s（16 樘）</strong></td>
+<td>v3.1</td>
+<td>净宽 32 m，2,400 ÷ (32 × 1.3) = 57.7 s</td>
+</tr>
+<tr>
+<td>9</td>
+<td>老幼最远逃生</td>
+<td>49.0 m / 54 s</td>
+<td><strong>T6 53.1 m / 59.0 s</strong></td>
+<td>v3.2</td>
+<td>v3.1 用的是单一中径旧值，逐层几何重算后 T6 最远</td>
+</tr>
+<tr>
+<td>10</td>
+<td>避难角数量</td>
+<td>24 个（提案）</td>
+<td><strong>76 个 / 2,280 m²</strong></td>
+<td>v3.1</td>
+<td>每个一级单元至少 1 个，30 m² / 容 60 人 / 30 min 气源</td>
+</tr>
+<tr>
+<td>11</td>
+<td>人均居住面积</td>
+<td>18.94 m²/人</td>
+<td><strong>17.29 m²/人</strong></td>
+<td>v3.1</td>
+<td>§1.7 扣楼梯核心 5,184 + 避难角 2,280 + 舱壁 518 = 7,982 m²（6.26%）</td>
+</tr>
+<tr>
+<td>12</td>
+<td>T4-S4 面积 / 人均</td>
+<td>2,686 / 14.92 / 13.99</td>
+<td><strong>2,866 / 15.92 / 14.93</strong></td>
+<td>v3.2</td>
+<td>净口径跌破 14.9 下限 175 m²，从 T4-S5 划 180 m²</td>
+</tr>
+<tr>
+<td>13</td>
+<td>T4-S5 面积</td>
+<td>2,686</td>
+<td><strong>2,506</strong></td>
+<td>v3.2</td>
+<td>同上划出 180 m²；泳池 4 水道 × 25 m、池体 200 m²、蓄水 270 t 不变</td>
+</tr>
+<tr>
+<td>14</td>
+<td>体育看台</td>
+<td>400（座 + 站立）</td>
+<td><strong>220</strong></td>
+<td>v3.2</td>
+<td>面积缩 180 m²，改 120 座 + 站立 80</td>
+</tr>
+<tr>
+<td>15</td>
+<td>舰务排热面</td>
+<td>21,300 m² @500 K</td>
+<td><strong>32,300 m²</strong></td>
+<td>v3.3</td>
+<td><strong>漏算热泵泵功</strong>：35 MW 电最后也变成热、同样在 500 K 排，须按 68 + 35 = 103 MW 算（少算 34%）</td>
+</tr>
+<tr>
+<td>16</td>
+<td>舰务总电</td>
+<td>68 MW</td>
+<td><strong>105 MW</strong>（103.3 载荷 + 2 辅机）</td>
+<td>v3.3</td>
+<td>加 35 MW 热泵泵功</td>
+</tr>
+<tr>
+<td>17</td>
+<td>10 kV 主干</td>
+<td>±5 kV · 4 路 · 1.7 kA/路 · 铜 400 mm² · 合计 6.8 kA</td>
+<td><strong>6 路 · 1.75 kA/路 · 铜 500 mm² · 合计 10.5 kA</strong></td>
+<td>v3.3</td>
+<td>随 105 MW 改；铜损 85 → 130 kW</td>
+</tr>
+<tr>
+<td>18</td>
+<td>旋转节滑环</td>
+<td>6.8 kA</td>
+<td><strong>10.5 kA</strong></td>
+<td>v3.3</td>
+<td>同上</td>
+</tr>
+<tr>
+<td>19</td>
+<td>堆余热</td>
+<td>182 MW</td>
+<td><strong>128 MW</strong></td>
+<td>v3.3</td>
+<td>233 MWth − 105 MW 电 = 128 MW</td>
+</tr>
+<tr>
+<td>20</td>
+<td>舰务堆口径</td>
+<td>B-8 初稿误用 250 MWth / 27%</td>
+<td><strong>2×150 MWth / 45% 效率 / 双堆各 78%</strong></td>
+<td>v3.3（自纠）</td>
+<td>硬件本来就是 2×150 MWth 一主一备，250 MW 与 150 MWth 不自洽</td>
+</tr>
+<tr>
+<td>21</td>
+<td>3 kV 对比电流</td>
+<td>22.7 kA</td>
+<td><strong>35 kA</strong>（截面 0.15 m²）</td>
+<td>v3.3</td>
+<td>随 105 MW 重算</td>
+</tr>
+<tr>
+<td>22</td>
+<td>「12 GW 是舰务热」</td>
+<td>任务书口径</td>
+<td><strong>12 GW = 主推进热；舰务 68 MW</strong></td>
+<td>v3.0-1 / v3.3 定稿</td>
+<td>按 12 GW 摊 2,400 人是 5 MW/人，风管早熔；见 B-7</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="3">3. 当前关键数字总表</h2>
+<h3 id="31">3.1 尺寸与几何</h3>
+<table>
+<thead>
+<tr>
+<th>项</th>
+<th>数值</th>
+<th>出处</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>总长</td>
+<td><strong>760 m</strong> = 前装甲 40 + 核心段 132 + 连接脊 100 + 双环轴向 60 + 工业尾段 428</td>
+<td>v2.1 §1.2</td>
+</tr>
+<tr>
+<td>总宽 / 总高</td>
+<td><strong>416 m</strong> / <strong>416 m</strong>（⌀404 + 两侧各 6 m 包络）</td>
+<td>v2.1 §1.2（v3.1 更正）</td>
+</tr>
+<tr>
+<td>空载 / 满载质量</td>
+<td>3.6×10⁶ t / <strong>6.9×10⁶ t</strong>（质量比 1.92）</td>
+<td>v2.1 §1.2</td>
+</tr>
+<tr>
+<td>加压容积</td>
+<td><strong>0.92×10⁶ m³</strong></td>
+<td>v2.1 §1.2</td>
+</tr>
+<tr>
+<td>主环</td>
+<td>外径 <strong>202 / ⌀404</strong>；居住面 R178→198；中径 <strong>R188</strong>；轴向宽 18 m；6 层，层距 4 m、净高 3.3 m；环厚 19.8 m</td>
+<td>v3 §3.6 / B-1</td>
+</tr>
+<tr>
+<td>农环</td>
+<td>外径 <strong>154 / ⌀308</strong>；R130→150；中径 <strong>R140</strong>；宽 14 m；净高 3.3 m</td>
+<td>v3 §3.6 / B-1</td>
+</tr>
+<tr>
+<td>核心段</td>
+<td>A–D，132 × 32 m，净高 3.0 m</td>
+<td>v2.1 / v3 §1.1</td>
+</tr>
+<tr>
+<td>连接脊</td>
+<td>S1 40 / S2 30 / S3 30 m，宽 24 m</td>
+<td>v2.1</td>
+</tr>
+<tr>
+<td>工业尾段</td>
+<td>I1 100×44 / I2 140×44 / I3 188×44 m，净高 3.2 m</td>
+<td>v2.1</td>
+</tr>
+<tr>
+<td>甲板 / 分区</td>
+<td><strong>22 张甲板 / 91 个分区</strong></td>
+<td>v2.0 定，v3 不改</td>
+</tr>
+</tbody>
+</table>
+<h3 id="32">3.2 人口与编制</h3>
+<table>
+<thead>
+<tr>
+<th>项</th>
+<th>数值</th>
+<th>出处</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>醒态人口</td>
+<td><strong>2,400 人</strong></td>
+<td>v2.1</td>
+</tr>
+<tr>
+<td>分区面积合计</td>
+<td><strong>229,118 m²</strong>（包络 239,591 m²）</td>
+<td>v2.0</td>
+</tr>
+<tr>
+<td>常驻岗</td>
+<td><strong>551 个</strong></td>
+<td>v2.1</td>
+</tr>
+<tr>
+<td>值勤 / 休更</td>
+<td>核心段 0 g 值勤 <strong>14 天</strong> / 主环 1 g 休更 14 天</td>
+<td>v2.1 §4.3</td>
+</tr>
+<tr>
+<td>居住分布</td>
+<td>T2 1,100 / T4 1,120 / T6 156（其余为公共与产业）</td>
+<td>v3 §1.7</td>
+</tr>
+</tbody>
+</table>
+<h3 id="33">3.3 面积与人均</h3>
+<table>
+<thead>
+<tr>
+<th>项</th>
+<th>数值</th>
+<th>出处</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>分区合计（不改）</td>
+<td><strong>229,118 m²</strong></td>
+<td>v2.0</td>
+</tr>
+<tr>
+<td>主环六层分区</td>
+<td>127,552 m²</td>
+<td>v3 §1.7</td>
+</tr>
+<tr>
+<td>净使用扣减</td>
+<td><strong>7,982 m² = 6.26%</strong>（楼梯核心 5,184 + 避难角 2,280 + 舱壁 518）</td>
+<td>v3 §1.7</td>
+</tr>
+<tr>
+<td>主环净使用</td>
+<td><strong>119,570 m²</strong></td>
+<td>v3 §1.7</td>
+</tr>
+<tr>
+<td>居住面积</td>
+<td>45,452 → <strong>41,492 m²</strong>（只有 T2/T4/T6 扣）</td>
+<td>v3 §1.7</td>
+</tr>
+<tr>
+<td>人均居住</td>
+<td><strong>17.29 m²/人</strong>（原 18.94，−1.65 / −8.7%）</td>
+<td>v3 §1.7</td>
+</tr>
+<tr>
+<td>分层人均</td>
+<td>T2 <strong>17.51</strong> / T4 <strong>15.59</strong> / T6 <strong>27.49</strong></td>
+<td>v3 §1.7</td>
+</tr>
+<tr>
+<td>下限 14.9 m²/人</td>
+<td>全舰、T4 均未触及；<strong>T4-S4 净口径 14.93，刚回到线上</strong></td>
+<td>v3 §1.7</td>
+</tr>
+<tr>
+<td>体育区</td>
+<td>T4-S5 <strong>2,506 m²</strong>（泳池 4 水道 × 25 m、池体 200 m²、蓄水 270 t、看台 220）</td>
+<td>v2.1 §3.15（v3.2 更正）</td>
+</tr>
+</tbody>
+</table>
+<h3 id="34">3.4 重力与转速</h3>
+<table>
+<thead>
+<tr>
+<th>项</th>
+<th>数值</th>
+<th>出处</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>主环转速</td>
+<td><strong>2.18 rpm</strong>（ω = 0.2283 rad/s，中径 R188，1.0 g）</td>
+<td>v2.1 §3.6</td>
+</tr>
+<tr>
+<td>主环重力</td>
+<td><strong>0.95–1.05 g</strong>（T1 R180 至 T6 R200）</td>
+<td>v2.1</td>
+</tr>
+<tr>
+<td>农环转速</td>
+<td><strong>2.16 rpm</strong>，与主环<strong>反向</strong>（抵消角动量）</td>
+<td>v2.1</td>
+</tr>
+<tr>
+<td>农环重力</td>
+<td><strong>0.68–0.78 g</strong>（中径 R140 = 0.73 g）</td>
+<td>v2.1</td>
+</tr>
+<tr>
+<td>核心段 / 工业段</td>
+<td>0 g（推进时 0.35 g 轴向）</td>
+<td>v2.1</td>
+</tr>
+<tr>
+<td>科氏加速度（主环）</td>
+<td>走动 1.4 m/s → <strong>0.639 m/s²</strong>（0.065 g）；跑步 3.0 → 1.370；抛物 5.0 → 2.283；倾倒 0.5 → 0.228；电梯 1.0 → 0.457</td>
+<td>v3 §6.1</td>
+</tr>
+<tr>
+<td>关键结论</td>
+<td>a_c = 2ωv，<strong>与半径无关</strong>；T1 与 T6 的科氏相同</td>
+<td>v3 §6.1</td>
+</tr>
+</tbody>
+</table>
+<h3 id="35-2400-d">3.5 生保日账（2,400 人 / d）</h3>
+<table>
+<thead>
+<tr>
+<th>项</th>
+<th>全舰</th>
+<th>出处</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>耗氧</td>
+<td><strong>2,016 kg/d</strong>（84 kg/h），0.84 kg/人</td>
+<td>v3 §2.1</td>
+</tr>
+<tr>
+<td>产 CO₂</td>
+<td><strong>2,400 kg/d</strong>（100 kg/h）</td>
+<td>v3 §2.1</td>
+</tr>
+<tr>
+<td>总用水</td>
+<td><strong>68.4 t/d</strong>（28.5 kg/人：饮用与食品 8.4 + 卫生 60）</td>
+<td>v3 §2.1</td>
+</tr>
+<tr>
+<td>食物（干重）</td>
+<td><strong>1,488 kg/d</strong>（0.62 kg/人 ≈ 2,600 kcal；农环自给 86% 热量）</td>
+<td>v3 §2.1</td>
+</tr>
+<tr>
+<td>尿 / 粪</td>
+<td>4.56 t/d / 0.29 t/d + 真空冲厕 0.5 L×6 次</td>
+<td>v3 §2.1</td>
+</tr>
+<tr>
+<td>呼吸与汗（冷凝水）</td>
+<td>5.5 t/d</td>
+<td>v3 §2.1</td>
+</tr>
+</tbody>
+</table>
+<h3 id="36-v33">3.6 热（v3.3 定案）</h3>
+<table>
+<thead>
+<tr>
+<th>项</th>
+<th>数值</th>
+<th>出处</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>舰务有用载荷</td>
+<td><strong>68 MW</strong> = 农环 LED 30 + 工业 22 + 人居与设备 16</td>
+<td>v3 §3.2</td>
+</tr>
+<tr>
+<td>热泵</td>
+<td>300 → 500 K，COP <strong>2.0</strong>（卡诺 2.5 × 0.8），泵功 <strong>35 MW</strong>，8 台 × 4.4 MW</td>
+<td>v3 §3.7 / §4.4</td>
+</tr>
+<tr>
+<td><strong>排热总量</strong></td>
+<td><strong>103 MW</strong> = 68 + 35（泵功也是热，同在 500 K 排）</td>
+<td>v3 §3.7</td>
+</tr>
+<tr>
+<td>500 K 辐射流</td>
+<td><strong>3.19 kW/m²</strong>（ε = 0.9；「可用系数 0.90」已含开口/气闸/辐条折减，<strong>不再乘 F</strong>，与 12 GW 那套 F=0.61 不重复）</td>
+<td>v3 §3.7</td>
+</tr>
+<tr>
+<td><strong>舰务散热面</strong></td>
+<td><strong>32,300 m²</strong></td>
+<td>v3 §3.7</td>
+</tr>
+<tr>
+<td>落在哪</td>
+<td>v2.1 §3.4 的 <strong>42,000 m² 舱壁嵌入式回路</strong> × 0.9 = <strong>37,800 可用</strong>，余 <strong>5,500（15%）</strong>；只需把该回路钉到 500 K</td>
+<td>v3 §3.7</td>
+</tr>
+<tr>
+<td>外缘环带</td>
+<td>30,460 毛 × 0.9 = <strong>27,400</strong>，<strong>单用不够</strong>（差 4,900）</td>
+<td>v3 §3.7</td>
+</tr>
+<tr>
+<td>上下环面</td>
+<td>57,300 毛 × 0.6 = 34,400（气闸/舱口占位）</td>
+<td>v3 §3.7</td>
+</tr>
+<tr>
+<td>降级上限</td>
+<td>61,800 毛面积即便辅散热全失效也能排 103 MW（占 52%）</td>
+<td>v3 §3.7</td>
+</tr>
+<tr>
+<td>堆余热</td>
+<td><strong>128 MW @900 K</strong> → 3,800 m²，<strong>并入液滴散热器</strong>，不占辅散热面</td>
+<td>v3 §3.7</td>
+</tr>
+<tr>
+<td>主推进热</td>
+<td><strong>12 GW @1,200 K（工况带上限，非常态）</strong>（ε=0.90 · <strong>单面计</strong> · F=0.61 → <strong>64.5 kW/m²</strong>）→ <strong>186,000 m² 液滴散热器</strong>；现有 <strong>2.1×10⁵ m² 可排 13.55 GW，余 12.9%</strong>；<strong>舰务 103 MW 另走 500 K / 32,300 m²，两条回路不许混</strong>；峰值 90 GW 只靠蓄热短时顶</td>
+<td>v3 §3.6</td>
+</tr>
+<tr>
+<td>液滴低温模式</td>
+<td><strong>不作基线</strong>（350 K 工质会凝固），仅「若外部数据支持」时作回收备选，登记 B-6</td>
+<td>v3 §3.7</td>
+</tr>
+</tbody>
+</table>
+<h3 id="37">3.7 电</h3>
+<table>
+<thead>
+<tr>
+<th>项</th>
+<th>数值</th>
+<th>出处</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>总电</td>
+<td><strong>105.3 MW</strong> = 载荷 103.3 + 辅机 2.0（按 <strong>105 MW</strong> 配）</td>
+<td>v3 §4.1</td>
+</tr>
+<tr>
+<td>电压等级</td>
+<td>主干 <strong>10 kV DC（±5 kV）</strong> / 分区 1 kV DC / 末端 230–400 V AC 50 Hz</td>
+<td>v3 §4.1</td>
+</tr>
+<tr>
+<td>主干</td>
+<td><strong>6 路并联，1.75 kA/路，合计 10.5 kA</strong>，铜 <strong>500 mm²/路</strong>，铜损 <strong>130 kW</strong>；断面 0.6 × 0.32 m</td>
+<td>v3 §4.1 / 设备清单 EL-01</td>
+</tr>
+<tr>
+<td>分区</td>
+<td><strong>1 kV 配电箱 44 台（800 A）</strong>，逆变 <strong>250 kVA × 44</strong></td>
+<td>v3 §4.4</td>
+</tr>
+<tr>
+<td>旋转节</td>
+<td>电力滑环 <strong>10.5 kA × 3</strong>（S1/S2/S3）</td>
+<td>设备清单 EL-06</td>
+</tr>
+<tr>
+<td>A/B 双路</td>
+<td>A 走 S1（0°）、B 走 S3（180°），物理间距 ≥ 60 m；联络静态开关 <strong>200 ms</strong></td>
+<td>v3 §4.2</td>
+</tr>
+<tr>
+<td>发电</td>
+<td>舰务聚变堆 <strong>2×150 MWth</strong>，Brayton 45% → 单堆 <strong>67.5≈68 MW</strong></td>
+<td>v2.1 §2.5 / v3 §4.5</td>
+</tr>
+<tr>
+<td><strong>105 MW 的代价</strong></td>
+<td>105 / 0.45 = <strong>233 MWth</strong> → <strong>双堆并联、各 78%</strong>；<strong>不再是一主一备</strong></td>
+<td>v3 §4.5 / B-8</td>
+</tr>
+<tr>
+<td>单堆检修 N-1</td>
+<td>只出 <strong>68 MW</strong> → 热泵降 50%（17.5 MW）、散热面 26,800 m²、舱温 <strong>+1.6 K/h</strong>，可撑 <strong>72 h</strong></td>
+<td>v3 §4.5</td>
+</tr>
+<tr>
+<td>储能</td>
+<td>舰级 <strong>8 GWh</strong>（v2.1）；生保 4 h = 18.4 MWh（飞轮 + 锂电各半）</td>
+<td>v2.1 / v3 §4.4</td>
+</tr>
+<tr>
+<td>热泵不配电池</td>
+<td>停 4 h 存热 979 GJ ÷ 结构热容 3.1×10¹¹ J/K = 温升 <strong>3.2 K</strong>，用热惯量顶</td>
+<td>v3 §4.4</td>
+</tr>
+</tbody>
+</table>
+<h3 id="38">3.8 水</h3>
+<table>
+<thead>
+<tr>
+<th>项</th>
+<th>数值</th>
+<th>出处</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>总用水</td>
+<td><strong>68.4 t/d</strong>（平均 0.79 kg/s，峰值系数 3 → 2.37 kg/s）</td>
+<td>v3 §5</td>
+</tr>
+<tr>
+<td>回收率</td>
+<td><strong>99.2%</strong>（设计值）；黑水 95%（含盐水固化）</td>
+<td>v3 §5</td>
+</tr>
+<tr>
+<td>补水</td>
+<td><strong>0.5 t/d</strong>（0.73%），来源：行星补给 / 水冰采集，舰内不产净水</td>
+<td>v3 §5</td>
+</tr>
+<tr>
+<td>缓冲</td>
+<td>3 天 <strong>205 t</strong>；应急 <strong>117 天 / 8,000 t</strong></td>
+<td>v3 §5</td>
+</tr>
+<tr>
+<td>三套管路</td>
+<td>灰水 DN80 / 黑水 DN100 / 冷凝 DN50，不混接</td>
+<td>v3 §5 / P-1</td>
+</tr>
+</tbody>
+</table>
+<h3 id="39">3.9 逃生</h3>
+<table>
+<thead>
+<tr>
+<th>项</th>
+<th>数值</th>
+<th>出处</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>判据</td>
+<td><strong>30 s 戴面具 + 60 s 进相邻单元</strong>（合计 90 s）</td>
+<td>v3 §7.1</td>
+</tr>
+<tr>
+<td>单元半压时间</td>
+<td>主环 23–27 min（T4 22.5° 单元 1,343 m²）/ 农环 18–21 / 核心段 6–16</td>
+<td>v3 §1.3</td>
+</tr>
+<tr>
+<td>主环单元最远</td>
+<td><strong>65.6 m / 77 s</strong>（T2，成人成立；老幼超 13 s）</td>
+<td>v3 §7.3</td>
+</tr>
+<tr>
+<td>农环单元最远</td>
+<td>59.4–66.3 m / 72–77 s</td>
+<td>v3 §7.3</td>
+</tr>
+<tr>
+<td>老幼（经避难角）</td>
+<td><strong>T6 53.1 m / 59.0 s</strong>，余量 1 s，全舰最紧</td>
+<td>v3 §7.6</td>
+</tr>
+<tr>
+<td>礼堂出厅</td>
+<td><strong>58 s</strong>（16 樘 × 2.0 m = 32 m 净宽）</td>
+<td>v3 §7.5</td>
+</tr>
+<tr>
+<td>全舰弃舰</td>
+<td><strong>4.4 min</strong>（原 21.9 min）；步行 3.3 min + 气闸流水线 4.4 min</td>
+<td>v3 §7.5</td>
+</tr>
+<tr>
+<td>不成立项</td>
+<td><strong>I3-01</strong>（0 g、3,200 m²，改法 F5 不成立，登记）</td>
+<td>v3 §7.9</td>
+</tr>
+<tr>
+<td>已知缺口</td>
+<td>礼堂单元整体失压外运 <strong>140 s</strong> &gt; 60 s（R-1，有意识取舍，不加门）</td>
+<td>v3 §7.10</td>
+</tr>
+</tbody>
+</table>
+<h3 id="310">3.10 门与避难角</h3>
+<table>
+<thead>
+<tr>
+<th>项</th>
+<th>数值</th>
+<th>出处</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>一级气密单元</td>
+<td><strong>175 个</strong></td>
+<td>v3 §1.3</td>
+</tr>
+<tr>
+<td>门表（<strong>房间级</strong>）</td>
+<td><strong>1,636 樘 / 1,633 编号</strong>（v3.9 逐门回填）：DP 1,295（户门 795 + 房门票 500）、DQ 289/286、DF 26、DR 26、DL 0、DH 0、DA 系 0、无门 26 间</td>
+<td>v3 §1.5</td>
+</tr>
+<tr>
+<td>门表（<strong>系统级</strong>，不入户门统计）</td>
+<td><strong>394 樘</strong>：DL 72 + DP-S 74 + DF-S 16 + DH 200 + DA/DS 25 + DC 7</td>
+<td>v3 §1.5 / G-1b</td>
+</tr>
+<tr>
+<td>门总数</td>
+<td><strong>2,030 樘 / 2,027 编号</strong> = 房间级 1,636 + 系统级 394</td>
+<td>v3 §1.5</td>
+</tr>
+<tr>
+<td>门型</td>
+<td>10 类代号：DP 0.9×2.1、DQ 2.0×2.1、DF 1.2×2.1、DR 2.2×2.2、DL 1.2×2.1、DP-S 1.2×2.1、DF-S 1.8×2.2、DH 0.6×0.6、DA 气闸、DC 防爆（<code>DP-户</code> 别名取消，并入 DP）</td>
+<td>v3 §1.5</td>
+</tr>
+<tr>
+<td>门数估算项</td>
+<td>管井检修盖 200 个（门表段估算）→ <strong>需建筑专业复核</strong>【需】；户门 540 已作废、改 795</td>
+<td>v3 §1.5 / G-1b</td>
+</tr>
+<tr>
+<td>避难角</td>
+<td><strong>76 个 / 2,280 m²</strong>（30 m²、容 60 人、30 min 气源；T1 15 / T2 12 / T3 12 / T4 13 / T5 12 / T6 12）</td>
+<td><code>避难角清单_v3.csv</code></td>
+</tr>
+<tr>
+<td>逃生人流率</td>
+<td>门 1.3 人/(m·s)、楼梯 1.0、宽度 W = N/78</td>
+<td>v3 §7.2</td>
+</tr>
+<tr>
+<td>步速口径</td>
+<td>成人 1.4 / 快步 1.6 / 老幼 0.9 m/s；T6 入住门槛 <strong>0.88 m/s</strong></td>
+<td>v3 §7.2 / §7.6</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="4">4. 仍未闭合（谁接手都得先知道）</h2>
+<table>
+<thead>
+<tr>
+<th>编号</th>
+<th>事项</th>
+<th>现状</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>B-6</strong></td>
+<td>32,300 m² 可用系数（外缘 0.9 / 环面 0.6 是经验值）；42,000 m² 回路跑 500 K 的<strong>舱壁热应力</strong>（只给 ≤80 K/m 约束）；液滴低温模式</td>
+<td>需结构专业与外部数据；若可用系数 &lt; 0.4 必须改 550 K</td>
+</tr>
+<tr>
+<td><strong>B-7</strong></td>
+<td>任务书「12 GW 舰务热」与 v2.1 口径冲突</td>
+<td>已定：按 68 MW 设计，12 GW 只交代去向</td>
+</tr>
+<tr>
+<td><strong>B-8</strong></td>
+<td>105 MW 需<strong>双堆并联</strong>，舰务堆失去「一主一备」</td>
+<td>已定取舍；N-1 有 72 h 降载窗口；若堆效率低于 40% 需重新核</td>
+</tr>
+<tr>
+<td><strong>R-1</strong></td>
+<td>礼堂单元整体失压外运 140 s &gt; 60 s</td>
+<td>认下，不加门（+12 樘、10.4 t、开洞率 16.3→48.9%）</td>
+</tr>
+<tr>
+<td><strong>R-2 / R-3</strong></td>
+<td>见 §7.10</td>
+<td>已登记</td>
+</tr>
+<tr>
+<td><strong>R-4</strong></td>
+<td>T6 老幼余量仅 1 s</td>
+<td><strong>不加面积</strong>，改两条硬规则：0–6 岁家庭不住 T6（现 0 户）；T6 住户须过步速体检（6 min ≥ 500 m 或 30 m 直线 ≥ 0.88 m/s），行动不便者一律 T1–T2；每 5 年复测</td>
+</tr>
+<tr>
+<td><strong>F5</strong></td>
+<td>I3-01（3,200 m²、0 g）60 s 不成立</td>
+<td>无低成本改法，保留为已知缺口</td>
+</tr>
+<tr>
+<td><strong>门数</strong></td>
+<td><strong>已闭合（v3.9）</strong>：房间级 1,636 樘 / 1,633 编号逐门回填；剩余开口是 <strong>394 樘系统门</strong>（DL/DP-S/DF-S/DH/DA/DC）不在房间明细内</td>
+<td>补登记或明确归「非房间门」（G-1b）</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="5">5. 文件索引</h2>
+<table>
+<thead>
+<tr>
+<th>文件</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>玄枢号_总账_v1-v3.md</code></td>
+<td><strong>本页</strong>：版本、被推翻的数、当前数</td>
+</tr>
+<tr>
+<td><code>玄枢号_飞船设计_v1.md</code></td>
+<td>v2.1 正文（舰体、功能、系统、编制、社会、10 万年机制、附录 A 91 分区）</td>
+</tr>
+<tr>
+<td><code>玄枢号_内部深化_v3.md</code></td>
+<td>v3.9 正文（§1 分舱气密 / §2 生保 / §3 热 / §4 电 / §5 水 / §6 环转 / §7 逃生 / §8 房间·设备·单元 / 附 B 冲突）</td>
+</tr>
+<tr>
+<td><code>分舱表_v3.csv</code></td>
+<td>175 个一级单元，逐单元面积、容积、防火/辐射分区、到最近门距离</td>
+</tr>
+<tr>
+<td><code>门表_v3.csv</code></td>
+<td><strong>55 行</strong>：房间级 47 行（按甲板×门型，1,636 樘/1,633 编号）+ 系统级 6 行（394 樘）+ 作废 2 行（1,487 / 540），逐行类型、净宽净高、开向、联锁</td>
+</tr>
+<tr>
+<td><code>避难角清单_v3.csv</code></td>
+<td>76 个避难角，逐单元位置、面积、容量、最远距离、供氧与 LiOH</td>
+</tr>
+<tr>
+<td><code>设备清单_v3.csv</code></td>
+<td>35 项主要设备（含 HP-01 热泵），逐台功率、散热、外形、重量、维护空间、换件路径</td>
+</tr>
+<tr>
+<td><code>系统原理图_v3.html</code></td>
+<td>水 P-1 / 气 P-2 / 电 P-3 / 热 P-4 四张离线 SVG</td>
+</tr>
+<tr>
+<td><code>deckplan.html</code> / <code>总览图.svg</code></td>
+<td>22 甲板可交互平面图 / 静态总览（已同步 416 / ⌀404 / ⌀308）</td>
+</tr>
+</tbody>
+</table></div></div></main>
+
+</body>
+</html>

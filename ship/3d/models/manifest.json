@@ -1,0 +1,686 @@
+{
+  "asset": "玄枢号 舰体",
+  "version": "v3",
+  "unit": "meter (1 Blender unit = 1 m)",
+  "blender_up_axis": "Z",
+  "gltf_up_axis": "Y (Blender glTF 默认 +Y up 转换)",
+  "origin": "舰体中轴与最前装甲面交点；舰体沿 +X 延伸，前端 X=0，尾喷口 X=760",
+  "total_length_m": 760.0,
+  "envelope_width_m": 416.0,
+  "envelope_height_m": 416.0,
+  "notes": [
+    "RING_T_ROOT / RING_E_ROOT 为空物体，原点在各自环心（X=221 / X=267），环体与其辐条为其子物体，旋转父级即整环旋转。",
+    "HULL_SHELL 为全舰外壳蒙皮（含两环内外蒙皮，均为旋转对称回转体），用于 X 光/剖切让位。",
+    "环外缘窗带、点防、辐条等非对称件挂在 RING_T6 / RING_E6 与 SPOKE_* 下，随环旋转。",
+    "bbox_world 为 Blender 世界坐标（米），导出 glTF 后需按 +Y up 转换。",
+    "主环旋转 2.18 rpm 顺/农环 2.16 rpm 反向；本文件只给几何，不自带动画。"
+  ],
+  "nodes": [
+    {
+      "name": "HULL_SHELL",
+      "zone": "全舰外壳蒙皮（X 光/剖切用）",
+      "parent": null,
+      "bbox_world": {
+        "min": [
+          0.0,
+          -203.0,
+          -203.0
+        ],
+        "max": [
+          732.0,
+          203.0,
+          203.0
+        ]
+      },
+      "verts": 15648
+    },
+    {
+      "name": "HULL_ARMOR",
+      "zone": "前装甲罩 0–40 m（3.2 m 复合装甲块）",
+      "parent": null,
+      "bbox_world": {
+        "min": [
+          0.0,
+          -16.65,
+          -16.77
+        ],
+        "max": [
+          36.19,
+          16.65,
+          16.77
+        ]
+      },
+      "verts": 928
+    },
+    {
+      "name": "CORE_A",
+      "zone": "A 甲板 指挥层 40–172 m",
+      "parent": null,
+      "bbox_world": {
+        "min": [
+          42.0,
+          -16.3,
+          -17.28
+        ],
+        "max": [
+          170.0,
+          16.3,
+          32.5
+        ]
+      },
+      "verts": 256
+    },
+    {
+      "name": "CORE_B",
+      "zone": "B 甲板 生活层",
+      "parent": null,
+      "bbox_world": {
+        "min": [
+          42.0,
+          -16.69,
+          1.6
+        ],
+        "max": [
+          170.0,
+          16.69,
+          5.8
+        ]
+      },
+      "verts": 24
+    },
+    {
+      "name": "CORE_C",
+      "zone": "C 甲板 作业层（机库 C-01）",
+      "parent": null,
+      "bbox_world": {
+        "min": [
+          42.0,
+          -21.44,
+          -23.18
+        ],
+        "max": [
+          170.0,
+          36.5,
+          22.47
+        ]
+      },
+      "verts": 568
+    },
+    {
+      "name": "CORE_D",
+      "zone": "D 甲板 动力层",
+      "parent": null,
+      "bbox_world": {
+        "min": [
+          42.0,
+          -12.22,
+          -13.2
+        ],
+        "max": [
+          170.0,
+          12.22,
+          -2.8
+        ]
+      },
+      "verts": 136
+    },
+    {
+      "name": "SPINE_S1",
+      "zone": "S1 前轴承与过渡气闸 172–230 m",
+      "parent": null,
+      "bbox_world": {
+        "min": [
+          172.0,
+          -17.5,
+          -17.5
+        ],
+        "max": [
+          230.1,
+          17.5,
+          17.5
+        ]
+      },
+      "verts": 2400
+    },
+    {
+      "name": "SPINE_S2",
+      "zone": "S2 中轴承与旋转接头 230–274 m",
+      "parent": null,
+      "bbox_world": {
+        "min": [
+          230.0,
+          -17.5,
+          -17.5
+        ],
+        "max": [
+          274.1,
+          17.5,
+          17.5
+        ]
+      },
+      "verts": 2400
+    },
+    {
+      "name": "SPINE_S3",
+      "zone": "S3 后轴承与过渡气闸 274–304 m",
+      "parent": null,
+      "bbox_world": {
+        "min": [
+          274.0,
+          -17.5,
+          -17.5
+        ],
+        "max": [
+          304.0,
+          17.5,
+          17.5
+        ]
+      },
+      "verts": 1248
+    },
+    {
+      "name": "RING_T1",
+      "zone": "主环 T1 甲板（居住面 R178）",
+      "parent": "RING_T_ROOT",
+      "bbox_world": {
+        "min": [
+          212.3,
+          -182.0,
+          -182.0
+        ],
+        "max": [
+          229.7,
+          182.0,
+          182.0
+        ]
+      },
+      "verts": 3072
+    },
+    {
+      "name": "RING_T2",
+      "zone": "主环 T2 甲板（居住面 R182）",
+      "parent": "RING_T_ROOT",
+      "bbox_world": {
+        "min": [
+          212.3,
+          -186.0,
+          -186.0
+        ],
+        "max": [
+          229.7,
+          186.0,
+          186.0
+        ]
+      },
+      "verts": 3072
+    },
+    {
+      "name": "RING_T3",
+      "zone": "主环 T3 甲板（居住面 R186）",
+      "parent": "RING_T_ROOT",
+      "bbox_world": {
+        "min": [
+          212.3,
+          -190.0,
+          -190.0
+        ],
+        "max": [
+          229.7,
+          190.0,
+          190.0
+        ]
+      },
+      "verts": 3072
+    },
+    {
+      "name": "RING_T4",
+      "zone": "主环 T4 甲板（居住面 R190）",
+      "parent": "RING_T_ROOT",
+      "bbox_world": {
+        "min": [
+          212.3,
+          -194.0,
+          -194.0
+        ],
+        "max": [
+          229.7,
+          194.0,
+          194.0
+        ]
+      },
+      "verts": 3072
+    },
+    {
+      "name": "RING_T5",
+      "zone": "主环 T5 甲板（居住面 R194）",
+      "parent": "RING_T_ROOT",
+      "bbox_world": {
+        "min": [
+          212.3,
+          -198.0,
+          -198.0
+        ],
+        "max": [
+          229.7,
+          198.0,
+          198.0
+        ]
+      },
+      "verts": 3072
+    },
+    {
+      "name": "RING_T6",
+      "zone": "主环 T6 甲板（居住面 R198）",
+      "parent": "RING_T_ROOT",
+      "bbox_world": {
+        "min": [
+          212.3,
+          -202.2,
+          -207.6
+        ],
+        "max": [
+          229.7,
+          202.2,
+          207.6
+        ]
+      },
+      "verts": 3984
+    },
+    {
+      "name": "RING_E1",
+      "zone": "农环 E1 甲板（居住面 R130.0）",
+      "parent": "RING_E_ROOT",
+      "bbox_world": {
+        "min": [
+          260.3,
+          -134.0,
+          -134.0
+        ],
+        "max": [
+          273.7,
+          134.0,
+          134.0
+        ]
+      },
+      "verts": 2880
+    },
+    {
+      "name": "RING_E2",
+      "zone": "农环 E2 甲板（居住面 R134.0）",
+      "parent": "RING_E_ROOT",
+      "bbox_world": {
+        "min": [
+          260.3,
+          -138.0,
+          -138.0
+        ],
+        "max": [
+          273.7,
+          138.0,
+          138.0
+        ]
+      },
+      "verts": 2880
+    },
+    {
+      "name": "RING_E3",
+      "zone": "农环 E3 甲板（居住面 R138.0）",
+      "parent": "RING_E_ROOT",
+      "bbox_world": {
+        "min": [
+          260.3,
+          -142.0,
+          -142.0
+        ],
+        "max": [
+          273.7,
+          142.0,
+          142.0
+        ]
+      },
+      "verts": 2880
+    },
+    {
+      "name": "RING_E4",
+      "zone": "农环 E4 甲板（居住面 R142.0）",
+      "parent": "RING_E_ROOT",
+      "bbox_world": {
+        "min": [
+          260.3,
+          -146.0,
+          -146.0
+        ],
+        "max": [
+          273.7,
+          146.0,
+          146.0
+        ]
+      },
+      "verts": 2880
+    },
+    {
+      "name": "RING_E5",
+      "zone": "农环 E5 甲板（居住面 R146.0）",
+      "parent": "RING_E_ROOT",
+      "bbox_world": {
+        "min": [
+          260.3,
+          -150.0,
+          -150.0
+        ],
+        "max": [
+          273.7,
+          150.0,
+          150.0
+        ]
+      },
+      "verts": 2880
+    },
+    {
+      "name": "RING_E6",
+      "zone": "农环 E6 甲板（居住面 R150.0）",
+      "parent": "RING_E_ROOT",
+      "bbox_world": {
+        "min": [
+          260.3,
+          -154.2,
+          -159.6
+        ],
+        "max": [
+          273.7,
+          154.2,
+          159.6
+        ]
+      },
+      "verts": 3792
+    },
+    {
+      "name": "SPOKE_1",
+      "zone": "主环承力辐条 1/6",
+      "parent": "RING_T_ROOT",
+      "bbox_world": {
+        "min": [
+          218.4,
+          14.41,
+          -3.05
+        ],
+        "max": [
+          224.4,
+          178.2,
+          3.05
+        ]
+      },
+      "verts": 136
+    },
+    {
+      "name": "SPOKE_2",
+      "zone": "主环承力辐条 2/6",
+      "parent": "RING_T_ROOT",
+      "bbox_world": {
+        "min": [
+          218.4,
+          4.61,
+          11.03
+        ],
+        "max": [
+          224.4,
+          91.14,
+          155.33
+        ]
+      },
+      "verts": 136
+    },
+    {
+      "name": "SPOKE_3",
+      "zone": "主环承力辐条 3/6",
+      "parent": "RING_T_ROOT",
+      "bbox_world": {
+        "min": [
+          218.4,
+          -91.14,
+          11.03
+        ],
+        "max": [
+          224.4,
+          -4.61,
+          155.33
+        ]
+      },
+      "verts": 136
+    },
+    {
+      "name": "SPOKE_4",
+      "zone": "主环承力辐条 4/6",
+      "parent": "RING_T_ROOT",
+      "bbox_world": {
+        "min": [
+          218.4,
+          -178.2,
+          -3.05
+        ],
+        "max": [
+          224.4,
+          -14.41,
+          3.05
+        ]
+      },
+      "verts": 136
+    },
+    {
+      "name": "SPOKE_5",
+      "zone": "主环承力辐条 5/6",
+      "parent": "RING_T_ROOT",
+      "bbox_world": {
+        "min": [
+          218.4,
+          -91.14,
+          -155.33
+        ],
+        "max": [
+          224.4,
+          -4.61,
+          -11.03
+        ]
+      },
+      "verts": 136
+    },
+    {
+      "name": "SPOKE_6",
+      "zone": "主环承力辐条 6/6",
+      "parent": "RING_T_ROOT",
+      "bbox_world": {
+        "min": [
+          218.4,
+          4.61,
+          -155.33
+        ],
+        "max": [
+          224.4,
+          91.14,
+          -11.03
+        ]
+      },
+      "verts": 136
+    },
+    {
+      "name": "SPOKE_E1",
+      "zone": "农环承力辐条 1/6",
+      "parent": "RING_E_ROOT",
+      "bbox_world": {
+        "min": [
+          264.4,
+          11.03,
+          4.61
+        ],
+        "max": [
+          270.4,
+          113.76,
+          67.14
+        ]
+      },
+      "verts": 136
+    },
+    {
+      "name": "SPOKE_E2",
+      "zone": "农环承力辐条 2/6",
+      "parent": "RING_E_ROOT",
+      "bbox_world": {
+        "min": [
+          264.4,
+          -3.05,
+          14.41
+        ],
+        "max": [
+          270.4,
+          3.05,
+          130.2
+        ]
+      },
+      "verts": 136
+    },
+    {
+      "name": "SPOKE_E3",
+      "zone": "农环承力辐条 3/6",
+      "parent": "RING_E_ROOT",
+      "bbox_world": {
+        "min": [
+          264.4,
+          -113.76,
+          4.61
+        ],
+        "max": [
+          270.4,
+          -11.03,
+          67.14
+        ]
+      },
+      "verts": 136
+    },
+    {
+      "name": "SPOKE_E4",
+      "zone": "农环承力辐条 4/6",
+      "parent": "RING_E_ROOT",
+      "bbox_world": {
+        "min": [
+          264.4,
+          -113.76,
+          -67.14
+        ],
+        "max": [
+          270.4,
+          -11.03,
+          -4.61
+        ]
+      },
+      "verts": 136
+    },
+    {
+      "name": "SPOKE_E5",
+      "zone": "农环承力辐条 5/6",
+      "parent": "RING_E_ROOT",
+      "bbox_world": {
+        "min": [
+          264.4,
+          -3.05,
+          -130.2
+        ],
+        "max": [
+          270.4,
+          3.05,
+          -14.41
+        ]
+      },
+      "verts": 136
+    },
+    {
+      "name": "SPOKE_E6",
+      "zone": "农环承力辐条 6/6",
+      "parent": "RING_E_ROOT",
+      "bbox_world": {
+        "min": [
+          264.4,
+          11.03,
+          -67.14
+        ],
+        "max": [
+          270.4,
+          113.76,
+          -4.61
+        ]
+      },
+      "verts": 136
+    },
+    {
+      "name": "INDUSTRY_I1",
+      "zone": "I1 制造层 304–404 m",
+      "parent": null,
+      "bbox_world": {
+        "min": [
+          304.5,
+          -29.49,
+          -29.49
+        ],
+        "max": [
+          403.5,
+          29.49,
+          29.49
+        ]
+      },
+      "verts": 1600
+    },
+    {
+      "name": "INDUSTRY_I2",
+      "zone": "I2 材料与休眠库 404–544 m",
+      "parent": null,
+      "bbox_world": {
+        "min": [
+          327.0,
+          -25.52,
+          -26.9
+        ],
+        "max": [
+          543.5,
+          25.52,
+          26.9
+        ]
+      },
+      "verts": 2080
+    },
+    {
+      "name": "INDUSTRY_I3",
+      "zone": "I3 推进与散热 544–732 m",
+      "parent": null,
+      "bbox_world": {
+        "min": [
+          312.0,
+          -174.4,
+          -166.82
+        ],
+        "max": [
+          731.5,
+          178.14,
+          168.69
+        ]
+      },
+      "verts": 5508
+    },
+    {
+      "name": "NOZZLE",
+      "zone": "磁喷嘴 732–760 m",
+      "parent": null,
+      "bbox_world": {
+        "min": [
+          725.6,
+          -37.0,
+          -37.0
+        ],
+        "max": [
+          760.0,
+          37.0,
+          37.0
+        ]
+      },
+      "verts": 2480
+    }
+  ]
+}
