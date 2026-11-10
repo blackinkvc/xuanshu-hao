@@ -2655,6 +2655,9 @@ body.light .ship-hud a.chip.on{background:#12212c;color:#fff}
   }
   /* 舞台用图：有透明底悬浮图优先，直接融进舷窗；没有的走软边蒙版 */
   function stageSrc(c){
+    /* 探测结果已缓存时直接用（grav 命中即 grav，'' 表示无 grav 回退旧版） */
+    var r = FLOAT_CACHE[c.id];
+    if(r) return r;
     var f = floatOf(c);
     return f || figSrc(c);
   }
@@ -2812,6 +2815,8 @@ body.light .ship-hud a.chip.on{background:#12212c;color:#fff}
     }
     function done(){
       if(OV_IDX !== idx) return;
+      /* grav 版已生效时，别让旧版大图的异步回填把它顶掉 */
+      if((img.getAttribute('src') || '').indexOf('/grav/') >= 0) return;
       if(img.getAttribute('src') !== full){
         img.src = full;
         if(img.decode) img.decode().catch(function(){});
