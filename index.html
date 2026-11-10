@@ -1800,28 +1800,33 @@ body.light .ship-hud a.chip.on{background:#12212c;color:#fff}
   .ship-hud .in{flex-wrap:wrap;overflow:visible;row-gap:2px}
   .ship-hud .grow{display:none}
 }
-/* ===================== 详情页 · 页内放大 + 生图 prompt ===================== */
-.crew-zoom{position:relative;margin:18px 0 22px;border:1px solid #223246;
-  background:linear-gradient(180deg,rgba(8,14,22,.9),rgba(6,10,16,.96));
+/* ===================== 详情页 · 原位放大 + 左右翻页 + 生图 prompt ===================== */
+.cz-in{position:relative;grid-column:1/-1;margin:10px 0 12px;border:1px solid #223246;
+  background:linear-gradient(180deg,rgba(8,14,22,.94),rgba(6,10,16,.98));
   box-shadow:inset 0 0 0 1px rgba(255,255,255,.03),0 18px 40px rgba(0,0,0,.35)}
-.crew-zoom[hidden]{display:none}
-.cz-top{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid #1b2a3a}
+.cz-top{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid #1b2a3a;flex-wrap:wrap}
 .cz-k{font:600 9px/1 ui-monospace,Consolas,monospace;letter-spacing:1.4px;color:#5d7f9c;border:1px solid #2b445c;padding:4px 7px}
 .cz-top b{font-size:13px;letter-spacing:.6px;color:#dbe8f3}
 .cz-hint{margin-left:auto;font-size:11px;color:#63788c}
-.cz-x{border:1px solid #2b445c;background:#0a121b;color:#9fb6c8;font-size:11px;padding:5px 9px;cursor:pointer}
+.cz-x{border:1px solid #2b445c;background:#0a121b;color:#9fb6c8;font-size:11px;padding:5px 9px;cursor:pointer;min-height:32px}
 .cz-x:hover{color:#e6f2fb;border-color:#3f6a8d}
-.cz-grid{display:grid;grid-template-columns:minmax(0,1.12fr) minmax(0,1fr);gap:22px;padding:16px;align-items:start}
-.cz-grid.solo{grid-template-columns:minmax(0,1fr)}
-.cz-pic{position:sticky;top:76px;margin:0;display:flex;flex-direction:column;align-items:center;gap:9px;min-width:0}
-.cz-grid.solo .cz-pic{position:static;margin:0 auto;width:100%;max-width:820px}
-.cz-pic img{display:block;width:auto;max-width:100%;max-height:calc(100vh - 148px);height:auto;object-fit:contain;
+.cz-body{display:flex;flex-wrap:wrap;gap:12px;padding:14px;align-items:center}
+.cz-nav{flex:0 0 44px;min-width:44px;min-height:44px;align-self:center;display:flex;align-items:center;justify-content:center;
+  border:1px solid #2b445c;background:#0a121b;color:#9fb6c8;font:400 22px/1 ui-monospace,Consolas,monospace;cursor:pointer}
+.cz-nav:disabled{opacity:.26;cursor:default}
+.cz-nav:not(:disabled):hover{color:#e6f2fb;border-color:#3f6a8d;background:#10202c}
+.cz-fig{flex:1 1 380px;margin:0;display:flex;flex-direction:column;align-items:center;gap:8px;min-width:0}
+.cz-pic{position:relative;display:flex;width:100%;max-width:100%;min-width:0;justify-content:center;align-items:flex-start}
+.cz-pic img{display:block;max-width:100%;width:auto;height:auto;max-height:calc(100vh - 260px);object-fit:contain;
   background:#04070a;box-shadow:0 14px 36px rgba(0,0,0,.55)}
-.cz-pic figcaption{font:500 10px/1.5 ui-monospace,Consolas,monospace;letter-spacing:.5px;color:#71879b;text-align:center}
-.cz-prompt{border-left:1px solid #1b2a3a;padding-left:18px;min-width:0}
+.cz-fig figcaption{font:500 10px/1.5 ui-monospace,Consolas,monospace;letter-spacing:.5px;color:#71879b;text-align:center}
+.cz-prompt{flex:1 1 330px;border-left:1px solid #1b2a3a;padding-left:16px;min-width:0;
+  max-height:calc(100vh - 260px);overflow:auto}
+.cz-in.solo .cz-prompt{display:none}
 .cz-ph{display:flex;align-items:baseline;gap:9px;padding:0 0 10px;border-bottom:1px solid #1b2a3a}
 .cz-ph b{font:600 10px/1 ui-monospace,Consolas,monospace;letter-spacing:1.2px;color:#63d7ff}
 .cz-ph span{font-size:11px;color:#6f8497;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cz-cur{padding:7px 0 0;font:500 10px/1.6 ui-monospace,Consolas,monospace;letter-spacing:.4px;color:#7f97ab;word-break:break-all}
 .cz-copy{margin-left:auto;flex:0 0 auto;border:1px solid #2b5468;background:#0b1a23;color:#8ed8ef;
   font:600 10px/1 ui-monospace,Consolas,monospace;letter-spacing:.6px;padding:6px 9px;cursor:pointer}
 .cz-copy:hover{background:#103042;color:#d5f4ff}
@@ -1829,12 +1834,22 @@ body.light .ship-hud a.chip.on{background:#12212c;color:#fff}
 .cz-sec h4{margin:0;font:600 10.5px/1.5 ui-monospace,Consolas,monospace;letter-spacing:.7px;color:#8fa8bb}
 .cz-sec pre{margin:6px 0 0;white-space:pre-wrap;overflow-wrap:anywhere;font:12px/1.78 ui-monospace,Consolas,'Microsoft YaHei',monospace;
   color:#c6d5e2;background:#070c12;border:1px solid #16222f;padding:10px 12px}
-.crew-zoom.on{box-shadow:inset 0 0 0 1px rgba(99,215,255,.12),0 18px 44px rgba(0,0,0,.45)}
+/* 图号角标：不压主体、可点复制 */
+.imgnum{position:absolute;right:4px;bottom:4px;z-index:4;max-width:calc(100% - 8px);
+  padding:1px 4px;border:1px solid rgba(99,215,255,.28);background:rgba(4,10,16,.78);
+  font:600 8.5px/1.5 ui-monospace,Consolas,monospace;letter-spacing:.4px;color:#9fd8ea;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+.imgnum:hover{background:rgba(10,26,36,.95);color:#d5f4ff}
+.imgnum.ok{color:#9ff0c8;border-color:rgba(120,240,180,.5)}
+.imgnum.off,.imgnum:disabled{color:#8b9dab;border-color:rgba(255,255,255,.16);background:rgba(4,10,16,.66);cursor:default}
+.cz-pic .imgnum{right:6px;bottom:6px;font-size:9px}
 @media (max-width:900px){
-  .cz-grid{grid-template-columns:minmax(0,1fr);gap:14px;padding:12px}
-  .cz-pic{position:static}
-  .cz-pic img{max-height:62vh}
-  .cz-prompt{border-left:0;border-top:1px solid #1b2a3a;padding-left:0;padding-top:14px}
+  .cz-in .cz-body{align-items:stretch;gap:10px;padding:10px}
+  .cz-in .cz-fig{flex-basis:100%;order:1}
+  .cz-in .cz-nav{flex:1 1 calc(50% - 5px);order:2;min-height:46px}
+  .cz-in .cz-prompt{flex-basis:100%;order:3;border-left:0;border-top:1px solid #1b2a3a;
+    padding:12px 0 0;max-height:none}
+  .cz-pic img{max-height:56vh}
   .cz-hint{display:none}
   .cz-sec pre{font-size:11.5px}
 }
@@ -1929,6 +1944,21 @@ body.light .ship-hud a.chip.on{background:#12212c;color:#fff}
     }).catch(function(){ PROMPTS = {}; }).then(function(){
       var q = PROMPT_WAIT.splice(0);
       q.forEach(function(f){ try{ f(); }catch(e){} });
+    });
+  })();
+  /* 图片统一编号：路径 -> 图号（只含可确认匹配的，未收录即显示「未编号」） */
+  var IMGNUM = null, NUM_WAIT = [];
+  function withNum(fn){ if(IMGNUM) fn(); else NUM_WAIT.push(fn); }
+  (function loadNum(){
+    fetch('imgnum.json', {cache: 'no-cache'}).then(function(r){
+      if(!r.ok) throw 0;
+      return r.json();
+    }).then(function(d){
+      IMGNUM = (d && typeof d === 'object') ? d : {};
+    }).catch(function(){ IMGNUM = {}; }).then(function(){
+      var q = NUM_WAIT.splice(0);
+      q.forEach(function(f){ try{ f(); }catch(e){} });
+      try{ if(CZ && CZ.list && CZ.list.length) czShow(CZ.i); }catch(e){}
     });
   })();
   var esc = function(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){
@@ -3358,10 +3388,13 @@ body.light .ship-hud a.chip.on{background:#12212c;color:#fff}
   }
 
   /* ---------- 人物详情 ---------- */
-  /* ---------- 详情页 · 页内放大 + prompt ---------- */
+  /* ---------- 详情页 · 原位放大 + 左右翻页 + prompt + 图号 ---------- */
+  var CZ = { list: [], i: 0, cid: '', box: null, stageFig: null };
+  var CUR_CREW = null;
   function czPromptHTML(p){
     var h = '<div class="cz-ph"><b>生图 PROMPT</b><span>' + esc(p.id) + (p.name ? ' · ' + esc(p.name) : '')
-      + '</span><button class="cz-copy" id="czCopy" type="button">复制全文</button></div><div class="cz-secs">';
+      + '</span><button class="cz-copy" id="czCopy" type="button">复制全文</button></div>'
+      + '<div class="cz-cur" id="czFrame"></div><div class="cz-secs">';
     (p.sections || []).forEach(function(s){
       h += '<section class="cz-sec"><h4>' + esc(s.k) + '</h4><pre>' + esc(s.text) + '</pre></section>';
     });
@@ -3382,36 +3415,170 @@ body.light .ship-hud a.chip.on{background:#12212c;color:#fff}
     try{ document.execCommand('copy'); toast('prompt 全文已复制'); }catch(e){}
     document.body.removeChild(ta);
   }
-  function fillCzPrompt(cid){
+  /* 图号 */
+  function numOf(src){ return (IMGNUM && src && IMGNUM[src]) ? IMGNUM[src] : ''; }
+  function setNum(el, src){
+    if(!el) return;
+    var n = numOf(src);
+    el.textContent = n || '未编号';
+    if(n){ el.setAttribute('data-num', n); el.disabled = false; el.classList.remove('off'); }
+    else { el.removeAttribute('data-num'); el.disabled = true; el.classList.add('off'); }
+  }
+  function decorateNums(root){
+    if(!root) return;
+    withNum(function(){
+      Array.prototype.forEach.call(root.querySelectorAll('img[data-full]'), function(im){
+        var host = im.parentNode;
+        if(!host || !host.querySelectorAll) return;
+        if(im.closest('.fcell.ph')) return;              /* 待补占位不是真图，不挂号 */
+        if(host.querySelector('.imgnum')) return;
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'imgnum' + (numOf(im.getAttribute('data-full')) ? '' : ' off');
+        b.title = numOf(im.getAttribute('data-full')) ? '点击复制图号' : '图片索引中未收录';
+        setNum(b, im.getAttribute('data-full'));
+        host.appendChild(b);
+      });
+    });
+  }
+  function copyNum(n, el){
+    var done = function(){
+      var old = n;
+      el.textContent = '已复制'; el.classList.add('ok');
+      setTimeout(function(){ el.textContent = old; el.classList.remove('ok'); }, 1100);
+      toast('图号 ' + n + ' 已复制');
+    };
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(n).then(done, function(){ copyNumFallback(n, done); });
+    }else copyNumFallback(n, done);
+  }
+  function copyNumFallback(text, cb){
+    var ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    try{ document.execCommand('copy'); cb(); }catch(e){}
+    document.body.removeChild(ta);
+  }
+  document.addEventListener('click', function(e){
+    var b = e.target.closest('.imgnum');
+    if(!b || b.disabled) return;
+    e.preventDefault(); e.stopPropagation();
+    var n = b.getAttribute('data-num');
+    if(n) copyNum(n, b);
+  });
+
+  function czListFor(c){
+    var L = [], seen = {};
+    function add(src, cap){
+      if(!src || seen[src]) return;
+      seen[src] = 1;
+      L.push({src: src, cap: cap});
+    }
+    if(c.main && c.main.src) add(c.main.src, c.id + ' · 主图 · ' + (c.main.title || ''));
+    c.series.slice().sort(function(a, b){ return a.id < b.id ? -1 : 1; }).forEach(function(s){
+      s.items.slice().sort(function(a, b){ return a.no < b.no ? -1 : 1; }).forEach(function(it){
+        add(it.src, c.id + ' · ' + s.id + ' · ' + it.no + ' ' + it.title);
+      });
+    });
+    return L;
+  }
+  function czFillPrompt(cid){
     var host = document.getElementById('czPrompt');
     if(!host) return;
     withPrompts(function(){
-      var grid = document.getElementById('czGrid');
       var p = PROMPTS && PROMPTS[cid];
       if(!p || !p.prompt){
-        host.parentNode && host.parentNode.removeChild(host);
-        if(grid) grid.classList.add('solo');
+        host.innerHTML = '<div class="cz-ph"><b>生图 PROMPT</b><span>本人物暂无 prompt</span></div>';
+        var box = document.getElementById('czIn');
+        if(box) box.classList.add('solo');
         return;
       }
       host.innerHTML = czPromptHTML(p);
       var btn = document.getElementById('czCopy');
-      if(btn) btn.addEventListener('click', function(){ czCopyText(p.prompt); SND.click(); });
+      if(btn) btn.addEventListener('click', function(e){ e.stopPropagation(); czCopyText(p.prompt); SND.click(); });
+      var fr = document.getElementById('czFrame');
+      var it = CZ.list[CZ.i];
+      if(fr && it) fr.textContent = it.cap + ' · ' + (numOf(it.src) || '未编号');
     });
   }
-  function crewZoom(img){
-    var box = document.getElementById('crewZoom');
-    if(!box) return;
+  function czShow(i){
+    var it = CZ.list[i];
+    if(!it || !CZ.box) return;
+    CZ.i = i;
     var im = document.getElementById('czImg');
-    var src = img.getAttribute('data-full') || img.currentSrc || img.src;
-    if(im){ im.src = src; im.alt = img.alt || ''; }
+    if(im){ im.src = it.src; im.alt = it.cap; }
     var cap = document.getElementById('czCap');
-    if(cap) cap.textContent = img.getAttribute('data-cap') || img.alt || '';
-    box.hidden = false;
-    box.classList.add('on');
-    var y = box.getBoundingClientRect().top + (window.pageYOffset || document.documentElement.scrollTop) - 72;
-    window.scrollTo({top: y, behavior: RM.matches ? 'auto' : 'smooth'});
+    if(cap) cap.textContent = it.cap;
+    setNum(document.getElementById('czNum'), it.src);
+    var prev = document.getElementById('czPrev'), next = document.getElementById('czNext');
+    if(prev) prev.disabled = (i <= 0);
+    if(next) next.disabled = (i >= CZ.list.length - 1);
+    var fr = document.getElementById('czFrame');
+    if(fr) fr.textContent = it.cap + ' · ' + (numOf(it.src) || '未编号');
+  }
+  function czGo(d){
+    var j = CZ.i + d;
+    if(j < 0 || j >= CZ.list.length) return;
+    czShow(j);
     SND.click();
   }
+  function czClose(){
+    var b = CZ.box || document.getElementById('czIn');
+    if(b && b.parentNode) b.parentNode.removeChild(b);
+    CZ.box = null;
+    if(CZ.stageFig){ CZ.stageFig.style.display = ''; CZ.stageFig = null; }
+  }
+  /* 就地撑开：插入到被点图片所在行之后，不滚动、不跳顶 */
+  function crewZoom(img){
+    var c = CUR_CREW;
+    if(!c) return;
+    var src = img.getAttribute('data-full') || img.currentSrc || img.src;
+    var list = czListFor(c), i = -1;
+    for(var k = 0; k < list.length; k++){ if(list[k].src === src){ i = k; break; } }
+    if(i < 0) return;
+    czClose();
+    var panel = document.createElement('section');
+    panel.className = 'cz-in';
+    panel.id = 'czIn';
+    panel.innerHTML = '<div class="cz-top"><span class="cz-k">ENLARGED · IN PLACE</span><b>立绘放大</b>'
+      + '<span class="cz-hint">← → 翻页 · Esc 收起</span>'
+      + '<button class="cz-x" id="czClose" type="button">收起 ×</button></div>'
+      + '<div class="cz-body">'
+      + '<button class="cz-nav prev" id="czPrev" type="button" aria-label="上一张">‹</button>'
+      + '<figure class="cz-fig"><div class="cz-pic"><img id="czImg" alt="">'
+      + '<button type="button" class="imgnum" id="czNum"></button></div>'
+      + '<figcaption id="czCap"></figcaption></figure>'
+      + '<button class="cz-nav next" id="czNext" type="button" aria-label="下一张">›</button>'
+      + '<aside class="cz-prompt" id="czPrompt"></aside></div>';
+    var film = img.closest('.film'), stageFig = img.closest('.stage-fig');
+    if(stageFig){
+      /* 主图：原位替换（隐藏原图，放大区占据它的位置） */
+      CZ.stageFig = stageFig;
+      stageFig.style.display = 'none';
+      stageFig.parentNode.insertBefore(panel, stageFig.nextSibling);
+    }
+    else if(film) film.parentNode.insertBefore(panel, film.nextSibling);
+    else{
+      var wrap = img.closest('figure');
+      if(!wrap) return;
+      wrap.parentNode.insertBefore(panel, wrap.nextSibling);
+    }
+    CZ.box = panel;
+    CZ.list = list;
+    CZ.cid = c.id;
+    panel.querySelector('#czClose').addEventListener('click', function(e){ e.stopPropagation(); czClose(); SND.click(); });
+    panel.querySelector('#czPrev').addEventListener('click', function(e){ e.stopPropagation(); czGo(-1); });
+    panel.querySelector('#czNext').addEventListener('click', function(e){ e.stopPropagation(); czGo(1); });
+    czShow(i);
+    czFillPrompt(c.id);
+    SND.click();
+  }
+  document.addEventListener('keydown', function(e){
+    if(!document.getElementById('czIn')) return;
+    if(e.key === 'Escape'){ e.preventDefault(); czClose(); }
+    else if(e.key === 'ArrowLeft'){ e.preventDefault(); czGo(-1); }
+    else if(e.key === 'ArrowRight'){ e.preventDefault(); czGo(1); }
+  });
 
   function viewCrew(id){
     var c = crewById[id] || D.crews[0];
@@ -3507,15 +3674,7 @@ body.light .ship-hud a.chip.on{background:#12212c;color:#fff}
     h += '</aside>';
     h += '</div>';
 
-    /* 页内放大 + 生图 prompt：不弹全屏、不黑屏 */
-    h += '<section class="crew-zoom" id="crewZoom" hidden>'
-      + '<div class="cz-top"><span class="cz-k">ENLARGED · IN PAGE</span><b>立绘放大</b>'
-      + '<span class="cz-hint">点任意立绘在此放大 · 旁边是生图 prompt</span>'
-      + '<button class="cz-x" id="czClose" type="button">收起 ×</button></div>'
-      + '<div class="cz-grid" id="czGrid">'
-      + '<figure class="cz-pic"><img id="czImg" alt=""><figcaption id="czCap"></figcaption></figure>'
-      + '<aside class="cz-prompt" id="czPrompt"></aside>'
-      + '</div></section>';
+    /* 页内放大改为「点图就地撑开」，不再单独占一个底部区块 */
 
     /* 档案 / 克隆 */
     var keys = Object.keys(c.profile || {});
@@ -3597,14 +3756,11 @@ body.light .ship-hud a.chip.on{background:#12212c;color:#fff}
     h += '</div></section>';
 
     app.innerHTML = h;
-
-    var czClose = document.getElementById('czClose');
-    if(czClose) czClose.addEventListener('click', function(){
-      var b = document.getElementById('crewZoom');
-      if(b){ b.hidden = true; b.classList.remove('on'); }
-      SND.click();
-    });
-    fillCzPrompt(c.id);
+    CUR_CREW = c;
+    CZ.list = czListFor(c);
+    CZ.box = null;
+    CZ.stageFig = null;
+    decorateNums(app);
 
     var actPick = app.querySelector('.rpick.on');
     if(actPick && actPick.scrollIntoView) actPick.scrollIntoView({block: 'nearest', inline: 'center'});
