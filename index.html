@@ -2022,7 +2022,8 @@ body.no-motion .ov-figbox{animation:none}
 .ov-figure.cut .ov-figbox img{max-height:none}
 #ovFigBox .ov-seat{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;z-index:1;
   filter:drop-shadow(0 0 20px color-mix(in srgb,var(--eye,#5fd0ff) 16%,transparent))}
-#ovFigBox .ov-char{position:absolute;left:0;right:0;top:15.6%;bottom:12.1%;width:100%;height:auto;z-index:2;
+/* 人物层：只占座图中间那段净空（18.705% 起、高 66.875%），头脚都不碰环与座 */
+#ovFigBox .ov-char{position:absolute;left:0;right:0;top:18.705%;height:66.875%;width:100%;z-index:2;
   object-fit:contain;object-position:center bottom}
 /* 名字：右栏 CREW FILE 是唯一主名；舞台下方只留代号 + 编号 */
 .ov-right .ov-nameblk b{font-size:36px;letter-spacing:4px}
@@ -2223,9 +2224,10 @@ body.no-motion .ov-figbox{animation:none}
   /* 悬浮位换图映射（唯一入口）：按人物 ID 直接指定固定路径，优先于默认 grav/旧版候选。
      以后换图只需加一行：'CREW-00X': {src: 'assets/c/crew-00x/grav/crew-00x-float-yyy.png'}
      人物层只放人物本体：不带座、不带底座、不带光柱、头顶不带发光圈（座由全站共用的 seat.png 提供）。 */
-  var GRAV_SEAT = 'assets/grav/seat.webp';   /* 固定引力座底图：上环 + 下座 + 两道牵引光柱，全站共用一份（seat.png 留档，仅页面改引 webp） */
+  /* v2：上环上提、下座下移，人物区上下各留 9.4% / 8.6% 人物高的净空（造型取自 crew-001-float_key.png） */
+  var GRAV_SEAT = 'assets/grav/seat-v2.webp';   /* 固定引力座底图：上环 + 下座 + 两道牵引光柱，全站共用一份（seat.png / seat-v1 留档） */
   var FLOAT_SRC = {
-    'CREW-001': {src: 'assets/c/crew-001/grav/crew-001-float-body.png'}
+    'CREW-001': {src: 'assets/c/crew-001/grav/crew-001-float-char-v2.png'}
   };
   /* 详情页展示图：旧版浮图文件原地保留，挂到图组末尾 */
   var GRAV_SHOW = {
