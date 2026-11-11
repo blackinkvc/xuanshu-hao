@@ -13,15 +13,20 @@
      step() 的入参从「月数」改为「步数 + 单位」，默认 1 季（13 周）。
      大跨度（1 年 / 10 年）在内部按周循环，阈值与连续周数一次都不会跳过。
 
+   v2.1 变更（相对 v2.0.0）：
+     新增 sim-judge.js（通用随机判定层）与 sim-people.js（个体真实位置）；
+     snapshot() 支持 { view:"truth" } / { view:"player", intel }；
+     RNG 与判定槽位随 exportState / importState 一起走，续跑逐位一致。
+
    加载顺序（浏览器）：
-     sim-config.js → sim-society.js → sim-core.js → sim-engine.js
+     sim-config.js → sim-judge.js → sim-people.js → sim-society.js → sim-core.js → sim-engine.js
    Node：
      const engine = require("./sim-engine.js");
    ========================================================================= */
 (function (global) {
   "use strict";
 
-  var VERSION = "2.0.0";
+  var VERSION = "2.1.0";
 
   // 一周为 1：单位 → 周数。month 不是整数周，按 52/12 折算后再取整。
   var UNITS = {
@@ -75,6 +80,8 @@
     if (typeof require === "function") {
       try {
         if (!global.XUANSHU_CONFIG) require("./sim-config.js");
+        if (!global.XuanShuJudge) require("./sim-judge.js");
+        if (!global.XuanShuPeople) require("./sim-people.js");
         if (!global.XuanShuSociety) require("./sim-society.js");
         if (!global.XuanShuSim) require("./sim-core.js");
       } catch (e) { /* 浏览器里没有 require，走下面的报错 */ }
@@ -96,7 +103,7 @@
    * 创建一台引擎实例（一台舰、一条时间线）。
    * @param {Object} [options]
    * @param {Object} [options.config]  对 sim-config 的深合并覆盖（只覆盖，不替换）
-   * @param {number} [options.seed]    保留字段；当前模型不使用随机数
+   * @param {number} [options.seed]    随机数种子（默认 20260101）。同 seed + 同操作序列逐位可复现
    * @returns {Object} engine
    */
   function create(options) {
@@ -136,6 +143,7 @@
       var c = typeof count === "number" && isFinite(count) ? count : 1;
       var weeks = Math.max(0, Math.round(c * UNITS[u]));
       var s = sim.step(weeks);
+      s.view = "truth";
       emit("step", null, { weeks: weeks, unit: u, count: c });
       return s;
     }
@@ -146,10 +154,22 @@
     function stepYears(n) { return step(n, "year"); }
 
     /**
-     * 读取当前快照。返回新对象，改它不会影响引擎内部状态。
-     * @returns {Object} snapshot（weeks / year / weekOfYear / quarter 均为周制）
+     * 读取快照。
+     *   snapshot()                         → 真值聚合（所有字段都是真值；不含 4,000 条个人明细）
+     *   snapshot({ view: "truth" })        → 真值明细（每个人 + 精确分区/房间/岗位）
+     *   snapshot({ view: "player", intel }) → 玩家视图（按情报档位裁剪，带误差半径/时间延迟）
+     * intel：low / mid / high，缺省 mid。
+     * @param {Object} [opts]
+     * @returns {Object}
      */
-    function snapshot() {
+    function snapshot(opts) {
+      if (!opts) {
+        var s = sim.getState();
+        s.view = "truth";   // 显式标记：默认快照全部是真值（人物明细仍要显式请求）
+        return s;
+      }
+      if (opts.view === "player") return sim.playerView({ intel: opts.intel || "mid" });
+      if (opts.view === "truth") return sim.truthView({ detail: opts.detail !== false });
       return sim.getState();
     }
 
@@ -231,6 +251,19 @@
       getEvents: function () { return sim.getEvents(); },
       getSeries: function () { return sim.getSeries(); },
       getInputs: function () { return sim.getInputs(); },
+
+      // —— 个体位置：真值 / 玩家视图 ——
+      getPeople: function (opts) { return sim.getPeople(opts || { detail: true }); },
+      playerView: function (intel) { return sim.playerView({ intel: intel || "mid" }); },
+      truthView: function () { return sim.truthView({ detail: true }); },
+
+      // —— 随机判定：日志与导出 ——
+      getJudgeLog: function () { return sim.getJudgeLog(); },
+      /**
+       * 导出判定日志（触发量、倾向分、随机数、结果、累计压力）。
+       * @param {"csv"|"json"} [format="csv"]
+       */
+      exportJudgeLog: function (format) { return sim.exportJudgeLog(format || "csv"); },
 
       /**
        * 调参入口：只允许修改 sim-config 的 ui.sliders 里声明的键。

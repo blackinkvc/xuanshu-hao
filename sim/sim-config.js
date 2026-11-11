@@ -229,7 +229,7 @@
       pressureDecayPerWeek: 0,   // 全局默认衰减；单项可覆盖
       cooldownDefault: 8,        // 未写 cooldownWeeks 时的默认冷却
       onFailPressure: 0.30,      // 未写 pressurePerFail 时的默认累积
-      logCap: 600,               // 判定日志保留条数
+      logCap: 5000,              // 判定日志保留条数（超出丢最旧的；导出含全部保留条目）
       items: {
         /* 五级哗变阶梯：阈值/连续周数由 sim-society 预筛，这里只决定「这一次成不成立」 */
         mutiny_l1: {
@@ -301,7 +301,7 @@
         supply_window: {
           label: "补给窗口", cooldownWeeks: 0, bias: -0.35,
           factors: { route: 2.4, pressure: 0.8 },
-          pressurePerFail: 0.40, pressureDecayPerWeek: 0.06,
+          pressurePerFail: 0.40, pressureDecayPerWeek: 0,
           successEffect: { foodT: 18, metalT: 12, note: "到货 → 粮食 +18 t、金属 +12 t" },
           failEffect: { note: "未到货 → 压力累积，下个窗口更易到货" }
         }
@@ -361,7 +361,7 @@
       willPenalty: 0.35,         // 自由意志对覆盖的折损
       patrolShare: 0.12,         // 未植入者被巡逻/举报间接看到的基准比例
       baseEff: 0.45,             // 覆盖率基准
-      blindThreshold: 0.25,      // 单人可见概率低于此值计入盲区
+      blindThreshold: 0.10,      // 单人可见概率低于此值计入盲区
       errorBaseM: 30,            // 基础误差半径
       errorSpreadM: 140,         // 随不确定度增加的误差
       delayBaseWeeks: 0,

@@ -88,7 +88,7 @@
       state.cooldown[type] = state.weeks;
     }
     state.events.push({
-      t: (state.loop - 1) * cfg.time.loopYears + state.weeks / cfg.time.weeksPerYear,
+      t: Math.round(((state.loop - 1) * cfg.time.loopYears + state.weeks / cfg.time.weeksPerYear) * 100) / 100,
       loop: state.loop,
       year: Math.floor(state.weeks / cfg.time.weeksPerYear),
       week: (state.weeks % cfg.time.weeksPerYear) + 1,
@@ -231,9 +231,9 @@
       groupsTotal[g.id] = state.groups[g.id].awake + state.groups[g.id].dormant;
     });
     state.series.push({
-      t: (state.loop - 1) * cfg.time.loopYears + state.weeks / cfg.time.weeksPerYear,
+      t: Math.round(((state.loop - 1) * cfg.time.loopYears + state.weeks / cfg.time.weeksPerYear) * 100) / 100,
       loop: state.loop,
-      loopYear: state.weeks / cfg.time.weeksPerYear,
+      loopYear: Math.round(state.weeks / cfg.time.weeksPerYear * 100) / 100,
       total: t.total,
       awake: t.awake,
       dormant: t.dormant,
@@ -339,7 +339,10 @@
         : null;
       var arrived = !sjr || sjr.allow;
       if (arrived) {
-        var addF = (M.supplyFoodT || 0), addM = (M.supplyMetalT || 0);
+        var se = (cfg.judge && cfg.judge.items && cfg.judge.items.supply_window &&
+          cfg.judge.items.supply_window.successEffect) || {};
+        var addF = (se.foodT != null ? se.foodT : (M.supplyFoodT || 0));
+        var addM = (se.metalT != null ? se.metalT : (M.supplyMetalT || 0));
         if (addF > 0) state.stocks.food = Math.min(cfg.food.cap, state.stocks.food + addF);
         if (addM > 0) state.stocks.metal = Math.min(cfg.metal.cap, state.stocks.metal + addM);
         pushEvent(state, cfg, "supply", "补给", "补给窗口 · 行星来货",
@@ -840,6 +843,10 @@
     };
 
     state.weeks++;
+    // 个体层名册跟随人口变化（只在人数变化时增删，不逐人保存位置）
+    if (global.XuanShuPeople && cfg.people && cfg.people.enabled !== false) {
+      global.XuanShuPeople.sync(state, cfg);
+    }
     if (state.weeks % cfg.time.weeksPerYear === 0) pushSeries(state, cfg);
 
     // 1000 年回滚
@@ -876,6 +883,9 @@
       state.maint = fresh.maint;
       state.last = fresh.last;
       if (global.XuanShuSociety) state.society = global.XuanShuSociety.create(cfg);
+      if (global.XuanShuPeople) state.people = global.XuanShuPeople.create(cfg);
+      // 判定日志保留（跨轮审计），槽位与压力清零（新的一轮重新累积）
+      if (global.XuanShuJudge && state.judge) state.judge.slots = {};
       pushEvent(state, cfg, "loop", "系统", "循环回滚",
         "第 " + (nextLoop - 1) + " 轮结束，全量回滚；进入第 " + nextLoop + " 轮",
         "loopScope = full；人口、库存、设施、磨损回到本轮起点", true);
@@ -931,13 +941,13 @@
         var wpy = cfg.time.weeksPerYear;
         return {
           loop: state.loop,
-          loopYear: state.weeks / wpy,
-          year: (state.loop - 1) * cfg.time.loopYears + state.weeks / wpy,
+          loopYear: Math.round(state.weeks / wpy * 100) / 100,
+          year: Math.round(((state.loop - 1) * cfg.time.loopYears + state.weeks / wpy) * 100) / 100,
           weeks: state.weeks,
           weekOfYear: (state.weeks % wpy) + 1,
           quarter: Math.floor((state.weeks % wpy) / cfg.time.weeksPerQuarter) + 1,
           weekOfQuarter: (state.weeks % cfg.time.weeksPerQuarter) + 1,
-          months: state.weeks / (wpy / 12),   // 推算值，仅供显示换算
+          months: Math.round(state.weeks * 12 / wpy),   // 对外只给整月；需要精度看 weeks
           total: t.total,
           awake: t.awake,
           dormant: t.dormant,
@@ -975,8 +985,40 @@
             clonePods: state.projects.clonePods.length
           },
           society: (global.XuanShuSociety && state.society)
-            ? global.XuanShuSociety.summary(state, cfg) : null
+            ? global.XuanShuSociety.summary(state, cfg) : null,
+          // 真值聚合：分区人数（个人明细走 snapshot({view:"truth"})）
+          people: (global.XuanShuPeople && state.people)
+            ? global.XuanShuPeople.brief(state, cfg) : null,
+          // 随机判定摘要：计数、最近 10 条、各槽压力/冷却
+          judge: (global.XuanShuJudge && state.judge)
+            ? global.XuanShuJudge.brief(state, cfg) : null
         };
+      },
+
+      /* ---------- 个体真实位置 / 玩家视图 ---------- */
+      getPeople: function (opts) {
+        if (!global.XuanShuPeople) return { view: "truth", total: 0, persons: [], zones: [] };
+        return global.XuanShuPeople.truth(state, cfg, opts || {});
+      },
+
+      playerView: function (opts) {
+        if (!global.XuanShuPeople) return { view: "player", persons: [], zones: [] };
+        return global.XuanShuPeople.playerView(state, cfg, opts || {});
+      },
+
+      truthView: function (opts) {
+        if (!global.XuanShuPeople) return { view: "truth", persons: [], zones: [] };
+        return global.XuanShuPeople.truth(state, cfg, opts || {});
+      },
+
+      /* ---------- 判定日志 ---------- */
+      getJudgeLog: function () {
+        return global.XuanShuJudge ? global.XuanShuJudge.log(state, cfg) : [];
+      },
+
+      exportJudgeLog: function (format) {
+        return global.XuanShuJudge
+          ? global.XuanShuJudge.exportLog(state, cfg, format || "csv") : "";
       },
 
       getSociety: function () {

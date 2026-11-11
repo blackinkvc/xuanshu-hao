@@ -157,6 +157,17 @@
     return clamp(man * dur, 0, 1.2);
   }
 
+  // 通用判定层入口：未加载时退化为「按原逻辑直接成立」
+  function judgeCall(state, cfg, id, factors, meta) {
+    if (!global.XuanShuJudge) return { judged: false, allow: true, reason: "disabled" };
+    return global.XuanShuJudge.check(state, cfg, id, factors, meta);
+  }
+
+  function failEffect(cfg, id) {
+    var def = cfg.judge && cfg.judge.items && cfg.judge.items[id];
+    return (def && def.failEffect) || {};
+  }
+
   function comfortOf(state, cfg, env) {
     var c = cfg.society.comfort;
     var crowd = clamp(env.awake / 3000, 0, 1);
@@ -346,11 +357,25 @@
       if (D.I >= cfg.society.ladder.l2At && D.over >= cfg.society.ladder.l2QueueShare) {
         D.up++; D.down = 0;
         if (D.up >= cfg.society.ladder.l2Weeks && D.level < 2) {
-          D.level = 2; D.since = state.weeks;
-          pushEvent(state, cfg, "mutiny", "哗变 L2", "小范围哗变 · " + d,
-            "「" + d + "」部门进入 L2：该部门产出 −35%，全船按覆盖度折算，秩序平衡点下移",
-            "部门失序指数 I=" + D.I.toFixed(2) + " ≥ " + cfg.society.ladder.l2At +
-            "，越线队列占 " + Math.round(D.over * 100) + "%，连续 " + cfg.society.ladder.l2Weeks + " 周");
+          // 阈值已到：这一次是否真的哗变，交给通用判定层（每部门独立槽位）
+          var r2 = judgeCall(state, cfg, "mutiny_l2", {
+            index: D.I, over: D.over,
+            will: clamp((soc.meanW || 0) / 100, 0, 1),
+            garrison: clamp(garrisonAvail(state, cfg), 0, 1)
+          }, { slot: "mutiny_l2:" + d, note: "部门 " + d });
+          if (r2.allow) {
+            D.level = 2; D.since = state.weeks;
+            pushEvent(state, cfg, "mutiny", "哗变 L2", "小范围哗变 · " + d,
+              "「" + d + "」部门进入 L2：该部门产出 −35%，全船按覆盖度折算，秩序平衡点下移",
+              "部门失序指数 I=" + D.I.toFixed(2) + " ≥ " + cfg.society.ladder.l2At +
+              "，越线队列占 " + Math.round(D.over * 100) + "%，连续 " + cfg.society.ladder.l2Weeks +
+              " 周；判定 p=" + (r2.probability != null ? r2.probability.toFixed(2) : "—"));
+          } else if (r2.judged) {
+            var fe2 = (cfg.judge.items.mutiny_l2.failEffect || {});
+            soc.queues.forEach(function (q) {
+              if (q.dept === d) q.S = clamp(q.S + (fe2.stressAdd || 0), 0, 1);
+            });
+          }
         }
       } else if (D.I < cfg.society.ladder.l2Exit) {
         D.down++; D.up = 0;
@@ -404,12 +429,58 @@
     else soc.mutiny.l5 = 0;
 
     var level = 0;
-    if (soc.mutiny.holdUntil > state.weeks) level = 5;
-    else if (soc.mutiny.l5 >= L.l5Weeks) level = 5;
-    else if (soc.mutiny.l4 >= L.l4Weeks) level = 4;
-    else if (soc.mutiny.l3 >= L.l3Weeks) level = 3;
-    else if (deptsAt2.length >= 1) level = 2;
-    else if (soc.mutiny.l1 >= L.l1Weeks) level = 1;
+    var raw = 0;
+    if (soc.mutiny.holdUntil > state.weeks) raw = 5;
+    else if (soc.mutiny.l5 >= L.l5Weeks) raw = 5;
+    else if (soc.mutiny.l4 >= L.l4Weeks) raw = 4;
+    else if (soc.mutiny.l3 >= L.l3Weeks) raw = 3;
+    else if (deptsAt2.length >= 1) raw = 2;
+    else if (soc.mutiny.l1 >= L.l1Weeks) raw = 1;
+
+    // 阶梯只负责「够不够格升级」，这一次成不成立由通用判定层掷骰。
+    // 失败：压力累积 + 冷却，等级维持原状；冷却后再判时基数更高。
+    level = soc.mutiny.level;
+    if (raw === 2) {
+      // L2 的判定已在 updateDepts 里按部门逐个做过，这里只做汇总升级
+      level = 2;
+    } else if (raw > level) {
+      var jid = "mutiny_l" + raw;
+      var maxS = 0, maxQ = null;
+      soc.queues.forEach(function (q) { if (q.S > maxS) { maxS = q.S; maxQ = q; } });
+      var factors;
+      if (raw === 1) {
+        factors = {
+          stress: maxS, coverage: coverage,
+          will: clamp((soc.meanW || 0) / 100, 0, 1),
+          garrison: clamp(garrisonAvail(state, cfg), 0, 1)
+        };
+      } else if (raw === 2) {
+        factors = { index: 0.6, over: 0.2, will: clamp((soc.meanW || 0) / 100, 0, 1),
+          garrison: clamp(garrisonAvail(state, cfg), 0, 1) };
+      } else if (raw === 3) {
+        factors = { depts: deptsAt2.length / Math.max(1, cfg.society.depts.length),
+          k: K, will: clamp((soc.meanW || 0) / 100, 0, 1) };
+      } else if (raw === 4) {
+        factors = { coverage: coverage, weak: 1 - clamp(dEff / 100, 0, 1) };
+      } else {
+        factors = { coverage: coverage, weak: 1 - clamp(dEff / 100, 0, 1),
+          dead: soc.mutiny.l1dead ? 1 : 0 };
+      }
+      var rj = judgeCall(state, cfg, jid, factors, { note: "L" + raw + " 升级" });
+      if (rj.allow) {
+        level = raw;
+      } else if (rj.judged) {
+        var fe = failEffect(cfg, jid);
+        if (raw === 1 && maxQ && fe.stressAdd) maxQ.S = clamp(maxQ.S + fe.stressAdd, 0, 1);
+        if (raw === 2) {
+          soc.queues.forEach(function (q) {
+            if (deptsAt2.indexOf(q.dept) >= 0) q.S = clamp(q.S + (fe.stressAdd || 0), 0, 1);
+          });
+        }
+      }
+    } else if (raw < level) {
+      level = raw;   // 降级仍按阈值，不掷骰
+    }
 
     if (level > soc.mutiny.level) {
       soc.mutiny.since = state.weeks;
@@ -553,13 +624,25 @@
 
       var need = F.thrallWeeks[q.layer] || 52;
       if (q.highWeeks >= need) {
-        var rate = (q.layer === "L1" || q.layer === "L2") ? F.convertRateNoble : F.convertRate;
-        q.thrallFrac = clamp(q.thrallFrac + rate * (1 - q.thrallFrac), 0, 0.95);
-        if (!q.logged.thrall) {
-          q.logged.thrall = true;
-          pushEvent(state, cfg, "infection", "眷属", "出现眷属 · " + q.name,
-            "「" + q.dept + "」报告人员外观异常但行为顺从，已单列登记",
-            "感染度 ≥" + F.thrall + " 连续 " + need + " 周；转化率 " + (rate * 100).toFixed(3) + "%/周");
+        // 连续周数达标 → 这一次转化成不成立由通用判定层决定；
+        // 失败：该队列 C 上升（failEffect.cAdd），压力累积，冷却后再判。
+        var rc = judgeCall(state, cfg, "infection_thrall", {
+          c: q.C / 100, iso: iso, stage: q.stage / 3
+        }, { slot: "infection_thrall:" + q.id, note: q.name + " · " + q.layer });
+        if (rc.allow) {
+          var rate = (q.layer === "L1" || q.layer === "L2") ? F.convertRateNoble : F.convertRate;
+          q.thrallFrac = clamp(q.thrallFrac + rate * (1 - q.thrallFrac), 0, 0.95);
+          if (!q.logged.thrall) {
+            q.logged.thrall = true;
+            pushEvent(state, cfg, "infection", "眷属", "出现眷属 · " + q.name,
+              "「" + q.dept + "」报告人员外观异常但行为顺从，已单列登记",
+              "感染度 ≥" + F.thrall + " 连续 " + need + " 周；转化率 " + (rate * 100).toFixed(3) +
+              "%/周；判定 p=" + (rc.probability != null ? rc.probability.toFixed(2) : "—"));
+          }
+        } else if (rc.judged) {
+          var fec = failEffect(cfg, "infection_thrall");
+          q.C = clamp(q.C + (fec.cAdd || 0), 0, 100);
+          q.highWeeks = need;   // 保留触发基数，冷却结束后再判
         }
       }
     });
@@ -572,7 +655,22 @@
     else soc.infection.summonSince = 0;
 
     if (soc.infection.summonSince >= S.weeks && state.weeks >= soc.infection.lockUntil) {
-      summon(state, cfg);
+      // 阈值全部满足后仍是一次判定：眷属数量、感染均值/峰值共同构成倾向分；
+      // 均值与峰值在首次判定时冻结（freezeOnFirst），之后不再变。
+      var rs = judgeCall(state, cfg, "summon", {
+        thralls: clamp(soc.infection.thralls / S.n, 0, 3),
+        meanC: clamp(soc.infection.meanC / 100, 0, 1),
+        maxC: clamp(soc.infection.maxC / 100, 0, 1)
+      }, { note: "召唤 · 连续 " + S.weeks + " 周" });
+      if (rs.allow) {
+        summon(state, cfg);
+      } else if (rs.judged) {
+        var fes = failEffect(cfg, "summon");
+        soc.infection.bonus = (soc.infection.bonus || 0) + (fes.thrallsAdd || 0);
+        soc.queues.forEach(function (q) {
+          q.C = clamp(q.C + (fes.cAdd || 0), 0, 100);
+        });
+      }
     }
   }
 
@@ -653,14 +751,25 @@
         (maint >= M.secondMaint || energyCV >= M.secondEnergy)) take = "技术";
       else if (soc.machine.depts.length === 2 && A >= M.thirdAt) take = "勤务";
       if (take && soc.machine.depts.indexOf(take) < 0) {
-        soc.machine.depts.push(take);
-        soc.machine.counter = 0;
-        pushEvent(state, cfg, "machine", "机器哗变", "机器夺取「" + take + "」",
-          "该部门停摆 " + M.procWeeks + " 周，之后以 60% 产出运行并忽略人类指令",
-          "自主性 A=" + A.toFixed(2) + " ≥ " + (soc.machine.depts.length === 1 ? M.at :
-            (soc.machine.depts.length === 2 ? M.secondAt : M.thirdAt)) +
-          "，人类平均服从度 " + (soc.meanO || 0).toFixed(0) + " < " + M.oLow +
-          "，科技等级 " + tech.toFixed(2) + "（可连锁 " + maxChain + " 个部门）");
+        // 夺取部门同样掷骰：A / 科技 / 服从度缺口构成倾向分；
+        // 科技等级首次判定后冻结，失败只累积压力、不夺权。
+        var rm = judgeCall(state, cfg, "machine_takeover", {
+          autonomy: A, tech: tech,
+          weakO: 1 - clamp((soc.meanO || 0) / 100, 0, 1)
+        }, { note: "目标部门 " + take });
+        if (rm.allow) {
+          soc.machine.depts.push(take);
+          soc.machine.counter = 0;
+          pushEvent(state, cfg, "machine", "机器哗变", "机器夺取「" + take + "」",
+            "该部门停摆 " + M.procWeeks + " 周，之后以 60% 产出运行并忽略人类指令",
+            "自主性 A=" + A.toFixed(2) + " ≥ " + (soc.machine.depts.length === 1 ? M.at :
+              (soc.machine.depts.length === 2 ? M.secondAt : M.thirdAt)) +
+            "，人类平均服从度 " + (soc.meanO || 0).toFixed(0) + " < " + M.oLow +
+            "，科技等级 " + tech.toFixed(2) + "（可连锁 " + maxChain + " 个部门）；判定 p=" +
+            (rm.probability != null ? rm.probability.toFixed(2) : "—"));
+        } else if (rm.judged) {
+          soc.machine.counter = M.weeks;   // 保留触发基数，冷却后再判
+        }
       }
     }
   }
