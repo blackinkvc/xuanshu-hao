@@ -208,6 +208,168 @@
       planetCut: false
     },
 
+    /* ---------------- 通用随机判定层（judge） ----------------
+       所有「达到阈值后再掷一次骰子」的机制都走这一层，不各写一套。
+       语义：
+         1) 某量达到阈值 → 调用方发出一次判定请求（check）；
+         2) 倾向分 T = bias + Σ(因素值 × 系数) + 累计压力 × 压力系数；
+         3) 映射：logistic  p = 1/(1+e^(-k·T))；linear p = clamp(0.5 + T/(2w), 0, 1)；
+         4) 未成立 → 累计压力 += pressurePerFail，进入冷却；冷却期内不再判；
+            冷却结束后压力按 pressureDecayPerWeek 部分衰减（0 = 永不清零）；
+         5) lockOnFirst：该项第一次判定后永久锁定，不再判；
+            freezeOnFirst：列出的因素在第一次判定时冻结，之后一直用冻结值；
+         6) 随机数复用 state.rngA（与 sim-core 同一条流），所以同 seed 同操作逐位可复现。
+       参数说明见《sim-engine接口文档.md》的「随机判定层」一节。 */
+    judge: {
+      enabled: true,
+      mapping: "logistic",       // "logistic" | "linear"
+      logisticK: 3.2,            // logistic 斜率；越大越像硬阈值
+      linearWidth: 0.35,         // linear 窗口半宽：T=+w 必成，T=-w 必败
+      pressureCap: 3.0,          // 累计压力上限
+      pressureDecayPerWeek: 0,   // 全局默认衰减；单项可覆盖
+      cooldownDefault: 8,        // 未写 cooldownWeeks 时的默认冷却
+      onFailPressure: 0.30,      // 未写 pressurePerFail 时的默认累积
+      logCap: 600,               // 判定日志保留条数
+      items: {
+        /* 五级哗变阶梯：阈值/连续周数由 sim-society 预筛，这里只决定「这一次成不成立」 */
+        mutiny_l1: {
+          label: "L1 个别不服从", cooldownWeeks: 6, bias: -0.55,
+          factors: { stress: 1.9, coverage: 1.2, will: 1.4, garrison: -1.1, pressure: 1.0 },
+          pressurePerFail: 0.30, pressureDecayPerWeek: 0.02,
+          failEffect: { stressAdd: 0.03, note: "失利 → 最高应力队列 S +0.03（下次更易越线）" }
+        },
+        mutiny_l2: {
+          label: "L2 部门哗变", cooldownWeeks: 8, bias: -0.75,
+          factors: { index: 2.0, over: 1.2, will: 1.2, garrison: -0.9, pressure: 1.0 },
+          pressurePerFail: 0.28, pressureDecayPerWeek: 0.02,
+          failEffect: { stressAdd: 0.02, note: "失利 → 该部门队列 S +0.02" }
+        },
+        mutiny_l3: {
+          label: "L3 多部门串联", cooldownWeeks: 10, bias: -1.20,
+          factors: { depts: 1.4, k: 1.8, will: 0.8, pressure: 1.0 },
+          pressurePerFail: 0.22, pressureDecayPerWeek: 0.015,
+          failEffect: { note: "失利只累积压力，不改结构" }
+        },
+        mutiny_l4: {
+          label: "L4 全船暴动", cooldownWeeks: 12, bias: -1.40,
+          factors: { coverage: 3.0, weak: 1.6, pressure: 1.0 },
+          pressurePerFail: 0.18, pressureDecayPerWeek: 0.01,
+          failEffect: { note: "失利只累积压力" }
+        },
+        mutiny_l5: {
+          label: "L5 结构重构", cooldownWeeks: 16, bias: -1.80,
+          factors: { coverage: 2.4, weak: 1.8, dead: 2.0, pressure: 1.0 },
+          pressurePerFail: 0.14, pressureDecayPerWeek: 0.01,
+          failEffect: { note: "L1 已死时 dead=1，几乎必成" }
+        },
+
+        /* 感染转化：每个队列一个独立槽位（slot = infection_thrall:<队列id>） */
+        infection_thrall: {
+          label: "感染转化 · 眷属", cooldownWeeks: 4, bias: -1.35,
+          factors: { c: 3.0, iso: -1.1, stage: 0.6, pressure: 1.0 },
+          pressurePerFail: 0.35, pressureDecayPerWeek: 0.03,
+          failEffect: { cAdd: 2, note: "失利 → 该队列感染度 +2（压力继续累积）" }
+        },
+
+        /* 召唤：连续周数达标后判定；峰值/均值在首次判定时冻结 */
+        summon: {
+          label: "召唤 · 低语汇聚", cooldownWeeks: 12, bias: -0.95,
+          factors: { thralls: 2.2, meanC: 1.6, maxC: 1.2, pressure: 1.0 },
+          pressurePerFail: 0.20, pressureDecayPerWeek: 0.01,
+          freezeOnFirst: ["meanC", "maxC"],
+          failEffect: { thrallsAdd: 0.6, cAdd: 1, note: "失利 → 眷属登记 +0.6、各队列 C +1" }
+        },
+
+        /* 机器哗变：科技等级在首次夺权判定时冻结 */
+        machine_takeover: {
+          label: "机器哗变 · 夺权", cooldownWeeks: 10, bias: -1.90,
+          factors: { autonomy: 3.0, tech: 0.8, weakO: 1.6, pressure: 1.0 },
+          pressurePerFail: 0.20, pressureDecayPerWeek: 0.02,
+          freezeOnFirst: ["tech"],
+          failEffect: { note: "失利只累积压力；tech 已冻结" }
+        },
+
+        /* 设备故障：故障间隔已由磨损/缺口确定，这里只决定本次是否真的坏 */
+        maint_fault: {
+          label: "设备故障", cooldownWeeks: 3, bias: -2.20,
+          factors: { wear: 1.6, gap: 1.4, age: 1.5, pressure: 1.0 },
+          pressurePerFail: 0.35, pressureDecayPerWeek: 0.05,
+          failEffect: { note: "失利 → 设备继续带病运行，压力累积到下一窗口" }
+        },
+
+        /* 补给窗口：每 26 周开一次；被切断时靠压力累积仍有小概率到货 */
+        supply_window: {
+          label: "补给窗口", cooldownWeeks: 0, bias: -0.35,
+          factors: { route: 2.4, pressure: 0.8 },
+          pressurePerFail: 0.40, pressureDecayPerWeek: 0.06,
+          successEffect: { foodT: 18, metalT: 12, note: "到货 → 粮食 +18 t、金属 +12 t" },
+          failEffect: { note: "未到货 → 压力累积，下个窗口更易到货" }
+        }
+      }
+    },
+
+    /* ---------------- 个体层：真实位置 ----------------
+       引擎始终保存每个人的真实位置（分区/房间/岗位），玩家看到的只是裁剪视图。
+       详见 visibility 与 sim-people.js；字段归属见接口文档「真值 / 玩家视图」。 */
+    people: {
+      enabled: true,
+      rotateWeeks: 4,            // 岗位轮换周期：房间/岗位每 4 周换一次
+      dormantZone: "Z_hold",     // 休眠人员固定位置
+      groupDept: {
+        original: "指挥", noble: "指挥", combat: "战斗", tech: "技术",
+        service: "勤务", medical: "医疗", clone: "农环", undecided: "勤务"
+      },
+      // 群体 → 层级构成（按人数比例，用确定性哈希分配）
+      layerMix: {
+        original: { L1: 1 },
+        noble: { L2: 0.40, L3: 0.60 },
+        combat: { L3: 0.10, L4: 0.90 },
+        tech: { L3: 0.12, L4: 0.88 },
+        service: { L3: 0.06, L4: 0.94 },
+        medical: { L3: 0.08, L4: 0.92 },
+        clone: { L4clone: 1 },
+        undecided: { L4: 1 }
+      },
+      zones: [
+        { id: "Z_cmd",  name: "指挥环",   depts: ["指挥"],          rooms: 12 },
+        { id: "Z_cmb",  name: "战斗甲板", depts: ["战斗"],          rooms: 18 },
+        { id: "Z_tec",  name: "技术环",   depts: ["技术"],          rooms: 22 },
+        { id: "Z_srv",  name: "勤务区",   depts: ["勤务"],          rooms: 20 },
+        { id: "Z_med",  name: "医疗区",   depts: ["医疗"],          rooms: 10 },
+        { id: "Z_agr",  name: "农环",     depts: ["农环"],          rooms: 16 },
+        { id: "Z_hab",  name: "居住环",   depts: ["勤务", "医疗"],  rooms: 24 },
+        { id: "Z_hold", name: "休眠舱区", depts: [],                rooms: 8 }
+      ],
+      posts: ["值班", "检修", "运输", "守卫", "教学", "休整"]
+    },
+
+    /* ---------------- 情报与可见性 ----------------
+       可见比例 = 植入覆盖率 × 科技/警备增益 × 服从度增益 − 自由意志折损；
+       未植入者只可能被巡逻/报告间接看到，其余为盲区（只给人数，不撒点）。
+       可见视图带误差半径与时间延迟，空间精度由情报档位决定。 */
+    visibility: {
+      enabled: true,
+      intelLevels: {
+        low:  { label: "低 · 民用终端", techMin: 0.00, roomDetail: false, errorMul: 2.2, delayMul: 2.0 },
+        mid:  { label: "中 · 舰务终端", techMin: 0.35, roomDetail: false, errorMul: 1.0, delayMul: 1.0 },
+        high: { label: "高 · 警备共视", techMin: 0.65, roomDetail: true,  errorMul: 0.5, delayMul: 0.4 }
+      },
+      implantBase: { L1: 0.98, L2: 0.92, L3: 0.72, L4n: 0.40, L4c: 0.85, L4clone: 0.85 },
+      techWeight: 0.30,          // 科技等级对监控覆盖的增益
+      garrisonWeight: 0.15,      // 警备可用度对巡逻覆盖的增益
+      complianceWeight: 0.20,    // 服从度对信号回传的增益
+      willPenalty: 0.35,         // 自由意志对覆盖的折损
+      patrolShare: 0.12,         // 未植入者被巡逻/举报间接看到的基准比例
+      baseEff: 0.45,             // 覆盖率基准
+      blindThreshold: 0.25,      // 单人可见概率低于此值计入盲区
+      errorBaseM: 30,            // 基础误差半径
+      errorSpreadM: 140,         // 随不确定度增加的误差
+      delayBaseWeeks: 0,
+      delaySpreadWeeks: 6,       // 最大时间延迟（周）
+      trueViewKey: "玄枢真值",    // 真值视图口令（本地混淆用，不是安全边界）
+      showPersonsInSnapshot: false  // 默认快照不内联 4,000 条个人明细
+    },
+
     /* ---------------- 周期事件：设备故障 / 维修 / 轮班 / 补给 / 检疫 ----------------
        这些是周级事件，只有周步长才能表示。
        enabled：只往事件流写检修 / 轮班 / 补给 / 检疫，不改任何数值（默认开）。
@@ -227,6 +389,8 @@
       cycleWeeks: 13,           // 例行检修窗口：每季一次
       shiftWeeks: 13,           // 轮班周期（每季换班）
       supplyWeeks: 26,          // 补给窗口：每半年一次
+      supplyFoodT: 18,          // 补给窗口到货：粮食 +18 t（判定成立时）
+      supplyMetalT: 12,         // 补给窗口到货：金属 +12 t
       quarantineWeeks: 26,      // 隔离检疫窗口：每半年一次
       quarantineShare: 0.15     // 感染面超过该值时检疫事件升级为「事件」级
     },
@@ -400,6 +564,19 @@
     perWeek: perWeek,
     powWeek: powWeek,
     monthsToWeeks: monthsToWeeks
+  };
+
+  // 全船唯一随机数流：sim-core 的噪声、sim-judge 的判定、sim-people 的分配
+  // 都从这里取，保证「同 seed + 同操作序列」整船逐位可复现。
+  // 状态只有一个 32 位整数 state.rngA，随 exportState / importState 一起走。
+  global.XuanShuRand = {
+    next: function (state) {
+      state.rngA = (state.rngA | 0) + 0x6D2B79F5 | 0;
+      var t = Math.imul(state.rngA ^ (state.rngA >>> 15), 1 | state.rngA);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    },
+    stateOf: function (state) { return state.rngA | 0; }
   };
 
   global.XUANSHU_CONFIG = CONFIG;

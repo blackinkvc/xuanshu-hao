@@ -32,8 +32,11 @@
     return out;
   }
 
-  // 可序列化的 PRNG（seed 跟着状态走，导出/导入不会断）
+  // 可序列化的 PRNG（seed 跟着状态走，导出/导入不会断）。
+  // 真正实现在 sim-config.js 的 XuanShuRand；这里只做一层委托，保证
+  // 噪声与随机判定共用同一条流，整船随机序列因此可复现。
   function nextRand(state) {
+    if (global.XuanShuRand) return global.XuanShuRand.next(state);
     state.rngA |= 0;
     state.rngA = (state.rngA + 0x6D2B79F5) | 0;
     var t = Math.imul(state.rngA ^ (state.rngA >>> 15), 1 | state.rngA);
@@ -209,6 +212,12 @@
     if (global.XuanShuSociety && cfg.society && cfg.society.enabled !== false) {
       state.society = global.XuanShuSociety.create(cfg);
     }
+    // 随机判定槽位 / 日志（与 rngA 一样是状态的一部分，随导出/导入走）
+    if (global.XuanShuJudge) state.judge = global.XuanShuJudge.ensure(state, cfg);
+    // 个体层：真实位置名册（人数变化时同步，位置按周确定性推导）
+    if (global.XuanShuPeople && cfg.people && cfg.people.enabled !== false) {
+      state.people = global.XuanShuPeople.create(cfg);
+    }
     pushSeries(state, cfg);
     return state;
   }
@@ -280,17 +289,31 @@
       var interval = Math.max(M.minIntervalWeeks, Math.round(
         M.baseIntervalWeeks * (1 - M.wearShorten * wear - M.gapShorten * gap)));
       if (m.sinceFault >= interval) {
-        var sev = clamp(wear + gap, 0, 1);
-        m.mttr = clamp(Math.round(M.mttrWeeks + (M.mttrMaxWeeks - M.mttrWeeks) * sev),
-          M.mttrMinWeeks, M.mttrMaxWeeks);
-        m.repairLeft = m.mttr;
-        m.active = true;
-        m.faults++;
-        yieldF = M.downtimeYield;
-        pushEvent(state, cfg, "maint_fault", "维修", "设备故障 · 停机检修",
-          "农环一组栽培单元停机，产出降至 " + Math.round(M.downtimeYield * 100) + "%",
-          "磨损 " + wear.toFixed(2) + "、维修缺口 " + Math.round(gap * 100) +
-          "% → 故障间隔 " + interval + " 周，MTTR " + m.mttr + " 周", true);
+        // 阈值（故障间隔）已到，是否真的坏由通用判定层决定：
+        // 未成立 → 设备带病继续跑，压力累积，冷却后再判。
+        var jr = global.XuanShuJudge
+          ? global.XuanShuJudge.check(state, cfg, "maint_fault", {
+              wear: wear, gap: gap,
+              age: clamp(m.sinceFault / Math.max(1, interval), 0, 2)
+            }, { note: "故障间隔 " + interval + " 周" })
+          : null;
+        if (!jr || jr.allow) {
+          var sev = clamp(wear + gap, 0, 1);
+          m.mttr = clamp(Math.round(M.mttrWeeks + (M.mttrMaxWeeks - M.mttrWeeks) * sev),
+            M.mttrMinWeeks, M.mttrMaxWeeks);
+          m.repairLeft = m.mttr;
+          m.active = true;
+          m.faults++;
+          yieldF = M.downtimeYield;
+          pushEvent(state, cfg, "maint_fault", "维修", "设备故障 · 停机检修",
+            "农环一组栽培单元停机，产出降至 " + Math.round(M.downtimeYield * 100) + "%",
+            "磨损 " + wear.toFixed(2) + "、维修缺口 " + Math.round(gap * 100) +
+            "% → 故障间隔 " + interval + " 周，MTTR " + m.mttr + " 周" +
+            (jr ? "；判定 p=" + jr.probability.toFixed(2) + "，随机数 " + jr.rand.toFixed(3) : ""), true);
+        } else if (jr.judged) {
+          // 判定未成立：保留基数（不清零），冷却结束后再判
+          m.sinceFault = interval;
+        }
       }
     }
 
@@ -308,10 +331,29 @@
     }
     if (w - m.lastSupply >= M.supplyWeeks) {
       m.lastSupply = w;
-      pushEvent(state, cfg, "supply", "补给",
-        state.inputs.planetCut ? "补给窗口 · 无来货" : "补给窗口 · 行星来货",
-        state.inputs.planetCut ? "行星补给已切断，本窗口无来货" : "本窗口补给已入库并完成对账",
-        "补给节奏 " + M.supplyWeeks + " 周", true);
+      // 补给窗口本身是周期事件；是否真的到货走通用判定层：
+      // route=0（行星补给切断）时靠累计压力仍有小概率到货。
+      var sjr = global.XuanShuJudge
+        ? global.XuanShuJudge.check(state, cfg, "supply_window",
+            { route: state.inputs.planetCut ? 0 : 1 }, { note: "补给窗口 " + M.supplyWeeks + " 周" })
+        : null;
+      var arrived = !sjr || sjr.allow;
+      if (arrived) {
+        var addF = (M.supplyFoodT || 0), addM = (M.supplyMetalT || 0);
+        if (addF > 0) state.stocks.food = Math.min(cfg.food.cap, state.stocks.food + addF);
+        if (addM > 0) state.stocks.metal = Math.min(cfg.metal.cap, state.stocks.metal + addM);
+        pushEvent(state, cfg, "supply", "补给", "补给窗口 · 行星来货",
+          "本窗口补给已入库并完成对账" +
+          (addF || addM ? "（粮食 +" + addF + " t、金属 +" + addM + " t）" : ""),
+          "补给节奏 " + M.supplyWeeks + " 周" +
+          (sjr ? "；判定 p=" + sjr.probability.toFixed(2) : ""), true);
+      } else {
+        pushEvent(state, cfg, "supply", "补给", "补给窗口 · 未到货",
+          state.inputs.planetCut ? "行星补给已切断，本窗口无来货" : "航线延误，本窗口无来货",
+          "补给节奏 " + M.supplyWeeks + " 周；判定 p=" +
+          (sjr ? sjr.probability.toFixed(2) : "—") + "，压力 " +
+          (sjr ? sjr.pressure.toFixed(2) : "—") + "，下个窗口更易到货", true);
+      }
     }
     if (w - m.lastQuarantine >= M.quarantineWeeks) {
       m.lastQuarantine = w;
@@ -331,6 +373,8 @@
 
   function stepWeek(state, cfg) {
     var dt = 1 / cfg.time.weeksPerYear;
+    // 随机判定层：先结算冷却结束后的压力衰减
+    if (global.XuanShuJudge) global.XuanShuJudge.tick(state, cfg);
     var I = state.inputs;
     // 噪声是「每 tick 的离散扰动」，不能按月直接搬：52 次弱扰动会显著平滑于 12 次。
     // 按「年度方差守恒」折算振幅：a_week = a_month × sqrt(12/52)，而不是除以 4.33。
