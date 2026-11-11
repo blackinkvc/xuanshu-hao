@@ -1507,6 +1507,8 @@ body.no-motion .hud-page{animation:none}
   letter-spacing:.3px;color:var(--ink-5);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .grow .gt a.gloc{color:var(--ink-4)}
 .grow .gt a.gloc:hover{color:var(--hud-2)}
+.grow .gt .gnote{display:block;margin-top:1px;font-size:9px;line-height:1.45;color:var(--ink-5);
+  white-space:normal;word-break:break-word}
 .grow .gcat{font:600 8.5px/1 ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:1.2px;
   color:var(--hud-3);border:0;border-left:1px solid rgba(var(--hud-rgb),.4);padding:2px 6px;text-align:left;white-space:nowrap}
 .grow .gown{font-size:10.5px;line-height:1.35;color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;
@@ -3260,8 +3262,8 @@ body.light .clt{color:#6b7c8c}
     var loc = '';
     if(it.loc){
       var rm = roomById(it.loc);
-      loc = ' · <a class="gloc" href="#/rooms' + roomQuery({seg: rm ? rm.seg : 'all', id: it.loc}) + '">'
-        + esc(it.loc + ' ' + (rm ? rm.name : '')) + '</a>';
+      loc = ' · <a class="gloc" href="#/rooms' + roomQuery({deck: rm ? rm['甲板'] : 'all', id: it.loc}) + '">'
+        + esc(it.loc + ' ' + (rm ? (rm.name || rm['房间名']) : '')) + '</a>';
     }
     var own = it.owner === 'SHIP'
       ? '<span class="gown">舰内公用<span>SHIP</span></span>'
@@ -3269,7 +3271,9 @@ body.light .clt{color:#6b7c8c}
     return '<div class="grow" id="g-' + esc(it.id) + '">'
       + '<span class="gno">' + esc(it.id) + '</span>'
       + '<div class="gname">' + im + '<span class="gt"><b>' + esc(it.name) + '</b>'
-      +   '<em>' + esc((it.spec || []).join(' · ') || catName || '—') + loc + '</em></span></div>'
+      +   '<em>' + esc((it.spec || []).join(' · ') || catName || '—') + loc + '</em>'
+      +   (it.note ? '<span class="gnote">' + esc(it.note) + '</span>' : '')
+      + '</span></div>'
       + '<div class="gmeta"><span class="gcat">' + esc(catCode) + '</span>' + own + '</div>'
       + '<span class="gst">' + (it.file
           ? '<span class="hud-status">在册</span>'

@@ -217,7 +217,7 @@
     "冷却",
     "快拆"
    ],
-   "loc": "RM-08"
+   "loc": "PC-A-04-R01"
   },
   {
    "id": "EQ-011",
@@ -469,7 +469,7 @@
     "等离子",
     "舰尾"
    ],
-   "loc": "RM-15",
+   "loc": "PC-D-01-R01",
    "file": "assets/lib/eq/EQ-024.webp"
   },
   {
@@ -506,7 +506,7 @@
     "液态金属",
     "冷却"
    ],
-   "loc": "RM-15",
+   "loc": "PC-D-01-R01",
    "file": "assets/lib/eq/EQ-026.webp"
   },
   {
@@ -525,7 +525,7 @@
     "机械臂",
     "机库"
    ],
-   "loc": "RM-04",
+   "loc": "PC-C-01-R01",
    "file": "assets/lib/eq/EQ-027.webp"
   },
   {
@@ -562,7 +562,7 @@
     "救援",
     "绞盘"
    ],
-   "loc": "RM-04",
+   "loc": "PC-C-01-R01",
    "file": "assets/lib/eq/EQ-029.webp"
   },
   {
@@ -599,7 +599,7 @@
     "机库",
     "缆桩"
    ],
-   "loc": "RM-04",
+   "loc": "PC-C-01-R01",
    "file": "assets/lib/eq/EQ-031.webp"
   },
   {
@@ -618,8 +618,9 @@
     "限时",
     "回抽"
    ],
-   "loc": "RM-09",
-   "file": "assets/lib/eq/EQ-032.webp"
+   "loc": "PC-T3-04-R01",
+   "file": "assets/lib/eq/EQ-032.webp",
+   "note": "公共食堂群：另含 PC-T3-05-R01、PC-T3-06-R01，三间同构 911.6 m²"
   },
   {
    "id": "EQ-033",
@@ -637,7 +638,7 @@
     "回收",
     "蒸馏"
    ],
-   "loc": "RM-16",
+   "loc": "PC-D-02-R02",
    "file": "assets/lib/eq/EQ-033.webp"
   },
   {
@@ -656,7 +657,7 @@
     "循环",
     "四台并联"
    ],
-   "loc": "RM-16",
+   "loc": "PC-D-02-R02",
    "file": "assets/lib/eq/EQ-034.webp"
   },
   {
@@ -675,8 +676,9 @@
     "合成",
     "食堂"
    ],
-   "loc": "RM-09",
-   "file": "assets/lib/eq/EQ-035.webp"
+   "loc": "PC-T3-04-R01",
+   "file": "assets/lib/eq/EQ-035.webp",
+   "note": "公共食堂群：另含 PC-T3-05-R01、PC-T3-06-R01，三间同构 911.6 m²"
   },
   {
    "id": "EQ-036",
@@ -694,8 +696,9 @@
     "负压",
     "密闭"
    ],
-   "loc": "RM-09",
-   "file": "assets/lib/eq/EQ-036.webp"
+   "loc": "PC-T3-04-R01",
+   "file": "assets/lib/eq/EQ-036.webp",
+   "note": "公共食堂群：另含 PC-T3-05-R01、PC-T3-06-R01，三间同构 911.6 m²"
   },
   {
    "id": "EQ-037",
@@ -713,8 +716,9 @@
     "洗涤",
     "再生"
    ],
-   "loc": "RM-09",
-   "file": "assets/lib/eq/EQ-037.webp"
+   "loc": "PC-T3-04-R01",
+   "file": "assets/lib/eq/EQ-037.webp",
+   "note": "公共食堂群：另含 PC-T3-05-R01、PC-T3-06-R01，三间同构 911.6 m²"
   },
   {
    "id": "EQ-038",
@@ -732,8 +736,9 @@
     "双温区",
     "食堂"
    ],
-   "loc": "RM-09",
-   "file": "assets/lib/eq/EQ-038.webp"
+   "loc": "PC-T3-04-R01",
+   "file": "assets/lib/eq/EQ-038.webp",
+   "note": "公共食堂群：另含 PC-T3-05-R01、PC-T3-06-R01，三间同构 911.6 m²"
   },
   {
    "id": "EQ-039",
@@ -769,7 +774,7 @@
     "实验室",
     "封闭"
    ],
-   "loc": "RM-03",
+   "loc": "PC-B-02-R01",
    "file": "assets/lib/eq/EQ-040.webp"
   },
   {
@@ -788,7 +793,7 @@
     "菌株",
     "制药"
    ],
-   "loc": "RM-03",
+   "loc": "PC-B-02-R01",
    "file": "assets/lib/eq/EQ-041.webp"
   },
   {
@@ -807,7 +812,7 @@
     "回收",
     "闭环"
    ],
-   "loc": "RM-16",
+   "loc": "PC-D-02-R02",
    "file": "assets/lib/eq/EQ-042.webp"
   },
   {
@@ -826,7 +831,7 @@
     "义体",
     "诊断"
    ],
-   "loc": "RM-03",
+   "loc": "PC-B-02-R01",
    "file": "assets/lib/eq/EQ-043.webp"
   },
   {
@@ -845,7 +850,7 @@
     "长航",
     "单人"
    ],
-   "loc": "RM-05",
+   "loc": "PC-C-02-R01",
    "file": "assets/lib/eq/EQ-044.webp"
   },
   {
@@ -864,7 +869,7 @@
     "急救",
     "限时"
    ],
-   "loc": "RM-03",
+   "loc": "PC-B-02-R01",
    "file": "assets/lib/eq/EQ-045.webp"
   },
   {
@@ -883,7 +888,7 @@
     "主动力",
     "堆芯"
    ],
-   "loc": "RM-15",
+   "loc": "PC-D-01-R01",
    "file": "assets/lib/eq/EQ-046.webp"
   },
   {
@@ -902,7 +907,7 @@
     "机柜",
     "主脑"
    ],
-   "loc": "RM-08",
+   "loc": "PC-A-04-R01",
    "file": "assets/lib/eq/EQ-047.webp"
   },
   {
@@ -921,7 +926,7 @@
     "飞轮",
     "缓冲"
    ],
-   "loc": "RM-15",
+   "loc": "PC-D-01-R01",
    "file": "assets/lib/eq/EQ-048.webp"
   },
   {
@@ -940,7 +945,7 @@
     "维生",
     "切载"
    ],
-   "loc": "RM-15",
+   "loc": "PC-D-01-R01",
    "file": "assets/lib/eq/EQ-049.webp"
   },
   {
