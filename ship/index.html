@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark light" />
+    <title>玄枢号 · 工作台</title>
+    <meta name="description" content="玄枢号舰员档案与舱室资料库" />
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem("xs-theme");
+          if (t === "light" || t === "dark") document.documentElement.dataset.theme = t;
+        } catch (e) {}
+      })();
+      // 老 hash 深链回退：/xuanshu-hao/#/crew/CREW-001 -> /xuanshu-hao/crew/CREW-001/
+      (function () {
+        if (location.pathname.indexOf("/xuanshu-hao/") !== 0) return;
+        var m = (location.hash || "").match(/^#\/crew\/(CREW-\d+)/i);
+        if (m) location.replace("/xuanshu-hao/crew/" + m[1].toUpperCase() + "/");
+        // 舰体 3D 老深链：#/ship/3d -> 独立舰船页，不落 404
+        if (/^#\/ship\/3d(\?|$)/i.test(location.hash || "")) {
+          location.replace("/xuanshu-hao/ship/");
+        }
+      })();
+    </script>
+    <script type="module" crossorigin src="/xuanshu-hao/assets/index-BbLw34u5.js"></script>
+    <link rel="stylesheet" crossorigin href="/xuanshu-hao/assets/index-mUkAZMdK.css">
+  </head>
+  <body>
+    <div id="root"><div class="site is-locked"><header class="hdr"><a class="brand" href="/xuanshu-hao/"><span class="brand-mark">玄</span><span class="brand-txt"><b>玄枢号 · 工作台</b><em>XUANSHU ARCHIVE</em></span></a><nav class="nav"><a href="/xuanshu-hao/" class="">总览</a><span class="off" title="第二轮铺设">舰员列表</span><span class="off" title="第二轮铺设">装备</span><span class="off" title="第二轮铺设">房间</span><a href="/xuanshu-hao/ship/" class="on">舰体 3D</a><span class="off" title="第二轮铺设">版本记录</span></nav><div class="hdr-tools"><button type="button" class="icon-btn" aria-label="切换深色模式" title="切到浅色">☾</button><button type="button" class="icon-btn" aria-label="设置" title="设置">⚙</button></div></header><main class="site-main"><article class="ship-page"><nav class="crumbs"><a href="/xuanshu-hao/">总览</a><span>/</span><span>舰体 · 三维总览</span></nav><div class="sec-head"><h2>舰体 · 三维总览</h2><span>独立页面 · 沿用现有 3D 产物，iframe 原样挂载</span></div><iframe src="/xuanshu-hao/ship/3d/index.html" title="玄枢号 3D 舰体" loading="lazy" class="ship-frame ship-frame-page"></iframe></article></main><footer class="ftr"><span><b>玄枢号 · 工作台</b> · 舰员 <!-- -->41<!-- --> 名 · 数据版本 <!-- -->2026-11-11</span><span class="ftr-stamp">构建 <!-- -->2026-11-11 14:34 (UTC+8)<!-- --> · commit <!-- -->local</span></footer><div id="toast" role="status" aria-live="polite"></div></div></div>
+    <script id="__APP_DATA__" type="application/json">{"kind":"ship","route":"/ship/","meta":{"title":"玄枢号 · 工作台","crewCount":41,"artwork":300,"missing":70,"planned":361,"trash":275,"note":"数据源：01_设定档案/01_人物档案 + 07_发布产物 + 03_弃用图区_不进档案","updated":"2026-11-11","loopScope":"full"}}</script>
+    <script>window.__BUILD__={"time":"2026-11-11 14:34 (UTC+8)","data":"2026-11-11","sha":"local"};</script>
+  </body>
+</html>
