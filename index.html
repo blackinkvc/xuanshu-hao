@@ -2002,6 +2002,42 @@ body.light .clt{color:#6b7c8c}
 @media (max-width:1100px){.ov-figure.cut img{max-height:min(430px,54vh)}}
 @media (max-width:760px){.ov-figure{padding:34px 0 44px}.ov-figure.cut img{max-height:min(360px,46vh)}
   .gs-ring{top:-6px;height:17px;width:64%}.gs-base{bottom:-38px;height:26px}.gs-beam.up{top:-4px;height:30px}.gs-beam.dn{bottom:-22px;height:46px}}
+/* ===== 总览 v4（2026-11-11）：固定引力座 + 人物层 / 单主名 / 相框列对齐 ===== */
+/* 相框列：168px、三张等高、整张可见不裁切，上下与舞台对齐 */
+.ov-stage{grid-template-columns:168px minmax(0,1fr) 352px;align-items:stretch}
+.ov-left{padding:0;min-height:0;overflow:hidden}
+.ov-frames{max-height:600px;flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;padding-right:0;gap:12px;scrollbar-width:none}
+.ov-frames::-webkit-scrollbar{width:0;height:0;display:none}
+.ov-frame{flex:0 0 auto;min-height:0;display:flex;flex-direction:column}
+.ov-frame .pic{flex:0 0 auto;padding:4px}
+.ov-frame img{width:100%;height:auto;aspect-ratio:auto;object-fit:contain;object-position:center}
+.ov-frame figcaption{flex:0 0 auto}
+/* 舞台两层：底层固定座图（全站共用）常驻，上层只放人物本体 */
+.ov-figure{padding:0;height:auto}
+.ov-gseat,.ov-plinth,.ov-pcard{display:none!important}
+.ov-figbox{position:relative;height:min(470px,56vh);aspect-ratio:1680/2240;max-width:100%;line-height:0;
+  animation:ovFloat 6.4s ease-in-out infinite}
+@keyframes ovFloat{0%,100%{transform:translateY(-6px)}50%{transform:translateY(6px)}}
+body.no-motion .ov-figbox{animation:none}
+.ov-figure.cut .ov-figbox img{max-height:none}
+#ovFigBox .ov-seat{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;z-index:1;
+  filter:drop-shadow(0 0 20px color-mix(in srgb,var(--eye,#5fd0ff) 16%,transparent))}
+#ovFigBox .ov-char{position:absolute;left:0;right:0;top:15.6%;bottom:12.1%;width:100%;height:auto;z-index:2;
+  object-fit:contain;object-position:center bottom}
+/* 名字：右栏 CREW FILE 是唯一主名；舞台下方只留代号 + 编号 */
+.ov-right .ov-nameblk b{font-size:36px;letter-spacing:4px}
+.ov-plate .nm.sub{display:flex;align-items:baseline;gap:6px}
+.ov-plate .nm.sub b{font-size:13px;letter-spacing:2.4px;color:var(--ink-2)}
+.ov-plate .nm.sub em{font-size:11px;letter-spacing:1.6px;color:var(--ink-4)}
+@media (max-width:1100px){.ov-stage{grid-template-columns:168px minmax(0,1fr) 300px}.ov-figbox{height:min(430px,54vh)}}
+@media (max-width:760px){
+  .ov-stage{grid-template-columns:minmax(0,1fr)}
+  .ov-frames{flex-direction:row;height:auto;max-height:none}
+  .ov-frame{flex:0 0 132px;display:block}
+  .ov-frame img{height:auto;aspect-ratio:3/4}
+  .ov-figbox{height:min(380px,50vh)}
+  .ov-right .ov-nameblk b{font-size:30px}
+}
 </style>
 </head>
 <body>
@@ -2186,9 +2222,10 @@ body.light .clt{color:#6b7c8c}
   var FLOAT_CACHE = {}, FLOAT_WAIT = {};
   /* 悬浮位换图映射（唯一入口）：按人物 ID 直接指定固定路径，优先于默认 grav/旧版候选。
      以后换图只需加一行：'CREW-00X': {src: 'assets/c/crew-00x/grav/crew-00x-float-yyy.png'}
-     bakedRing: true 表示图上自带上环，页面不再叠加 CSS 上环。 */
+     人物层只放人物本体：不带座、不带底座、不带光柱、头顶不带发光圈（座由全站共用的 seat.png 提供）。 */
+  var GRAV_SEAT = 'assets/grav/seat.png';   /* 固定引力座底图：上环 + 下座 + 两道牵引光柱，全站共用一份 */
   var FLOAT_SRC = {
-    'CREW-001': {src: 'assets/c/crew-001/grav/crew-001-float-clean.png', bakedRing: true}
+    'CREW-001': {src: 'assets/c/crew-001/grav/crew-001-float-body.png'}
   };
   /* 详情页展示图：旧版浮图文件原地保留，挂到图组末尾 */
   var GRAV_SHOW = {
@@ -2862,8 +2899,7 @@ body.light .clt{color:#6b7c8c}
 
   function ovDock(){
     var h = '<div class="ov-plate">'
-      + '<div class="nm"><b id="ovName"></b><em id="ovNameEn"></em></div>'
-      + '<div class="sub"><b id="ovType"></b><span id="ovSub"></span></div>'
+      + '<div class="nm sub"><b id="ovType"></b><em id="ovSub"></em></div>'
       + '<a class="ov-goto" id="ovGo" href="#/crew/' + esc(D.crews[0].id) + '">查看档案 →</a>'
       + '</div>';
     h += '<div class="ov-dock"><div class="ov-strip" id="ovStrip">';
@@ -2922,63 +2958,15 @@ body.light .clt{color:#6b7c8c}
     ovEl.style.setProperty('--eye', eye);
     document.getElementById('ovLeft').innerHTML = '<div class="ov-frames">' + ovFrames(c) + '</div>';
     document.getElementById('ovRight').innerHTML = ovLeft(c) + ovRight(c);
-    var nm = document.getElementById('ovName');
-    if(nm) nm.textContent = c.name;
-    var en = document.getElementById('ovNameEn');
-    if(en) en.textContent = (c.en || '') + (c.en ? ' · ' + c.id : c.id);
     var ty = document.getElementById('ovType');
-    if(ty) ty.textContent = c.code || c.id;
+    if(ty) ty.textContent = c.en || c.code || c.id;
     var sub = document.getElementById('ovSub');
-    if(sub) sub.textContent = c.id + ' · ' + (c.role || '在档');
+    if(sub) sub.textContent = '· ' + c.id;
     var go = document.getElementById('ovGo');
     if(go) go.setAttribute('href', '#/crew/' + c.id);
-    var cn = document.getElementById('ovCN');
-    if(cn) cn.textContent = c.name;
     var ce = document.getElementById('ovCE');
-    if(ce) ce.textContent = (c.code || c.id) + ' · ' + c.id;
-    var pc = document.getElementById('ovPcard');
-    if(pc){
-      var mini = document.getElementById('ovPMini');
-      if(mini){
-        var fs = floatOf(c);
-        var ms = fs || FLOAT_PH;
-        if(mini.getAttribute('src') !== ms) mini.src = ms;
-        mini.alt = c.name + (fs ? ' 悬浮立绘' : ' 悬浮立绘占位');
-        var port = document.getElementById('ovPPort');
-        if(port) port.classList.toggle('ph', !fs);
-        var miss = document.getElementById('ovPMiss');
-        if(miss) miss.hidden = !!fs;
-        /* 与中区同一条解析链：grav 优先，缺失回退旧版 */
-        if(fs){
-          resolveFloat(c, function(p){
-            if(OV_IDX !== i) return;
-            var m2 = document.getElementById('ovPMini');
-            if(!m2) return;
-            m2.src = p || fs;
-            m2.alt = c.name + (p ? ' 悬浮立绘' : ' 悬浮立绘占位');
-            var pt2 = document.getElementById('ovPPort');
-            if(pt2) pt2.classList.toggle('ph', !p);
-            var ms2 = document.getElementById('ovPMiss');
-            if(ms2) ms2.hidden = !!p;
-          });
-        }
-      }
-      var pno = document.getElementById('ovPNo');
-      if(pno) pno.textContent = c.id;
-      var pnm = document.getElementById('ovPName');
-      if(pnm) pnm.textContent = c.name;
-      var ptg = document.getElementById('ovPTag');
-      if(ptg){
-        var pd = pct(c.done, c.planned);
-        ptg.textContent = String(c.status || '在档').split('·')[0].trim();
-        ptg.classList.toggle('warn', pd < 100);
-      }
-      var pdn = document.getElementById('ovPDone');
-      if(pdn) pdn.textContent = (c.done || 0) + ' / ' + (c.planned || 0) + ' · ' + pct(c.done, c.planned) + '%';
-      var pcd = document.getElementById('ovPCode');
-      if(pcd) pcd.textContent = c.en || c.code || '待补';
-      pc.style.setProperty('--eye', eye);
-    }
+    if(ce) ce.textContent = (c.en || c.code || c.id) + ' · ' + c.id;
+    /* 人物状态卡（pcard）整块已删除：与右栏 CREW FILE 重复（姓名 / 状态 / 立绘入档 / 战术代号） */
     var pv = document.getElementById('ovPrev'), nx = document.getElementById('ovNext');
     if(pv) pv.disabled = OV_IDX <= 0;
     if(nx) nx.disabled = OV_IDX >= D.crews.length - 1;
@@ -2990,43 +2978,32 @@ body.light .clt{color:#6b7c8c}
     if(frames){ frames.scrollTop = 0; frames.scrollLeft = 0; }
     var lft = document.getElementById('ovLeft');
     if(lft) lft.scrollTop = 0;
-    var cut = !!floatOf(c);
-    fig.classList.toggle('cut', cut);
-    fig.classList.toggle('soft', !cut);
-    var src = stageSrc(c);
-    if(img && src){
-      if(img.getAttribute('src') !== src){
-        var warm = OV_WARM[src];
-        if(warm && warm.complete && warm.naturalWidth > 0){
-          img.src = src;
-        } else {
-          /* 大图还在路上：先用底部头像条已缓存的缩略图顶上，避免出现"名字已变、图还是上一张" */
-          if(c.main && c.main.thumb) img.src = c.main.thumb;
-          else img.src = src;
-          ovFill(img, src, i);
-        }
-        if(img.decode) img.decode().catch(function(){});
+    /* 两层结构：底层固定座图常驻，上层只放人物本体；缺图时人物位留空，座照旧 */
+    var hasFloat = !!floatOf(c);
+    fig.classList.add('cut');
+    fig.classList.remove('soft');
+    img.style.visibility = hasFloat ? '' : 'hidden';
+    if(!hasFloat) img.removeAttribute('src');
+    if(hasFloat){
+      var src = stageSrc(c);
+      if(img && src){
+        if(img.getAttribute('src') !== src){ img.src = src; if(img.decode) img.decode().catch(function(){}); }
+        img.alt = c.name + ' 悬浮立绘';
+        img.setAttribute('data-full', (c.main && c.main.src) || src);
+        img.setAttribute('data-cap', c.id + ' ' + c.name + ' · 悬浮立绘');
       }
-      img.alt = c.name + ' 立绘';
-      img.setAttribute('data-full', (c.main && c.main.src) || src);
-      img.setAttribute('data-cap', c.id + ' ' + c.name + ' · ' + (c.main ? c.main.title : '立绘'));
     }
-    /* grav 版优先：静默探测后替换，缺失则保留旧版 */
     if(FLOAT_OK[c.id]){
       resolveFloat(c, function(p){
         if(OV_IDX !== i) return;
         var im = document.getElementById('ovImg');
         if(!im) return;
         if(p){
-          if(im.getAttribute('src') !== p){ im.src = p; ovFill(im, p, i); }
-          fig.classList.add('cut'); fig.classList.remove('soft');
-          var ov = FLOAT_SRC[c.id];
-          fig.classList.toggle('baked-ring', !!(ov && ov.bakedRing));
+          if(im.getAttribute('src') !== p){ im.src = p; }
+          im.style.visibility = '';
         }else{
-          var msrc = figSrc(c);
-          if(msrc && im.getAttribute('src') !== msrc){ im.src = msrc; ovFill(im, msrc, i); }
-          fig.classList.add('soft'); fig.classList.remove('cut');
-          fig.classList.remove('baked-ring');
+          im.removeAttribute('src');
+          im.style.visibility = 'hidden';
         }
       });
     }
@@ -3089,28 +3066,11 @@ body.light .clt{color:#6b7c8c}
       +   '<div class="ov-space"><i></i></div>'
       +   '<div class="ov-ring r1"></div><div class="ov-ring r2"></div><div class="ov-ring r3"></div>'
       +   '<div class="ov-figure" id="ovFig"><span class="ov-aura"></span>'
-      +     '<div class="ov-figbox"><img id="ovImg" alt="" decoding="async">'
-      +       '<span class="ov-gseat" aria-hidden="true"><i class="gs-ring"></i><i class="gs-beam up"></i>'
-      +       '<i class="gs-beam dn"></i><i class="gs-base"></i></span></div>'
-      +     '<span class="ov-plinth"></span></div>'
-      +   '<div class="ov-cname"><b id="ovCN"></b><em id="ovCE"></em></div>'
-      +   '<aside class="ov-pcard" id="ovPcard" aria-label="当前人物状态卡">'
-      +     '<div class="ov-pcol">'
-      +       '<span class="ov-pbeam"></span><span class="ov-pflow"></span><span class="ov-pfoot"></span>'
-      +       '<span class="ov-pport" id="ovPPort"><img id="ovPMini" alt="" decoding="async"></span>'
-      +       '<span class="ov-pring r1"></span><span class="ov-pring r2"></span>'
-      +       '<span class="ov-pmiss" id="ovPMiss" hidden>待补</span>'
-      +     '</div>'
-      +     '<div class="ov-pmeta">'
-      +       '<span class="no" id="ovPNo">CREW-001</span>'
-      +       '<strong id="ovPName">—</strong>'
-      +       '<span class="ov-ptag" id="ovPTag">在档</span>'
-      +       '<div class="ov-preads">'
-      +         '<div><span>立绘入档</span><b id="ovPDone">—</b></div>'
-      +         '<div><span>战术代号</span><b id="ovPCode">—</b></div>'
-      +       '</div>'
-      +     '</div>'
-      +   '</aside>'
+      +     '<div class="ov-figbox" id="ovFigBox">'
+      +       '<img class="ov-seat" id="ovSeat" src="' + GRAV_SEAT + '" alt="" decoding="async" aria-hidden="true">'
+      +       '<img class="ov-char" id="ovImg" alt="" decoding="async">'
+      +     '</div></div>'
+      +   '<div class="ov-cname"><em id="ovCE"></em></div>'
       + '</div>'
       + '<aside class="ov-side ov-right" id="ovRight"></aside>'
       + '</div>';
