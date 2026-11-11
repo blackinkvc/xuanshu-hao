@@ -13,8 +13,8 @@
   <rect x="24" y="24" width="592" height="912" fill="none" stroke="#8f7bff" stroke-opacity="0.35" stroke-width="2"/>
   <path d="M320 250c44 0 78 34 78 78s-34 78-78 78-78-34-78-78 34-78 78-78Z" fill="none" stroke="#8f7bff" stroke-opacity="0.5" stroke-width="3"/>
   <path d="M190 700c0-88 58-154 130-154s130 66 130 154" fill="none" stroke="#8f7bff" stroke-opacity="0.5" stroke-width="3"/>
-  <text x="320" y="510" text-anchor="middle" fill="#cfc7ff" font-family="'Segoe UI', 'Microsoft YaHei', sans-serif" font-size="44" letter-spacing="4">CREW-000</text>
-  <text x="320" y="556" text-anchor="middle" fill="#8f7bff" font-family="'Segoe UI', 'Microsoft YaHei', sans-serif" font-size="22" letter-spacing="6">PRIMA-000 · 原初体</text>
+  <text x="320" y="510" text-anchor="middle" fill="#cfc7ff" font-family="'Segoe UI', 'Microsoft YaHei', sans-serif" font-size="44" letter-spacing="4">CREW-044</text>
+  <text x="320" y="556" text-anchor="middle" fill="#8f7bff" font-family="'Segoe UI', 'Microsoft YaHei', sans-serif" font-size="22" letter-spacing="6">PRIMA-044 · 原初体</text>
   <text x="320" y="790" text-anchor="middle" fill="#7b849c" font-family="'Segoe UI', 'Microsoft YaHei', sans-serif" font-size="20" letter-spacing="3">待出图 · PENDING ART</text>
   <text x="320" y="826" text-anchor="middle" fill="#59617a" font-family="'Segoe UI', 'Microsoft YaHei', sans-serif" font-size="16" letter-spacing="2">占位路径，非参考图成品</text>
 </svg>

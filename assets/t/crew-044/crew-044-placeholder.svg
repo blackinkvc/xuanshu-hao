@@ -13,6 +13,6 @@
   <rect x="18" y="18" width="444" height="444" fill="none" stroke="#8f7bff" stroke-opacity="0.35" stroke-width="2"/>
   <path d="M240 118c38 0 68 30 68 68s-30 68-68 68-68-30-68-68 30-68 68-68Z" fill="none" stroke="#8f7bff" stroke-opacity="0.5" stroke-width="3"/>
   <path d="M128 380c0-74 50-128 112-128s112 54 112 128" fill="none" stroke="#8f7bff" stroke-opacity="0.5" stroke-width="3"/>
-  <text x="240" y="304" text-anchor="middle" fill="#cfc7ff" font-family="'Segoe UI', 'Microsoft YaHei', sans-serif" font-size="34" letter-spacing="3">CREW-000</text>
+  <text x="240" y="304" text-anchor="middle" fill="#cfc7ff" font-family="'Segoe UI', 'Microsoft YaHei', sans-serif" font-size="34" letter-spacing="3">CREW-044</text>
   <text x="240" y="422" text-anchor="middle" fill="#7b849c" font-family="'Segoe UI', 'Microsoft YaHei', sans-serif" font-size="16" letter-spacing="2">待出图</text>
 </svg>
