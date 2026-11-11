@@ -222,6 +222,18 @@
     return state;
   }
 
+  // 判定压力：全槽位取最大值（与磨损无关），供年度序列采样
+  function judgePressureOf(state) {
+    var slots = state.judge && state.judge.slots;
+    if (!slots) return 0;
+    var max = 0;
+    Object.keys(slots).forEach(function (k) {
+      var p = slots[k] && slots[k].pressure;
+      if (typeof p === "number" && isFinite(p) && p > max) max = p;
+    });
+    return Math.round(max * 1000) / 1000;
+  }
+
   function pushSeries(state, cfg) {
     var t = totals(state, cfg);
     var groups = {};
@@ -250,6 +262,7 @@
       clonePods: state.infra.clonePods,
       order: state.order,
       wear: state.wear,
+      judgePressure: judgePressureOf(state),
       phase: state.phase,
       ration: state.last.rationActual,
       energy: state.last.energy,
