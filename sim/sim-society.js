@@ -1,8 +1,9 @@
 /* =========================================================================
    玄枢号 · 社会层内核（权力 / 服从 / 哗变 / 感染）
    -------------------------------------------------------------------------
-   与 sim-core.js 共用同一份 state；由 sim-core 在每月结算时调用 step()。
-   设计底线：不用随机数。所有触发都是「属性 + 阈值 + 连续月数」。
+   与 sim-core.js 共用同一份 state；由 sim-core 在每周结算时调用 step()。
+   设计底线：不用随机数。所有触发都是「属性 + 阈值 + 连续周数」。
+   时间单位：周（1 年 = 52 周，1 季 = 13 周）；原「连续 N 个月」已换算为整数周。
    标注：公式系数集中在 sim-config.js 的 society 块。
    ========================================================================= */
 (function (global) {
@@ -11,6 +12,10 @@
   function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
   function num(v) { return isFinite(v) ? v : 0; }
 
+  // 效果衰减：原「每 tick ×0.90」是月步长的乘性衰减，换成周步长要开 (12/52) 次方
+  var SHIFT_DECAY = global.XuanShuTime
+    ? global.XuanShuTime.powWeek(0.90) : Math.pow(0.90, 12 / 52);
+
   var LEVEL_LABEL = [
     "平稳", "L1 个别不服从", "L2 小范围哗变",
     "L3 多部门串联", "L4 全船暴动", "L5 结构重构"
@@ -18,17 +23,18 @@
 
   function pushEvent(state, cfg, type, level, title, text, basis) {
     state.events.push({
-      t: (state.loop - 1) * cfg.time.loopYears + state.months / 12,
+      t: (state.loop - 1) * cfg.time.loopYears + state.weeks / cfg.time.weeksPerYear,
       loop: state.loop,
-      year: Math.floor(state.months / 12),
-      month: (state.months % 12) + 1,
+      year: Math.floor(state.weeks / cfg.time.weeksPerYear),
+      week: (state.weeks % cfg.time.weeksPerYear) + 1,
+      quarter: Math.floor((state.weeks % cfg.time.weeksPerYear) / cfg.time.weeksPerQuarter) + 1,
       type: type,
       level: level,
       title: title,
       text: text,
       basis: basis || ""
     });
-    if (state.events.length > 600) state.events.shift();
+    if (state.events.length > cfg.time.eventCap) state.events.shift();
   }
 
   /* ---------------- 队列模板 ---------------- */
@@ -85,8 +91,8 @@
       q.n = q.w;
       q.O = 50; q.W = 30; q.D = 0; q.span = 0; q.spanCap = 0;
       q.S = 0.3; q.Sstruct = 0; q.C = 4; q.thrallFrac = 0;
-      q.stage = 0; q.highMonths = 0; q.breakMonths = 0; q.broken = false;
-      q.p = 0; q.mixedMonths = 0; q.wPerm = 0; q.oPerm = 0;
+      q.stage = 0; q.highWeeks = 0; q.breakWeeks = 0; q.broken = false;
+      q.p = 0; q.mixedWeeks = 0; q.wPerm = 0; q.oPerm = 0;
       q.dPenalty = 0; q.network = 1; q.logged = {}; q.shock = 0; q.mig = 0;
     });
     return qs;
@@ -111,9 +117,9 @@
         lastExpose: 0,
         losses: 0
       },
-      effects: { oShift: 0, wShift: 0, prodMul: 1, prodMonths: 0,
-                 isoBoost: 0, isoMonths: 0, infSpread: 1, infMonths: 0,
-                 popLoss: 0, popMonths: 0, laborMul: 1 },
+      effects: { oShift: 0, wShift: 0, prodMul: 1, prodWeeks: 0,
+                 isoBoost: 0, isoWeeks: 0, infSpread: 1, infWeeks: 0,
+                 popLoss: 0, popWeeks: 0, laborMul: 1 },
       actions: { cd: {}, uses: {} },
       exec: [],
       energyHist: [],
@@ -161,8 +167,8 @@
   }
 
   function execPct(state) {
-    var m = state.months, sum = 0;
-    state.society.exec = state.society.exec.filter(function (e) { return m - e.m < 12; });
+    var m = state.weeks, sum = 0;
+    state.society.exec = state.society.exec.filter(function (e) { return m - e.m < 52; });
     state.society.exec.forEach(function (e) { sum += e.frac; });
     return sum * 100;
   }
@@ -242,8 +248,8 @@
       q.O = clamp(O, 0, 100);
       q.W = clamp(W, 0, 100);
 
-      // 手动哗变余震：连续若干个月把该队列压在低服从 / 高自由意志区间，
-      // 否则下个月属性重算会把触发值抹掉，事件只闪一下就消失。
+      // 手动哗变余震：连续若干周把该队列压在低服从 / 高自由意志区间，
+      // 否则下一周属性重算会把触发值抹掉，事件只闪一下就消失。
       if (q.shock > 0) {
         q.O = Math.min(q.O, cfg.society.trigger.mutinyO);
         q.W = Math.max(q.W, cfg.society.trigger.mutinyW);
@@ -272,10 +278,10 @@
         0, 1
       );
 
-      // 断裂：连续 2 个月越线；断裂节点成为失序起点
-      if (q.S >= cfg.society.stress.breakAt) q.breakMonths++;
-      else q.breakMonths = 0;
-      if (q.breakMonths >= cfg.society.stress.breakMonths && !q.broken) {
+      // 断裂：连续 9 周（原 2 个月）越线；断裂节点成为失序起点
+      if (q.S >= cfg.society.stress.breakAt) q.breakWeeks++;
+      else q.breakWeeks = 0;
+      if (q.breakWeeks >= cfg.society.stress.breakWeeks && !q.broken) {
         q.broken = true;
         soc.queues.forEach(function (o) {
           if (o !== q && o.dept === q.dept) o.S = clamp(o.S + cfg.society.stress.spread * q.S, 0, 1);
@@ -283,10 +289,10 @@
         pushEvent(state, cfg, "structure", "结构", "权力节点断裂",
           "「" + q.dept + " · " + q.name + "」越过应力线，成为该部门失序起点",
           "S=" + q.S.toFixed(2) + " ≥ " + cfg.society.stress.breakAt +
-          "，连续 " + cfg.society.stress.breakMonths + " 个月；相邻节点 S +0.20×S");
+          "，连续 " + cfg.society.stress.breakWeeks + " 周；相邻节点 S +0.20×S");
       }
       if (q.broken && q.S < cfg.society.stress.breakAt - 0.12) {
-        q.broken = false; q.breakMonths = 0;
+        q.broken = false; q.breakWeeks = 0;
       }
 
       // 教育迁移（慢性通道）：p 走满一格 = 该队列 1% 的人完成迁移，
@@ -304,7 +310,7 @@
             "，服从度 −" + (q.mig * cfg.society.eduMigration.oLoss).toFixed(1));
         }
       }
-      q.exp = Math.min(10, q.exp + 0.005);
+      q.exp = Math.min(10, q.exp + cfg.society.will.expPerWeek);
 
       // 汇总
       totN += q.n;
@@ -339,20 +345,20 @@
 
       if (D.I >= cfg.society.ladder.l2At && D.over >= cfg.society.ladder.l2QueueShare) {
         D.up++; D.down = 0;
-        if (D.up >= cfg.society.ladder.l2Months && D.level < 2) {
-          D.level = 2; D.since = state.months;
+        if (D.up >= cfg.society.ladder.l2Weeks && D.level < 2) {
+          D.level = 2; D.since = state.weeks;
           pushEvent(state, cfg, "mutiny", "哗变 L2", "小范围哗变 · " + d,
-            "「" + d + "」部门进入 L2：该部门产出 −35%，全船按覆盖度折算，秩序 −0.05/月",
+            "「" + d + "」部门进入 L2：该部门产出 −35%，全船按覆盖度折算，秩序平衡点下移",
             "部门失序指数 I=" + D.I.toFixed(2) + " ≥ " + cfg.society.ladder.l2At +
-            "，越线队列占 " + Math.round(D.over * 100) + "%，连续 " + cfg.society.ladder.l2Months + " 个月");
+            "，越线队列占 " + Math.round(D.over * 100) + "%，连续 " + cfg.society.ladder.l2Weeks + " 周");
         }
       } else if (D.I < cfg.society.ladder.l2Exit) {
         D.down++; D.up = 0;
-        if (D.down >= cfg.society.ladder.l2ExitMonths && D.level >= 2) {
+        if (D.down >= cfg.society.ladder.l2ExitWeeks && D.level >= 2) {
           D.level = 0; D.since = -1;
           pushEvent(state, cfg, "mutiny", "事件", "部门恢复 · " + d,
             "「" + d + "」恢复正常作业", "I=" + D.I.toFixed(2) + " < " + cfg.society.ladder.l2Exit +
-            "，连续 " + cfg.society.ladder.l2ExitMonths + " 个月");
+            "，连续 " + cfg.society.ladder.l2ExitWeeks + " 周");
         }
       } else {
         D.up = 0; D.down = 0;
@@ -398,15 +404,15 @@
     else soc.mutiny.l5 = 0;
 
     var level = 0;
-    if (soc.mutiny.holdUntil > state.months) level = 5;
-    else if (soc.mutiny.l5 >= L.l5Months) level = 5;
-    else if (soc.mutiny.l4 >= L.l4Months) level = 4;
-    else if (soc.mutiny.l3 >= L.l3Months) level = 3;
+    if (soc.mutiny.holdUntil > state.weeks) level = 5;
+    else if (soc.mutiny.l5 >= L.l5Weeks) level = 5;
+    else if (soc.mutiny.l4 >= L.l4Weeks) level = 4;
+    else if (soc.mutiny.l3 >= L.l3Weeks) level = 3;
     else if (deptsAt2.length >= 1) level = 2;
-    else if (soc.mutiny.l1 >= L.l1Months) level = 1;
+    else if (soc.mutiny.l1 >= L.l1Weeks) level = 1;
 
     if (level > soc.mutiny.level) {
-      soc.mutiny.since = state.months;
+      soc.mutiny.since = state.weeks;
       var dname = deptsAt2.length ? deptsAt2.join(" / ") : (soc.queues.filter(function (q) { return q.S >= L.l1At; })[0] || {}).dept || "—";
       soc.mutiny.dept = dname;
       pushEvent(state, cfg, "mutiny", "哗变 L" + level, "哗变升级 · " + LEVEL_LABEL[level],
@@ -423,21 +429,21 @@
     // L5：L1 被杀 / 结构重构
     if (level >= 5 && !soc.mutiny.l1dead) {
       soc.mutiny.l1dead = true;
-      soc.mutiny.holdUntil = state.months + L.l5Hold;
+      soc.mutiny.holdUntil = state.weeks + L.l5HoldWeeks;
       var nl1 = soc.queues.filter(function (q) { return q.layer === "L1"; })[0];
       if (nl1) { nl1.O = 60; nl1.W = 40; nl1.D = 35; nl1.age = 60; nl1.name = "新任最高贵族"; }
       state.order = clamp(state.order - 0.20, 0.05, 1);
       pushEvent(state, cfg, "mutiny", "哗变 L5", "最高贵族被杀 · 权力结构重构",
-        "新任 L1 即位，统御力从 35 起；30 个月内无法恢复原有秩序",
-        "L4 覆盖 ≥50% 且 D_L1_eff<30 连续 3 个月，或 L1 已死亡");
+        "新任 L1 即位，统御力从 35 起；" + L.l5HoldWeeks + " 周内无法恢复原有秩序",
+        "L4 覆盖 ≥50% 且 D_L1_eff<30 连续 " + L.l5Weeks + " 周，或 L1 已死亡");
     }
-    if (soc.mutiny.l1dead && state.months > soc.mutiny.holdUntil + L.l5Hold * 2) {
+    if (soc.mutiny.l1dead && state.weeks > soc.mutiny.holdUntil + L.l5HoldWeeks * 2) {
       soc.mutiny.l1dead = false;
       soc.mutiny.l5 = 0; soc.mutiny.level = 1;
     }
 
     // 哗变死亡
-    var dr = L.deathPerMonth[level] || 0;
+    var dr = L.deathPerWeek[level] || 0;
     if (dr > 0) {
       cfg.population.groups.forEach(function (g) {
         var s = state.groups[g.id];
@@ -453,7 +459,7 @@
 
     // 人员补员：从未定抽调，保持总人口不变
     if (g.strength < G.initStrength && state.order > 0.4) {
-      var flow = Math.min(G.recoverStrength, G.initStrength - g.strength,
+      var flow = Math.min(G.recoverStrengthPerWeek, G.initStrength - g.strength,
         state.groups.undecided.awake * 0.002);
       g.strength += flow;
       state.groups.undecided.awake = Math.max(0, state.groups.undecided.awake - flow);
@@ -461,7 +467,7 @@
     g.durability = clamp(g.durability + G.recoverDur, 0, 100);
 
     // 机器人维修：优先吃警备金属库存，其次从主金属库存调拨
-    var needM = G.robotMetalTpy / 12;
+    var needM = G.robotMetalTpy / cfg.time.weeksPerYear;
     var takeG = Math.min(g.metal, needM);
     g.metal -= takeG;
     var rest = needM - takeG;
@@ -471,12 +477,12 @@
       rest -= takeS;
     }
     if (rest > 0.1) {
-      g.durability = clamp(g.durability - 1.5, 0, 100);
+      g.durability = clamp(g.durability - G.lackDurabilityPerWeek, 0, 100);
       if (!g.loggedMetal) {
         g.loggedMetal = true;
         pushEvent(state, cfg, "garrison", "警备", "警备维修缺金属",
           "二型机器人降功率运行，警备耐久下降",
-          "每月需 " + needM.toFixed(1) + " t，缺口 " + rest.toFixed(1) + " t");
+          "每周需 " + needM.toFixed(2) + " t，缺口 " + rest.toFixed(2) + " t");
       }
     } else {
       g.loggedMetal = false;
@@ -497,8 +503,8 @@
 
     // 潜伏机暴露：感染面扩大时，伪装被识破的概率上升（按固定周期检查，不用随机数）
     if (g.infiltrators > 0 && soc.infection.share > 0.15 &&
-        state.months - g.lastExpose >= G.exposeMonths) {
-      g.lastExpose = state.months;
+        state.weeks - g.lastExpose >= G.exposeWeeks) {
+      g.lastExpose = state.weeks;
       g.infiltrators--;
       g.losses++;
       state.order = clamp(state.order - 0.04, 0.05, 1);
@@ -506,7 +512,7 @@
       pushEvent(state, cfg, "garrison", "警备", "潜伏机暴露",
         "一台伪装单元被人群识破，审讯威慑下降",
         "感染面 " + Math.round(soc.infection.share * 100) + "% > 15%，检查周期 " +
-        G.exposeMonths + " 个月；剩余潜伏机 " + g.infiltrators + " 台");
+        G.exposeWeeks + " 周；剩余潜伏机 " + g.infiltrators + " 台");
     }
   }
 
@@ -520,7 +526,7 @@
       0.35 * clamp(garrisonAvail(state, cfg), 0, 1) +
       0.10 * clamp(soc.garrison.infiltrators / 6, 0, 1) + soc.effects.isoBoost, 0, 1);
     soc.env.iso = iso;
-    var spread = soc.effects.infMonths > 0 ? soc.effects.infSpread : 1;
+    var spread = soc.effects.infWeeks > 0 ? soc.effects.infSpread : 1;
 
     soc.queues.forEach(function (q) {
       var ageTerm = F.ageK * Math.min(Math.max(0, q.age - 10), F.ageCap);
@@ -542,30 +548,30 @@
       }
       q.stage = stage;
 
-      if (q.C >= F.thrall) q.highMonths++;
-      else q.highMonths = 0;
+      if (q.C >= F.thrall) q.highWeeks++;
+      else q.highWeeks = 0;
 
-      var need = F.thrallMonths[q.layer] || 12;
-      if (q.highMonths >= need) {
+      var need = F.thrallWeeks[q.layer] || 52;
+      if (q.highWeeks >= need) {
         var rate = (q.layer === "L1" || q.layer === "L2") ? F.convertRateNoble : F.convertRate;
         q.thrallFrac = clamp(q.thrallFrac + rate * (1 - q.thrallFrac), 0, 0.95);
         if (!q.logged.thrall) {
           q.logged.thrall = true;
           pushEvent(state, cfg, "infection", "眷属", "出现眷属 · " + q.name,
             "「" + q.dept + "」报告人员外观异常但行为顺从，已单列登记",
-            "感染度 ≥" + F.thrall + " 连续 " + need + " 个月；转化率 " + (rate * 100).toFixed(2) + "%/月");
+            "感染度 ≥" + F.thrall + " 连续 " + need + " 周；转化率 " + (rate * 100).toFixed(3) + "%/周");
         }
       }
     });
 
-    // 召唤判定：12 名 / 均值 55 / 峰值 90，连续 6 个月
+    // 召唤判定：12 名 / 均值 55 / 峰值 90，连续 26 周（原 6 个月）
     var S = cfg.society.summon;
     if (soc.infection.thralls >= S.n &&
         soc.infection.meanC >= S.meanC &&
         soc.infection.maxC >= S.maxC) soc.infection.summonSince++;
     else soc.infection.summonSince = 0;
 
-    if (soc.infection.summonSince >= S.months && state.months >= soc.infection.lockUntil) {
+    if (soc.infection.summonSince >= S.weeks && state.weeks >= soc.infection.lockUntil) {
       summon(state, cfg);
     }
   }
@@ -589,12 +595,12 @@
 
     state.order = clamp(state.order - S.orderLoss, 0.05, 1);
     soc.effects.prodMul = Math.min(soc.effects.prodMul, eff);
-    soc.effects.prodMonths = S.prodMonths;
-    soc.effects.popLoss = S.popLoss / S.popMonths;
-    soc.effects.popMonths = S.popMonths;
+    soc.effects.prodWeeks = S.prodWeeks;
+    soc.effects.popLoss = S.popLoss / S.popWeeks;
+    soc.effects.popWeeks = S.popWeeks;
     soc.effects.laborMul = laborMul;
     soc.infection.perm += S.permBase;
-    soc.infection.lockUntil = state.months + S.lockYears * 12;
+    soc.infection.lockUntil = state.weeks + S.lockYears * cfg.time.weeksPerYear;
     soc.infection.summonSince = 0;
     soc.infection.bonus = (soc.infection.bonus || 0) + S.newThralls + S.newThrallK * soc.infection.thralls;
 
@@ -604,10 +610,10 @@
     });
 
     pushEvent(state, cfg, "summon", "召唤", "全船级事件 · 低语汇聚",
-      "多处同时出现定向吟诵，人口与产出在随后的月份持续流失；措辞已克制，细节封存",
+      "多处同时出现定向吟诵，人口与产出在随后的周里持续流失；措辞已克制，细节封存",
       "眷属 " + Math.round(soc.infection.thralls) + " 名（阈值 " + S.n + "）· 均值 " +
       soc.infection.meanC.toFixed(0) + "（阈值 " + S.meanC + "）· 峰值 " +
-      soc.infection.maxC.toFixed(0) + "（阈值 " + S.maxC + "）连续 " + S.months + " 个月；" +
+      soc.infection.maxC.toFixed(0) + "（阈值 " + S.maxC + "）连续 " + S.weeks + " 周；" +
       "机械化率 " + Math.round(mech * 100) + "%，产能系数 " + eff.toFixed(2));
   }
 
@@ -617,7 +623,8 @@
     var soc = state.society, M = cfg.society.machine;
     var energyCV = 0;
     var h = soc.energyHist;
-    if (h.length >= 6) {
+    // 能量波动窗口：原 12 个月，现在要满 52 周才算（窗口太短会被周的抖动放大）
+    if (h.length >= M.energyHistWeeks) {
       var mean = h.reduce(function (a, b) { return a + b; }, 0) / h.length;
       var varr = h.reduce(function (a, b) { return a + (b - mean) * (b - mean); }, 0) / h.length;
       energyCV = mean > 0 ? Math.sqrt(varr) / mean : 0;
@@ -639,7 +646,7 @@
     var armed = A >= M.at && (soc.meanO || 0) < M.oLow;
     soc.machine.counter = armed ? soc.machine.counter + 1 : 0;
 
-    if (soc.machine.counter >= M.months && soc.machine.depts.length < maxChain) {
+    if (soc.machine.counter >= M.weeks && soc.machine.depts.length < maxChain) {
       var take = null;
       if (soc.machine.depts.length === 0) take = M.firstDept;
       else if (soc.machine.depts.length === 1 && A >= M.secondAt &&
@@ -649,7 +656,7 @@
         soc.machine.depts.push(take);
         soc.machine.counter = 0;
         pushEvent(state, cfg, "machine", "机器哗变", "机器夺取「" + take + "」",
-          "该部门停摆 3 个月，之后以 60% 产出运行并忽略人类指令",
+          "该部门停摆 " + M.procWeeks + " 周，之后以 60% 产出运行并忽略人类指令",
           "自主性 A=" + A.toFixed(2) + " ≥ " + (soc.machine.depts.length === 1 ? M.at :
             (soc.machine.depts.length === 2 ? M.secondAt : M.thirdAt)) +
           "，人类平均服从度 " + (soc.meanO || 0).toFixed(0) + " < " + M.oLow +
@@ -665,7 +672,7 @@
     if (!a) return { ok: false, msg: "未知手段" };
     var soc = state.society;
     var cd = soc.actions.cd[name] || 0;
-    if (state.months < cd) return { ok: false, msg: a.label + "冷却中，还需 " + (cd - state.months) + " 个月" };
+    if (state.weeks < cd) return { ok: false, msg: a.label + "冷却中，还需 " + (cd - state.weeks) + " 周" };
     if (a.needL1 && soc.mutiny.l1dead) return { ok: false, msg: "L1 已死亡，仪式失效" };
 
     var used = soc.actions.uses[name] || 0;
@@ -677,22 +684,24 @@
       if (g.durability < 20) return { ok: false, msg: "警备耐久低于 20，无法组织镇压" };
       var avail = garrisonAvail(state, cfg);
       var eff = a.o * mul * clamp(G.effectMin + (1 - G.effectMin) * clamp(avail, 0, 1), G.effectMin, 1.15);
-      g.durability = clamp(g.durability - a.dur * mul, 0, 100);
+      g.durability = clamp(g.durability - a.durCost * mul, 0, 100);
       g.metal = Math.max(0, g.metal - a.metal * mul);
       g.suppressorWear += a.wear * mul;
       soc.effects.oShift += eff;
-      soc.effects.wShift += a.w * a.wMonths;
+      // 自由意志是「持续 26 周的抬升」，剂量按 26 周 = 6 个月折算，
+      // 不能直接乘 26：那会把台阶抬高 4.33 倍（旧版乘的是 6 个月）。
+      soc.effects.wShift += a.w * a.wWeeks * cfg.time.monthsPerYear / cfg.time.weeksPerYear;
       // 真实死亡：冲突中的连带伤亡（不是警备编制减员）
       cfg.population.groups.forEach(function (gr) {
         var s = state.groups[gr.id];
         s.awake = Math.max(0, s.awake - s.awake * a.death * mul);
       });
       state.order = clamp(state.order + a.order, 0.05, 1);
-      extra = "警备耐久 −" + Math.round(a.dur * mul) + "、金属 −" + Math.round(a.metal * mul) +
+      extra = "警备耐久 −" + Math.round(a.durCost * mul) + "、金属 −" + Math.round(a.metal * mul) +
         " t，服从 +" + eff.toFixed(0) + "（警备可用度 " + Math.round(avail * 100) + "%）";
     } else if (name === "concede") {
-      var demandM = (state.last.consumption || 0) / 12;
-      var cost = demandM * a.foodShare * a.foodMonths;
+      var demandW = (state.last.consumption || 0) / cfg.time.weeksPerYear;
+      var cost = demandW * a.foodShare * a.foodWeeks;
       state.stocks.food = Math.max(0, state.stocks.food - cost);
       soc.effects.oShift += a.o * mul;
       soc.effects.wShift += a.w * mul;
@@ -708,7 +717,7 @@
       var worst = soc.queues.filter(function (q) { return q.layer === "L2" && q.dept === soc.mutiny.dept; })[0] ||
         soc.queues.filter(function (q) { return q.layer === "L2"; })[0];
       if (worst) { worst.dPenalty += 5; worst.wPerm += a.w * mul; }
-      soc.exec.push({ m: state.months, frac: a.death * mul });
+      soc.exec.push({ m: state.weeks, frac: a.death * mul });
       extra = "处决约 " + Math.round((state.total || 0) * a.death * mul) + " 人，涉事中层统御 −5";
     } else if (name === "replace") {
       var l2 = soc.queues.filter(function (q) { return q.layer === "L2" && q.dept === soc.mutiny.dept; })[0];
@@ -722,26 +731,26 @@
     } else if (name === "interrogate") {
       if (soc.garrison.infiltrators <= 0) return { ok: false, msg: "没有可用的潜伏机" };
       soc.garrison.metal = Math.max(0, soc.garrison.metal - a.metal * mul);
-      soc.garrison.durability = clamp(soc.garrison.durability - a.dur * mul, 0, 100);
+      soc.garrison.durability = clamp(soc.garrison.durability - a.durCost * mul, 0, 100);
       soc.effects.oShift += a.o * mul;
       soc.effects.wShift += a.w * mul;
-      soc.effects.isoBoost = Math.max(soc.effects.isoBoost, 0.10);
-      soc.effects.isoMonths = Math.max(soc.effects.isoMonths, 3);
-      extra = "潜伏机审讯：服从 +" + (a.o * mul).toFixed(0) + "，隔离 +0.10（3 个月），金属 −" +
-        Math.round(a.metal * mul) + " t";
+      soc.effects.isoBoost = Math.max(soc.effects.isoBoost, a.iso);
+      soc.effects.isoWeeks = Math.max(soc.effects.isoWeeks, a.isoWeeks);
+      extra = "潜伏机审讯：服从 +" + (a.o * mul).toFixed(0) + "，隔离 +" + a.iso + "（" +
+        a.isoWeeks + " 周），金属 −" + Math.round(a.metal * mul) + " t";
     } else if (name === "lockdown") {
-      soc.garrison.durability = clamp(soc.garrison.durability - a.dur * mul, 0, 100);
+      soc.garrison.durability = clamp(soc.garrison.durability - a.durCost * mul, 0, 100);
       soc.garrison.metal = Math.max(0, soc.garrison.metal - a.metal * mul);
       soc.effects.prodMul = Math.min(soc.effects.prodMul, a.prodMul);
-      soc.effects.prodMonths = Math.max(soc.effects.prodMonths, a.prodMonths);
+      soc.effects.prodWeeks = Math.max(soc.effects.prodWeeks, a.prodWeeks);
       soc.effects.isoBoost = Math.max(soc.effects.isoBoost, a.iso);
-      soc.effects.isoMonths = a.isoMonths;
+      soc.effects.isoWeeks = a.isoWeeks;
       soc.effects.infSpread = a.infSpread;
-      soc.effects.infMonths = a.isoMonths;
+      soc.effects.infWeeks = a.isoWeeks;
       extra = "产出 ×" + a.prodMul + "，隔离 +" + a.iso + "，感染扩散 ×" + a.infSpread +
-        "，警备耐久 −" + Math.round(a.dur * mul);
+        "，警备耐久 −" + Math.round(a.durCost * mul);
     } else if (name === "ritual") {
-      var costR = (state.last.consumption || 0) / 12 * a.foodShare;
+      var costR = (state.last.consumption || 0) / cfg.time.weeksPerYear * a.foodShare;
       state.stocks.food = Math.max(0, state.stocks.food - costR);
       soc.effects.oShift += a.o * mul;
       soc.effects.wShift += a.w * mul;
@@ -749,11 +758,11 @@
     }
 
     soc.actions.uses[name] = used + 1;
-    soc.actions.cd[name] = state.months + a.cd;
+    soc.actions.cd[name] = state.weeks + a.cdWeeks;
 
     pushEvent(state, cfg, "action", "处置", a.label,
       extra + "；第 " + (used + 1) + " 次效果 ×" + mul.toFixed(2),
-      "冷却 " + a.cd + " 个月；递减序列 " + a.uses.join(" / ") + "；" + (a.note || ""));
+      "冷却 " + a.cdWeeks + " 周；递减序列 " + a.uses.join(" / ") + "；" + (a.note || ""));
     return { ok: true, msg: a.label + "：" + extra };
   }
 
@@ -776,16 +785,16 @@
       x.W = Math.max(x.W, T.mutinyW);
       x.S = Math.max(x.S, T.mutinyS);
       x.broken = true;
-      x.breakMonths = 3;
-      x.shock = T.mutinyMonths;
+      x.breakWeeks = 3;
+      x.shock = T.mutinyWeeks;
     });
 
     var D = soc.depts[target];
     D.I = Math.max(D.I, cfg.society.ladder.l2At + 0.03);
     D.over = Math.max(D.over, 0.2);
-    D.up = cfg.society.ladder.l2Months;
+    D.up = cfg.society.ladder.l2Weeks;
     D.level = 2;
-    D.since = state.months;
+    D.since = state.weeks;
     soc.mutiny.level = Math.max(2, soc.mutiny.level);
     soc.mutiny.dept = target;
 
@@ -793,7 +802,7 @@
       "「" + target + "」当班人员集体停工，产出下降；事件流会记录后续升级或平息",
       "将「" + target + "」的 " + all.length + " 个队列（" + q.name + " 等）压到 O≤" +
       T.mutinyO + " / W≥" + T.mutinyW + " / S≥" + T.mutinyS +
-      "，持续 " + T.mutinyMonths + " 个月；部门 I=" + D.I.toFixed(2) + "，满足 L2 进入条件");
+      "，持续 " + T.mutinyWeeks + " 周；部门 I=" + D.I.toFixed(2) + "，满足 L2 进入条件");
     return { ok: true, msg: "已于「" + target + "」触发 L2 哗变（" + all.length + " 个队列）" };
   }
 
@@ -825,43 +834,43 @@
       q.mut = Math.max(q.mut, 78);
       q.stage = q.C >= F.thrall ? 3 : (q.C >= F.deform ? 2 : 1);
       if (q.C >= F.thrall) {
-        q.highMonths = Math.max(q.highMonths, (F.thrallMonths[q.layer] || 12) - 1);
+        q.highWeeks = Math.max(q.highWeeks, (F.thrallWeeks[q.layer] || 52) - 1);
         q.thrallFrac = Math.max(q.thrallFrac, 0.010);
       }
       hit.push(q.name + " " + q.C.toFixed(0));
     });
 
     pushEvent(state, cfg, "infection", "感染", "手动触发 · 感染扩散（" + main.name + "）",
-      "同舱与相邻舱段先后出现幻听、体表畸变，隔离程序启动；转化会逐月累积",
+      "同舱与相邻舱段先后出现幻听、体表畸变，隔离程序启动；转化会逐周累积",
       "抬升队列：" + hit.join(" / ") + "；峰值 " + T.infectC +
-      " ≥ 召唤峰值阈值 " + F.thrall + "，连续 " + (F.thrallMonths[main.layer] || 12) + " 个月转为眷属");
+      " ≥ 召唤峰值阈值 " + F.thrall + "，连续 " + (F.thrallWeeks[main.layer] || 52) + " 周转为眷属");
     return { ok: true, msg: "感染已扩散至 " + hit.length + " 个队列（" + hit.join("、") + "）" };
   }
 
-  /* ---------------- 月度入口 ---------------- */
+  /* ---------------- 周结算入口 ---------------- */
 
   function step(state, cfg, env) {
     if (!state.society || !cfg.society || cfg.society.enabled === false) return;
     var soc = state.society;
 
     soc.energyHist.push(env.energy);
-    if (soc.energyHist.length > 12) soc.energyHist.shift();
+    if (soc.energyHist.length > cfg.society.machine.energyHistWeeks) soc.energyHist.shift();
 
     // 效果倒计时
-    if (soc.effects.prodMonths > 0) {
-      soc.effects.prodMonths--;
-      if (soc.effects.prodMonths === 0) soc.effects.prodMul = 1;
+    if (soc.effects.prodWeeks > 0) {
+      soc.effects.prodWeeks--;
+      if (soc.effects.prodWeeks === 0) soc.effects.prodMul = 1;
     }
-    if (soc.effects.isoMonths > 0) {
-      soc.effects.isoMonths--;
-      if (soc.effects.isoMonths === 0) { soc.effects.isoBoost = 0; soc.effects.infSpread = 1; }
+    if (soc.effects.isoWeeks > 0) {
+      soc.effects.isoWeeks--;
+      if (soc.effects.isoWeeks === 0) { soc.effects.isoBoost = 0; soc.effects.infSpread = 1; }
     }
-    if (soc.effects.popMonths > 0) {
+    if (soc.effects.popWeeks > 0) {
       cfg.population.groups.forEach(function (g) {
         var s = state.groups[g.id];
         s.awake = Math.max(0, s.awake - s.awake * soc.effects.popLoss);
       });
-      soc.effects.popMonths--;
+      soc.effects.popWeeks--;
     }
 
     updateQueues(state, cfg, env);
@@ -871,8 +880,10 @@
     updateInfection(state, cfg, env);
     updateMachine(state, cfg, env);
 
-    soc.effects.oShift *= 0.90;
-    soc.effects.wShift *= 0.90;
+    // 效果衰减：原月步长是 ×0.90/tick，周步长用 0.90^(12/52)=0.976/tick，
+    // 半衰期仍是约 6.6 个月，效果的积分面积不变。
+    soc.effects.oShift *= SHIFT_DECAY;
+    soc.effects.wShift *= SHIFT_DECAY;
     if (Math.abs(soc.effects.oShift) < 0.05) soc.effects.oShift = 0;
     if (Math.abs(soc.effects.wShift) < 0.05) soc.effects.wShift = 0;
   }
@@ -884,6 +895,7 @@
     if (!s) return null;
     var ga = garrisonAvail(state, cfg), g = s.garrison;
     return {
+      weekNow: state.weeks,
       meanO: s.meanO || 0,
       meanW: s.meanW || 0,
       kIndex: s.kIndex || 0,
@@ -904,7 +916,7 @@
         level: s.mutiny.level, label: LEVEL_LABEL[s.mutiny.level] || "—",
         dept: s.mutiny.dept, coverage: s.mutiny.coverage,
         since: s.mutiny.since, l1dead: s.mutiny.l1dead,
-        hold: Math.max(0, (s.mutiny.holdUntil || 0) - state.months),
+        hold: Math.max(0, (s.mutiny.holdUntil || 0) - state.weeks),
         dEff: s.mutiny.dEff || 0
       },
       infection: {
@@ -912,7 +924,7 @@
         thralls: s.infection.thralls, share: s.infection.share,
         perm: s.infection.perm,
         summonSince: s.infection.summonSince,
-        lock: Math.max(0, (s.infection.lockUntil || 0) - state.months)
+        lock: Math.max(0, (s.infection.lockUntil || 0) - state.weeks)
       },
       machine: {
         level: s.machine.level, depts: s.machine.depts.slice(),
@@ -932,9 +944,9 @@
       },
       effects: {
         oShift: s.effects.oShift, wShift: s.effects.wShift,
-        prodMul: s.effects.prodMul, prodMonths: s.effects.prodMonths,
-        isoBoost: s.effects.isoBoost, isoMonths: s.effects.isoMonths,
-        popMonths: s.effects.popMonths
+        prodMul: s.effects.prodMul, prodWeeks: s.effects.prodWeeks,
+        isoBoost: s.effects.isoBoost, isoWeeks: s.effects.isoWeeks,
+        popWeeks: s.effects.popWeeks
       },
       actions: { cd: Object.assign({}, s.actions.cd), uses: Object.assign({}, s.actions.uses) },
       env: { c: s.env.c, iso: s.env.iso, garrison: ga, mech: mechanization(state, cfg) },

@@ -1,12 +1,17 @@
 /* =========================================================================
-   玄枢号 · 引擎门面（sim-engine.js）
+   玄枢号 · 引擎门面（sim-engine.js）v2
    -------------------------------------------------------------------------
    这是计算内核对外的唯一入口。它不碰 DOM、不碰样式、不读页面。
    内核仍是三个文件：
-     sim-config.js    参数唯一来源
+     sim-config.js    参数唯一来源（v0.2 起全部时间系数以「周」为单位）
      sim-society.js   社会层（队列、权力树、五级哗变、感染、警备、机器）
      sim-core.js      舰务层（人口、粮食、水、金属、能源、维修、秩序）
    本文件只做「参数 → 实例 → 快照 → 操作 → 订阅」的收口，不改任何数值。
+
+   v2 变更（相对 v1.0.0）：
+     内部最小时间步从「1 月」改为「1 周」；1 年 = 52 周，1 季 = 13 周。
+     step() 的入参从「月数」改为「步数 + 单位」，默认 1 季（13 周）。
+     大跨度（1 年 / 10 年）在内部按周循环，阈值与连续周数一次都不会跳过。
 
    加载顺序（浏览器）：
      sim-config.js → sim-society.js → sim-core.js → sim-engine.js
@@ -16,7 +21,26 @@
 (function (global) {
   "use strict";
 
-  var VERSION = "1.0.0";
+  var VERSION = "2.0.0";
+
+  // 一周为 1：单位 → 周数。month 不是整数周，按 52/12 折算后再取整。
+  var UNITS = {
+    week: 1,
+    month: 52 / 12,     // 4.3333
+    quarter: 13,
+    year: 52,
+    decade: 520
+  };
+  var UNIT_LABEL = {
+    week: "周", month: "月", quarter: "季", year: "年", decade: "10 年"
+  };
+  var UNIT_ALIAS = {
+    "周": "week", "星期": "week", "week": "week", "weeks": "week", "w": "week",
+    "月": "month", "month": "month", "months": "month", "m": "month",
+    "季": "quarter", "季度": "quarter", "quarter": "quarter", "quarters": "quarter", "q": "quarter",
+    "年": "year", "year": "year", "years": "year", "y": "year",
+    "十年": "decade", "10年": "decade", "decade": "decade", "decades": "decade"
+  };
 
   var ACTION_ALIAS = {
     "镇压": "suppress",
@@ -63,6 +87,11 @@
     }
   }
 
+  function normalizeUnit(unit) {
+    var u = UNIT_ALIAS[String(unit == null ? "" : unit).toLowerCase()] || UNIT_ALIAS[String(unit == null ? "" : unit)];
+    return u || null;
+  }
+
   /**
    * 创建一台引擎实例（一台舰、一条时间线）。
    * @param {Object} [options]
@@ -77,11 +106,16 @@
     var subscribers = [];
 
     function emit(kind, result, extra) {
+      var st = sim.getState();
       var payload = {
         kind: kind,
         result: result || null,
-        months: extra && typeof extra.months === "number" ? extra.months : null,
-        snapshot: sim.getState()
+        weeks: extra && typeof extra.weeks === "number" ? extra.weeks : 0,
+        unit: extra && extra.unit ? extra.unit : null,
+        count: extra && typeof extra.count === "number" ? extra.count : null,
+        year: st.year,
+        weekOfYear: st.weekOfYear,
+        snapshot: st
       };
       for (var i = 0; i < subscribers.length; i++) {
         try { subscribers[i](payload); } catch (e) { /* 订阅者异常不影响引擎 */ }
@@ -89,20 +123,31 @@
     }
 
     /**
-     * 推进时间。1 step = 1 个月。
-     * @param {number} [months=1]
+     * 推进时间。1 step = 1 个计量单位（默认 1 季 = 13 周）。
+     * 大跨度（1 年 = 52 周、10 年 = 520 周）在内部逐周推进后返回一次快照，
+     * 因此不会因为步长大而跳过任何阈值判定。
+     * @param {number} [count=1]  单位数量
+     * @param {"week"|"month"|"quarter"|"year"|"decade"} [unit="quarter"]
      * @returns {Object} 推进后的公开快照（与 sim.getState() 逐字段一致）
      */
-    function step(months) {
-      var n = Math.max(0, Math.floor(typeof months === "number" ? months : 1));
-      var s = sim.step(n);
-      emit("step", null, { months: n });
+    function step(count, unit) {
+      var u = unit == null ? "quarter" : normalizeUnit(unit);
+      if (!u) throw new Error("未知时间单位：" + unit + "（可选 week / month / quarter / year / decade）");
+      var c = typeof count === "number" && isFinite(count) ? count : 1;
+      var weeks = Math.max(0, Math.round(c * UNITS[u]));
+      var s = sim.step(weeks);
+      emit("step", null, { weeks: weeks, unit: u, count: c });
       return s;
     }
 
+    /** 直接按周推进（等价于 step(n, "week")）。 */
+    function stepWeeks(n) { return step(n, "week"); }
+    /** 按年推进（等价于 step(n, "year")）。 */
+    function stepYears(n) { return step(n, "year"); }
+
     /**
      * 读取当前快照。返回新对象，改它不会影响引擎内部状态。
-     * @returns {Object} snapshot
+     * @returns {Object} snapshot（weeks / year / weekOfYear / quarter 均为周制）
      */
     function snapshot() {
       return sim.getState();
@@ -130,6 +175,7 @@
      * 操作：镇压/suppress、让步/concede、处决/execute、封舱/lockdown、
      *       换人/replace、审讯/interrogate、仪式/ritual。
      * 事件：apply("event", { type: "mutiny"|"infection", value: "..." })
+     * 注意：操作冷却与持续时长均以「周」计，返回值里的 msg 会写明还剩多少周。
      * @param {string} action
      * @param {Object|string} [payload]
      * @returns {{ok:boolean,msg:string,action:string,snapshot:Object}}
@@ -151,8 +197,9 @@
     }
 
     /**
-     * 订阅状态变化。每次 step / apply / trigger / reset / import 后触发。
-     * @param {(p:{kind:string,result:Object|null,months:number|null,snapshot:Object})=>void} fn
+     * 订阅状态变化。每次 step / apply / trigger / setInputs / reset / import 后触发。
+     * @param {(p:{kind:string,result:Object|null,weeks:number,unit:string|null,
+     *             count:number|null,year:number,weekOfYear:number,snapshot:Object})=>void} fn
      * @returns {Function} 取消订阅
      */
     function subscribe(fn) {
@@ -167,12 +214,18 @@
     return {
       version: VERSION,
       configVersion: sim.version,
+      timeUnit: "week",
+      units: UNITS,
 
       // —— 五个核心接口 ——
-      step: step,               // 推进一个时间步（默认 1 月）
+      step: step,               // 推进（默认 1 季 = 13 周）
       snapshot: snapshot,       // 读取当前快照
       apply: apply,             // 应用一次操作
       subscribe: subscribe,     // 订阅状态变化
+
+      // —— 显式单位别名 ——
+      stepWeeks: stepWeeks,
+      stepYears: stepYears,
 
       // —— 只读辅助（给图表与事件流用） ——
       getEvents: function () { return sim.getEvents(); },
@@ -191,7 +244,7 @@
 
       /**
        * 导出/导入完整状态（含历史序列与事件），用于本地存档与主站共享状态。
-       * import 后发出 kind="import" 通知。
+       * v2 的存档里时间字段是 weeks；导入 v1 存档会因字段不符被拒绝。
        */
       exportState: function () { return sim.exportState(); },
       importState: function (json) {
@@ -211,6 +264,9 @@
 
   global.XuanShuEngine = {
     version: VERSION,
+    timeUnit: "week",
+    units: UNITS,
+    unitLabel: UNIT_LABEL,
     create: create,
     actions: ACTION_KEYS.slice(),
     events: ["mutiny", "infection"]

@@ -1,11 +1,12 @@
 /* =========================================================================
-   玄枢号 · 舰务模拟内核（v0.1）
+   玄枢号 · 舰务模拟内核（v0.2 · 周为单位）
    -------------------------------------------------------------------------
    纯计算，不碰 DOM。所有状态都是普通 JSON，可直接搬进主站。
+   内部最小时间步 = 1 周；1 年 = 52 周，1 季 = 13 周。
    用法：
      var sim = XuanShuSim.createSim();        // 读取 globalThis.XUANSHU_CONFIG
      sim.setInputs({ ration: 0.9 });
-     sim.step(120);                           // 推进 120 个月 = 10 年
+     sim.step(520);                           // 推进 520 周 = 10 年
      var s = sim.getState();
    ========================================================================= */
 (function (global) {
@@ -80,21 +81,22 @@
   function pushEvent(state, cfg, type, level, title, text, basis, force) {
     if (!force) {
       var last = state.cooldown[type];
-      if (last !== undefined && state.months - last < cfg.events.cooldownMonths) return false;
-      state.cooldown[type] = state.months;
+      if (last !== undefined && state.weeks - last < cfg.events.cooldownWeeks) return false;
+      state.cooldown[type] = state.weeks;
     }
     state.events.push({
-      t: (state.loop - 1) * cfg.time.loopYears + state.months / 12,
+      t: (state.loop - 1) * cfg.time.loopYears + state.weeks / cfg.time.weeksPerYear,
       loop: state.loop,
-      year: Math.floor(state.months / 12),
-      month: (state.months % 12) + 1,
+      year: Math.floor(state.weeks / cfg.time.weeksPerYear),
+      week: (state.weeks % cfg.time.weeksPerYear) + 1,
+      quarter: Math.floor((state.weeks % cfg.time.weeksPerYear) / cfg.time.weeksPerQuarter) + 1,
       type: type,
       level: level || "事件",
       title: title,
       text: text,
       basis: basis || ""
     });
-    if (state.events.length > 600) state.events.shift();
+    if (state.events.length > cfg.time.eventCap) state.events.shift();
     return true;
   }
 
@@ -109,11 +111,20 @@
     return n;
   }
 
-  function popDue(arr, month) {
+  function popDue(arr, week) {
     var n = 0;
     for (var i = arr.length - 1; i >= 0; i--) {
-      if (arr[i] <= month) { arr.splice(i, 1); n++; }
+      if (arr[i] <= week) { arr.splice(i, 1); n++; }
     }
+    return n;
+  }
+
+  // 周步长下把速率直接向下取整会削掉年吞吐量；把不足一人的余数留到下一周，
+  // 保证 12 次月步与 52 次周步的年总量一致。
+  function takeInteger(state, key, amount) {
+    var v = amount + (state.flowCarry[key] || 0);
+    var n = Math.floor(v);
+    state.flowCarry[key] = v - n;
     return n;
   }
 
@@ -138,7 +149,7 @@
     });
     var state = {
       loop: 1,
-      months: 0,
+      weeks: 0,
       rngA: seed >>> 0,
       groups: groups,
       stocks: {
@@ -168,6 +179,11 @@
       streaks: { badRation: 0, extreme: 0, strike: 0 },
       budget: { hydro: 0, pods: 0, clone: 0 },
       buildAcc: { hydro: 0, pods: 0, clonePods: 0 },
+      // 整数人口流的余数累积：每周向下取整会把年吞吐量削掉一截，
+      // 这里把不足一人的部分留到下周，保证 52 周与 12 月的年总量一致。
+      flowCarry: { entry: 0, wake: 0, podStart: 0 },
+      maint: { sinceFault: 0, active: false, repairLeft: 0, mttr: cfg.maintenance.mttrWeeks,
+               faults: 0, lastCycle: 0, lastShift: 0, lastSupply: 0, lastQuarantine: 0 },
       last: {}
     };
     state.last = {
@@ -206,9 +222,9 @@
       groupsTotal[g.id] = state.groups[g.id].awake + state.groups[g.id].dormant;
     });
     state.series.push({
-      t: (state.loop - 1) * cfg.time.loopYears + state.months / 12,
+      t: (state.loop - 1) * cfg.time.loopYears + state.weeks / cfg.time.weeksPerYear,
       loop: state.loop,
-      loopYear: state.months / 12,
+      loopYear: state.weeks / cfg.time.weeksPerYear,
       total: t.total,
       awake: t.awake,
       dormant: t.dormant,
@@ -233,17 +249,98 @@
     if (state.series.length > cfg.time.seriesCap) state.series.shift();
   }
 
-  /* ---------------- 月度结算 ---------------- */
+  /* ---------------- 周期事件（周级） ---------------- */
 
-  function stepMonth(state, cfg) {
-    var dt = 1 / 12;
+  // 返回本周的产出系数：设备故障停机期间农环降载。
+  // 不用随机数：故障间隔由磨损与维修缺口确定性地缩短，MTTR 落在配置的 1–6 周内。
+  function stepMaintenance(state, cfg) {
+    var M = cfg.maintenance;
+    if (!M || M.enabled === false) return 1;
+    var m = state.maint;
+    var w = state.weeks;
+    var yieldF = 1;
+
+    // 故障停机模型可单独开关：只记周期事件时，数值与 v0.1 完全一致
+    if (M.downtime === false) {
+      // 跳过故障判定，但仍推进周期事件（见下）
+    } else if (m.active) {
+      m.repairLeft--;
+      yieldF = M.downtimeYield;
+      if (m.repairLeft <= 0) {
+        m.active = false;
+        m.sinceFault = 0;
+        pushEvent(state, cfg, "maint_done", "维修", "设备修复完成",
+          "停机 " + m.mttr + " 周后恢复，农环回到满负荷",
+          "MTTR 实际 " + m.mttr + " 周（基准 " + M.mttrWeeks + " 周）", true);
+      }
+    } else {
+      m.sinceFault++;
+      var wear = clamp(state.wear, 0, 1);
+      var gap = clamp(state.last.maintGap || 0, 0, 1);
+      var interval = Math.max(M.minIntervalWeeks, Math.round(
+        M.baseIntervalWeeks * (1 - M.wearShorten * wear - M.gapShorten * gap)));
+      if (m.sinceFault >= interval) {
+        var sev = clamp(wear + gap, 0, 1);
+        m.mttr = clamp(Math.round(M.mttrWeeks + (M.mttrMaxWeeks - M.mttrWeeks) * sev),
+          M.mttrMinWeeks, M.mttrMaxWeeks);
+        m.repairLeft = m.mttr;
+        m.active = true;
+        m.faults++;
+        yieldF = M.downtimeYield;
+        pushEvent(state, cfg, "maint_fault", "维修", "设备故障 · 停机检修",
+          "农环一组栽培单元停机，产出降至 " + Math.round(M.downtimeYield * 100) + "%",
+          "磨损 " + wear.toFixed(2) + "、维修缺口 " + Math.round(gap * 100) +
+          "% → 故障间隔 " + interval + " 周，MTTR " + m.mttr + " 周", true);
+      }
+    }
+
+    if (w - m.lastCycle >= M.cycleWeeks) {
+      m.lastCycle = w;
+      pushEvent(state, cfg, "maint_cycle", "维修", "季度例行检修",
+        "第 " + Math.round(w / cfg.time.weeksPerQuarter) + " 季检修完成，未发现结构性缺陷",
+        "每 " + M.cycleWeeks + " 周一个检修窗口", true);
+    }
+    if (w - m.lastShift >= M.shiftWeeks) {
+      m.lastShift = w;
+      pushEvent(state, cfg, "shift", "轮班", "轮班交接",
+        "本班次交接完成，在岗 " + Math.round(totals(state, cfg).working) + " 人",
+        "轮班周期 " + M.shiftWeeks + " 周", true);
+    }
+    if (w - m.lastSupply >= M.supplyWeeks) {
+      m.lastSupply = w;
+      pushEvent(state, cfg, "supply", "补给",
+        state.inputs.planetCut ? "补给窗口 · 无来货" : "补给窗口 · 行星来货",
+        state.inputs.planetCut ? "行星补给已切断，本窗口无来货" : "本窗口补给已入库并完成对账",
+        "补给节奏 " + M.supplyWeeks + " 周", true);
+    }
+    if (w - m.lastQuarantine >= M.quarantineWeeks) {
+      m.lastQuarantine = w;
+      var ishare = (state.society && state.society.infection)
+        ? (state.society.infection.share || 0) : 0;
+      pushEvent(state, cfg, "quarantine", "检疫",
+        ishare >= M.quarantineShare ? "全船检疫 · 升级" : "例行检疫",
+        ishare >= M.quarantineShare
+          ? "感染面 " + Math.round(ishare * 100) + "%，隔离区扩大"
+          : "抽检完成，未发现新的转化个案",
+        "检疫周期 " + M.quarantineWeeks + " 周", true);
+    }
+    return yieldF;
+  }
+
+  /* ---------------- 周结算 ---------------- */
+
+  function stepWeek(state, cfg) {
+    var dt = 1 / cfg.time.weeksPerYear;
     var I = state.inputs;
-    var noise = function (amp) { return 1 + amp * (nextRand(state) * 2 - 1); };
+    // 噪声是「每 tick 的离散扰动」，不能按月直接搬：52 次弱扰动会显著平滑于 12 次。
+    // 按「年度方差守恒」折算振幅：a_week = a_month × sqrt(12/52)，而不是除以 4.33。
+    var NS = Math.sqrt(cfg.time.monthsPerYear / cfg.time.weeksPerYear);
+    var noise = function (amp) { return 1 + amp * NS * (nextRand(state) * 2 - 1); };
 
     // 先交付到期项目；同类交付按批次累计，避免每交付一个就刷一条事件
-    var doneHydro = popDue(state.projects.hydro, state.months);
-    var donePods = popDue(state.projects.pods, state.months);
-    var doneClone = popDue(state.projects.clonePods, state.months);
+    var doneHydro = popDue(state.projects.hydro, state.weeks);
+    var donePods = popDue(state.projects.pods, state.weeks);
+    var doneClone = popDue(state.projects.clonePods, state.weeks);
     if (!state.buildAcc) state.buildAcc = { hydro: 0, pods: 0, clonePods: 0 };
     state.buildAcc.hydro += doneHydro;
     state.buildAcc.pods += donePods;
@@ -256,19 +353,19 @@
       pushEvent(state, cfg, "build_hydro", "建设", "水培扩建交付",
         "新增 " + state.buildAcc.hydro + " 个栽培单元，总数 " + state.infra.hydro +
         "，等效 " + (state.buildAcc.hydro * 1000).toLocaleString("en-US") + " m²",
-        "金属配额到位，工期 " + cfg.metal.hydroLeadMonths + " 个月", true);
+        "金属配额到位，工期 " + cfg.metal.hydroLeadWeeks + " 周", true);
       state.buildAcc.hydro = 0;
     }
     if (state.buildAcc.pods >= 50) {
       pushEvent(state, cfg, "build_pods", "建设", "休眠舱交付",
         "新增 " + state.buildAcc.pods + " 个休眠位，总数 " + state.infra.pods,
-        "工期 " + cfg.hibernation.podLeadMonths + " 个月", true);
+        "工期 " + cfg.hibernation.podLeadWeeks + " 周", true);
       state.buildAcc.pods = 0;
     }
     if (state.buildAcc.clonePods >= 6) {
       pushEvent(state, cfg, "build_clone", "建设", "克隆槽交付",
         "新增 " + state.buildAcc.clonePods + " 个培育筒，总数 " + state.infra.clonePods,
-        "工期 " + cfg.clone.podLeadMonths + " 个月", true);
+        "工期 " + cfg.clone.podLeadWeeks + " 周", true);
       state.buildAcc.clonePods = 0;
     }
 
@@ -299,9 +396,12 @@
         awake: t0.awake,
         energy: energy,
         maintGap: state.last.maintGap || 0,
-        month: state.months
+        week: state.weeks
       });
     }
+
+    // 周期事件（周级）：设备故障 / 维修、轮班、补给、隔离检疫
+    var maintYield = stepMaintenance(state, cfg);
     var soc = state.society;
 
     // 粮食产出
@@ -324,6 +424,7 @@
         (1 - cfg.society.machine.prodLoss * Math.min(3, soc.machine.depts.length)) *
         (soc.effects.prodMul || 1);
     }
+    production *= maintYield;
     var planet = I.planetCut ? 0 : cfg.food.planetTpy;
 
     // 粮食结算：库存永不为负
@@ -355,17 +456,17 @@
     var extra = mal + disease + conflict + accident;
 
     // 死亡
-    var monthDeaths = 0;
+    var weekDeaths = 0;
     cfg.population.groups.forEach(function (g) {
       var s = state.groups[g.id];
       var rate = g.mortality;
       if (g.clone) rate = g.mortality / clamp(rationActual, 0.35, 1);
       var d = Math.min(s.awake, s.awake * (rate + extra) * dt * noise(0.08));
       s.awake -= d;
-      monthDeaths += d;
+      weekDeaths += d;
       var dd = Math.min(s.dormant, s.dormant * cfg.hibernation.dormantMortality * dt * noise(0.10));
       s.dormant -= dd;
-      monthDeaths += dd;
+      weekDeaths += dd;
     });
 
     // 出生（全部进未定）
@@ -395,7 +496,7 @@
       state.clonePause--;
       cloneOutY = 0;
     } else if (cloneShareNow >= cfg.clone.capShare) {
-      state.clonePause = 24;
+      state.clonePause = cfg.clone.capPauseWeeks;
       cloneOutY = 0;
     }
     var cloneCapped = state.clonePause > 0 || cloneShareNow >= cfg.clone.capShare;
@@ -413,15 +514,15 @@
       .map(function (g) { return g.id; });
 
     if (delta > 0) {
-      var want = Math.min(
+      var wantRaw = Math.min(
         delta,
-        cfg.hibernation.entryPerMonth,
+        cfg.hibernation.entryPerWeek,
         Math.max(0, state.infra.pods - t2.dormant),
         state.stocks.drug / cfg.hibernation.drugPerEntry,
         Math.max(0, t2.awake - cfg.population.minAwake),
         t2.awake * 0.02
       );
-      want = Math.floor(want);
+      var want = takeInteger(state, "entry", wantRaw);
       if (want > 0) {
         var pool = 0;
         workingIds.forEach(function (id) { pool += state.groups[id].awake; });
@@ -438,8 +539,8 @@
         }
       }
     } else if (delta < 0) {
-      var wantW = Math.min(-delta, cfg.hibernation.wakePerMonth, t2.dormant, 60 * medCoverage);
-      wantW = Math.floor(wantW);
+      var wantWRaw = Math.min(-delta, cfg.hibernation.wakePerWeek, t2.dormant, 60 * medCoverage);
+      var wantW = takeInteger(state, "wake", wantWRaw);
       if (wantW > 0) {
         var dpool = 0;
         workingIds.forEach(function (id) { dpool += state.groups[id].dormant; });
@@ -454,7 +555,7 @@
             state.groups[id].awake += n * (1 - failRate);
           });
           wakes = takeW - reviveFails;
-          monthDeaths += reviveFails;
+          weekDeaths += reviveFails;
         }
       }
     }
@@ -495,7 +596,7 @@
 
     // 水培：在途数量 = 目标年速率 × 滞后年数
     var hydroInProgress = state.projects.hydro.length;
-    var desiredHydro = Math.ceil(I.hydroTarget * cfg.metal.hydroLeadMonths / 12);
+    var desiredHydro = Math.ceil(I.hydroTarget * cfg.metal.hydroLeadWeeks / cfg.time.weeksPerYear);
     var guard = 0;
     while (hydroInProgress < desiredHydro &&
            state.budget.hydro >= cfg.metal.hydroMetal &&
@@ -504,7 +605,7 @@
       state.budget.hydro -= cfg.metal.hydroMetal;
       availableMetal -= cfg.metal.hydroMetal;
       constructionSpend += cfg.metal.hydroMetal;
-      state.projects.hydro.push(state.months + cfg.metal.hydroLeadMonths);
+      state.projects.hydro.push(state.weeks + cfg.metal.hydroLeadWeeks);
       hydroInProgress++;
       guard++;
     }
@@ -512,7 +613,7 @@
     // 休眠舱：目标休眠超过舱位时自动开工
     var podNeed = Math.ceil(targetDorm - state.infra.pods - state.projects.pods.length);
     if (podNeed > 0) {
-      var maxStart = Math.min(cfg.hibernation.maxPodStartPerMonth, Math.ceil(podNeed / 6));
+      var maxStart = Math.min(cfg.hibernation.maxPodStartPerWeek, Math.ceil(podNeed / 6));
       var starts = 0;
       while (starts < maxStart &&
              state.budget.pods >= cfg.hibernation.podMetal &&
@@ -520,7 +621,7 @@
         state.budget.pods -= cfg.hibernation.podMetal;
         availableMetal -= cfg.hibernation.podMetal;
         constructionSpend += cfg.hibernation.podMetal;
-        state.projects.pods.push(state.months + cfg.hibernation.podLeadMonths);
+        state.projects.pods.push(state.weeks + cfg.hibernation.podLeadWeeks);
         starts++;
       }
     }
@@ -533,7 +634,7 @@
       state.budget.clone -= cfg.clone.podMetal;
       availableMetal -= cfg.clone.podMetal;
       constructionSpend += cfg.clone.podMetal;
-      state.projects.clonePods.push(state.months + cfg.clone.podLeadMonths);
+      state.projects.clonePods.push(state.weeks + cfg.clone.podLeadWeeks);
     }
 
     // 只开采实际需要的金属；缺口才吃库存，避免库存无意义地涨到上限
@@ -546,7 +647,7 @@
 
     // 秩序
     var t3 = totals(state, cfg);
-    var annualDeathRate = t3.total > 0 ? (monthDeaths / t3.total) * 12 : 0;
+    var annualDeathRate = t3.total > 0 ? (weekDeaths / t3.total) * cfg.time.weeksPerYear : 0;
     var orderEq = cfg.order.eqBase
       - cfg.order.rationK * Math.max(0, 0.95 - rationActual)
       - cfg.order.wearK * state.wear
@@ -572,7 +673,7 @@
     if (targetPhase > state.phase) {
       state.phaseUp++;
       state.phaseDown = 0;
-      if (state.phaseUp >= 2) {
+      if (state.phaseUp >= cfg.phase.upWeeks) {
         var fromName = cfg.phase.names[state.phase];
         state.phase = Math.min(4, state.phase + 1);
         state.phaseUp = 0;
@@ -588,7 +689,7 @@
       else if (state.phase === 3) canExit = days >= 45 && rationActual >= 0.72;
       else if (state.phase === 2) canExit = days >= 75 && rationActual >= 0.88;
       else if (state.phase === 1) canExit = days >= 105 && rationActual >= 0.98;
-      if (canExit && state.phaseDown >= 3) {
+      if (canExit && state.phaseDown >= cfg.phase.downWeeks) {
         var fromName2 = cfg.phase.names[state.phase];
         state.phase = Math.max(0, state.phase - 1);
         state.phaseDown = 0;
@@ -636,10 +737,10 @@
     if (state.order < 0.40) {
       if (!state.latches.strike) {
         state.latches.strike = true;
-        state.streaks.strike = 6;
+        state.streaks.strike = cfg.events.strikeWeeks;
         pushEvent(state, cfg, "strike", "事件", "环区停工",
           "秩序 " + state.order.toFixed(2) + "，部分环区停止常规作业",
-          "秩序低于 0.40；产出 ×0.85，持续 6 个月", true);
+          "秩序低于 0.40；产出 ×0.85，持续 " + cfg.events.strikeWeeks + " 周", true);
       }
     } else if (state.order >= 0.45) {
       state.latches.strike = false;
@@ -647,23 +748,23 @@
 
     if (rationActual < 0.90) state.streaks.badRation++;
     else state.streaks.badRation = 0;
-    if (state.streaks.badRation === cfg.events.bingeMonths) {
+    if (state.streaks.badRation === cfg.events.bingeWeeks) {
       state.order = clamp(state.order - 0.10, 0.05, 1);
       var killed = killProportional(state, cfg, 0.003);
       pushEvent(state, cfg, "binge", "事件", "配给点争抢",
-        "登记冲突，秩序 −0.10，当月额外死亡 " + Math.round(killed) + " 人",
-        "实际配给 " + rationActual.toFixed(2) + " 连续 " + cfg.events.bingeMonths + " 个月低于 0.90", true);
+        "登记冲突，秩序 −0.10，本周额外死亡 " + Math.round(killed) + " 人",
+        "实际配给 " + rationActual.toFixed(2) + " 连续 " + cfg.events.bingeWeeks + " 周低于 0.90", true);
     }
 
     if (extremeActive && rationActual < 0.45) state.streaks.extreme++;
     else state.streaks.extreme = 0;
-    if (state.streaks.extreme === cfg.events.atrocityMonths) {
+    if (state.streaks.extreme === cfg.events.atrocityWeeks) {
       state.order = clamp(state.order - 0.18, 0.05, 1);
       var killed2 = killProportional(state, cfg, 0.004);
       state.flags.atrocity = true;
       pushEvent(state, cfg, "atrocity", "危机", "底线事件",
-        "配给体系外出现以死者遗体为食的记录，细节封存。秩序 −0.18，当月额外死亡 " + Math.round(killed2) + " 人",
-        "实际配给 " + rationActual.toFixed(2) + " 连续 " + cfg.events.atrocityMonths + " 个月低于 0.45，且已授权极端措施", true);
+        "配给体系外出现以死者遗体为食的记录，细节封存。秩序 −0.18，本周额外死亡 " + Math.round(killed2) + " 人",
+        "实际配给 " + rationActual.toFixed(2) + " 连续 " + cfg.events.atrocityWeeks + " 周低于 0.45，且已授权极端措施", true);
     }
 
     if (reviveFails >= 1) {
@@ -674,7 +775,7 @@
 
     if (state.streaks.strike > 0) state.streaks.strike--;
 
-    // 记录本月派生量
+    // 记录本周派生量
     state.last = {
       rationActual: rationActual,
       energy: energy,
@@ -688,17 +789,17 @@
       wakes: wakes,
       births: birthsY,
       cloneOut: cloneOutY,
-      deaths: monthDeaths / dt,
+      deaths: weekDeaths / dt,
       targetDorm: targetDorm,
       metalSupply: metalSupplyY,
       maintGap: maintGap
     };
 
-    state.months++;
-    if (state.months % 12 === 0) pushSeries(state, cfg);
+    state.weeks++;
+    if (state.weeks % cfg.time.weeksPerYear === 0) pushSeries(state, cfg);
 
     // 1000 年回滚
-    if (cfg.time.rollback && state.months >= cfg.time.loopYears * 12) {
+    if (cfg.time.rollback && state.weeks >= cfg.time.loopYears * cfg.time.weeksPerYear) {
       var keepEvents = state.events;
       var keepSeries = state.series;
       var nextLoop = state.loop + 1;
@@ -710,7 +811,7 @@
       fresh.inputs = clone(state.inputs);
       fresh.cooldown = state.cooldown;
       state.loop = fresh.loop;
-      state.months = 0;
+      state.weeks = 0;
       state.rngA = fresh.rngA;
       state.groups = fresh.groups;
       state.stocks = fresh.stocks;
@@ -727,6 +828,8 @@
       state.streaks = { badRation: 0, extreme: 0, strike: 0 };
       state.budget = fresh.budget;
       state.buildAcc = fresh.buildAcc;
+      state.flowCarry = fresh.flowCarry;
+      state.maint = fresh.maint;
       state.last = fresh.last;
       if (global.XuanShuSociety) state.society = global.XuanShuSociety.create(cfg);
       pushEvent(state, cfg, "loop", "系统", "循环回滚",
@@ -766,25 +869,31 @@
 
       getInputs: function () { return clone(state.inputs); },
 
-      step: function (months) {
-        var n = Math.max(0, Math.floor(isNum(months) ? months : 1));
-        for (var i = 0; i < n; i++) stepMonth(state, cfg);
+      // 推进 n 周（内部最小步长就是 1 周；大跨度由这里循环，阈值判定一次都不会漏）
+      step: function (weeks) {
+        var n = Math.max(0, Math.round(isNum(weeks) ? weeks : 1));
+        for (var i = 0; i < n; i++) stepWeek(state, cfg);
         return api.getState();
       },
 
       stepYears: function (years) {
-        return api.step(Math.round((isNum(years) ? years : 1) * 12));
+        return api.step(Math.round((isNum(years) ? years : 1) * cfg.time.weeksPerYear));
       },
 
       getState: function () {
         var t = totals(state, cfg);
         var days = foodDays(state, cfg, t);
         var cshare = (state.groups.clone.awake + state.groups.clone.dormant) / Math.max(1, t.total);
+        var wpy = cfg.time.weeksPerYear;
         return {
           loop: state.loop,
-          loopYear: state.months / 12,
-          year: (state.loop - 1) * cfg.time.loopYears + state.months / 12,
-          months: state.months,
+          loopYear: state.weeks / wpy,
+          year: (state.loop - 1) * cfg.time.loopYears + state.weeks / wpy,
+          weeks: state.weeks,
+          weekOfYear: (state.weeks % wpy) + 1,
+          quarter: Math.floor((state.weeks % wpy) / cfg.time.weeksPerQuarter) + 1,
+          weekOfQuarter: (state.weeks % cfg.time.weeksPerQuarter) + 1,
+          months: state.weeks / (wpy / 12),   // 推算值，仅供显示换算
           total: t.total,
           awake: t.awake,
           dormant: t.dormant,

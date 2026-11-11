@@ -1,27 +1,53 @@
 /* =========================================================================
-   玄枢号 · 舰务模拟参数总表（v0.1）
+   玄枢号 · 舰务模拟参数总表（v0.2 · 周为单位）
    -------------------------------------------------------------------------
    所有系数集中在这里。改这里就能改模型，不需要动 sim-core.js。
    标注【档案】= 来自 10_飞船设计 / 08_文档与对账 的既有资料
    标注【推定】= 档案没有，按量级或稳定性反推，供一起校准
+
+   v0.2 起内部时间轴统一为「周」：
+     1 年 = 52 周，1 季 = 13 周（四季等长），1 月 = 52/12 ≈ 4.3333 周
+   原 v0.1 的系数都是「每月多少」，本文件逐项换算为「每周多少」，
+   换算依据写在每个字段行尾；对应的对照表见《时间粒度_周换算与接口v2.md》。
+     线性速率 / 流量：每周 = 每月 × 12/52
+     乘性衰减（每 tick 乘一个系数）：每周 = 每月^(12/52)
+     离散连续计数（连续 N 个月）：周 = round(N × 52/12)
    ========================================================================= */
 (function (global) {
   "use strict";
 
+  /* ---------------- 时间换算工具（唯一实现，避免各处各算一套） ---------------- */
+  var WEEKS_PER_YEAR = 52;
+  var WEEKS_PER_QUARTER = 13;
+  var WEEKS_PER_MONTH = WEEKS_PER_YEAR / 12;      // 4.3333
+
+  // 线性速率 / 流量：每月 → 每周（时间占比恒定，可直接按 12/52 缩）
+  function perWeek(m) { return m * 12 / WEEKS_PER_YEAR; }
+  // 乘性衰减：每 tick 乘系数 p（如 0.90/月）→ 每周 p^(12/52)
+  function powWeek(p) { return Math.pow(p, 12 / WEEKS_PER_YEAR); }
+  // 离散连续计数：连续 N 个月 → 整数周
+  function monthsToWeeks(m) { return Math.round(m * WEEKS_PER_YEAR / 12); }
+
   var CONFIG = {
-    version: "0.1.0",
+    version: "0.2.0",
     meta: {
       title: "玄枢号 · 舰务运行机制",
-      subtitle: "简化模型 v0.1 · 系数待校准",
+      subtitle: "简化模型 v0.2 · 周为单位 · 系数待校准",
       note: "本版为简化模型，系数待校准。档案值已标注，推定值可改。"
     },
 
     /* ---------------- 时间与循环 ---------------- */
     time: {
-      loopYears: 1000,      // 【档案】每 1000 年回滚一次
-      maxLoops: 100,        // 【档案】10 万年 = 100 轮
-      rollback: true,       // 【档案】full 回滚
-      seriesCap: 2200
+      unit: "week",              // 内部最小时间单位
+      weeksPerYear: WEEKS_PER_YEAR,
+      weeksPerQuarter: WEEKS_PER_QUARTER,
+      weeksPerMonth: WEEKS_PER_MONTH,   // 4.3333；1 月不是整数周
+      monthsPerYear: 12,
+      loopYears: 1000,           // 【档案】每 1000 年回滚一次
+      maxLoops: 100,             // 【档案】10 万年 = 100 轮
+      rollback: true,            // 【档案】full 回滚
+      seriesCap: 2200,           // 序列点上限（每年 1 点）
+      eventCap: 600
     },
 
     /* ---------------- 人口 ---------------- */
@@ -40,31 +66,31 @@
       undecidedId: "undecided",
       laborFull: 1720,          // 【档案】醒态在岗 1,720
       minAwake: 1500,           // 【推定】航行与生保最低编制
-      maturationRate: 0.03,     // 【推定】360 名未成年 / 18 年
+      maturationRate: 0.03,     // 【推定】年速率，按 tick 折算
       maturationShares: { combat: 0.18, tech: 0.28, service: 0.30, medical: 0.14, undecided: 0.10 },
-      birthQuota: 40            // 【推定】见文档 §11.1
+      birthQuota: 40            // 【推定】人/年，见文档 §11.1
     },
 
     /* ---------------- 粮食 ---------------- */
     food: {
-      perCapitaTpy: 0.2263,     // 【档案】0.62 kg/人·日 × 365
+      perCapitaTpy: 0.2263,     // 【档案】0.62 kg/人·日 × 365（年量，未换周）
       dormantFactor: 0.05,      // 【推定】休眠低耗
-      unitYieldTpy: 2.52,       // 【推定】1 单元 = 1000 m² 等效栽培面
+      unitYieldTpy: 2.52,       // 【推定】1 单元 = 1000 m² 等效栽培面（年量）
       hydroInit: 191,           // 【档案】191,388 m² 等效
       hydroMax: 600,
       agriMWFull: 30,           // 【档案】农环 30 MW
-      planetTpy: 84,            // 【推定】补足 86% 自给之外
+      planetTpy: 84,            // 【推定】补足 86% 自给之外（年量）
       waterBuffer: 600,         // 【推定】水储备低于 600 t 开始限产
       stockInit: 240,           // 【推定】约 156 天
-      cap: 400                  // 【推定】粮食储备上限，约 260 天，避免无限囤积
+      cap: 400                  // 【推定】粮食储备上限，约 260 天
     },
 
     /* ---------------- 水 ---------------- */
     water: {
-      perCapitaAwake: 10.40,    // 【档案】28.5 kg/人·日
-      perCapitaDormant: 0.73,   // 【推定】休眠低耗
+      perCapitaAwake: 10.40,    // 【档案】28.5 kg/人·日（日量，未换周）
+      perCapitaDormant: 0.73,   // 【推定】休眠低耗（日量）
       recycle: 0.992,           // 【档案】水闭环 99.2%
-      supplyTpy: 220,           // 【推定】抵损耗
+      supplyTpy: 220,           // 【推定】抵损耗（年量）
       stockInit: 2500,
       cap: 6000
     },
@@ -74,26 +100,27 @@
       podsInit: 1600,           // 【档案】1,520 + 80
       drugInit: 1800,           // 【推定】
       drugCap: 3000,
-      drugPerEntry: 1,          // 【推定】
-      drugPerDormantYear: 0.02, // 【推定】
-      drugProdTpy: 96,          // 【推定】8 份/月
-      entryPerMonth: 40,        // 【推定】速率限制
-      wakePerMonth: 40,         // 【推定】速率限制
+      drugPerEntry: 1,          // 【推定】份/人
+      drugPerDormantYear: 0.02, // 【推定】份/人·年（年量）
+      drugProdTpy: 96,          // 【推定】8 份/月（年量）
+      entryPerWeek: perWeek(40),      // 原 40 人/月 → 9.2308 人/周（×12/52）
+      wakePerWeek: perWeek(40),       // 原 40 人/月 → 9.2308 人/周（×12/52）
       reviveFail: 0.008,        // 【档案】复温失败率 0.8%
-      dormantMortality: 0.002,  // 【推定】维护失败
+      dormantMortality: 0.002,  // 【推定】年速率
       podMetal: 5,              // 【推定】t/位
-      podLeadMonths: 9,         // 【推定】
-      maxPodStartPerMonth: 12
+      podLeadWeeks: monthsToWeeks(9),    // 原 9 个月 → 39 周
+      maxPodStartPerWeek: perWeek(12)    // 原 12 位/月 → 2.77 位/周
     },
 
     /* ---------------- 克隆 ---------------- */
     clone: {
       podsInit: 96,             // 【档案】工业级 96 筒
-      outputPerPodYear: 0.40,   // 【推定】96 筒 ≈ 38 具/年
+      outputPerPodYear: 0.40,   // 【推定】96 筒 ≈ 38 具/年（年量）
       capShare: 0.18,           // 【档案】克隆人口上限 18%
       nobleShare: 0.008,        // 【推定】贵族靠克隆延续
       podMetal: 18,             // 【推定】
-      podLeadMonths: 12,        // 【推定】
+      podLeadWeeks: monthsToWeeks(12),   // 原 12 个月 → 52 周
+      capPauseWeeks: monthsToWeeks(24),  // 触及上限后暂停 24 个月 → 104 周
       maxPods: 140
     },
 
@@ -101,14 +128,14 @@
     metal: {
       stockInit: 6000,          // 【推定】
       cap: 12000,
-      supplyTpy: 750,           // 【推定】结构件原料侧保守值
-      maintNeedTpy: 450,        // 【推定】默认分配 60% 正好覆盖
+      supplyTpy: 750,           // 【推定】结构件原料侧保守值（年量）
+      maintNeedTpy: 450,        // 【推定】默认分配 60% 正好覆盖（年量）
       hydroMetal: 24,           // 【推定】t/单元
-      hydroLeadMonths: 6,       // 【推定】
+      hydroLeadWeeks: monthsToWeeks(6),      // 原 6 个月 → 26 周
       podMetal: 5,              // 【推定】t/位
-      podLeadMonths: 9,         // 【推定】
+      podLeadWeeks: monthsToWeeks(9),        // 原 9 个月 → 39 周
       clonePodMetal: 18,        // 【推定】t/筒
-      clonePodLeadMonths: 12    // 【推定】
+      clonePodLeadWeeks: monthsToWeeks(12)   // 原 12 个月 → 52 周
     },
 
     /* ---------------- 能源 ---------------- */
@@ -127,18 +154,18 @@
 
     /* ---------------- 死亡 ---------------- */
     death: {
-      malK: 0.30,               // 【推定】配给 0.5 → 额外 7.5%/年
-      diseaseK: 0.02,           // 【推定】
-      conflictK: 0.15,          // 【推定】
-      accidentBase: 0.0005,     // 【推定】
-      accidentWear: 0.002       // 【推定】
+      malK: 0.30,               // 【推定】配给 0.5 → 额外 7.5%/年（年速率）
+      diseaseK: 0.02,           // 【推定】年速率
+      conflictK: 0.15,          // 【推定】年速率
+      accidentBase: 0.0005,     // 【推定】年速率
+      accidentWear: 0.002       // 【推定】年速率
     },
 
     /* ---------------- 秩序 ---------------- */
     order: {
       init: 0.78,
       eqBase: 0.80,
-      relax: 0.15,              // 约 6 年收敛
+      relax: 0.15,              // 年速率，约 6 年收敛（按 dt 折算）
       rationK: 1.10,
       wearK: 0.10,
       extremeK: 0.08,
@@ -151,14 +178,17 @@
       // 进入阈值；退出阈值写在 sim-core 里，比进入高 15 日 / 0.03
       names: ["正常", "紧张", "短缺", "危机", "崩溃"],
       foodDays: [90, 90, 60, 30, 10],
-      ration: [1.00, 0.95, 0.85, 0.70, 0.50]
+      ration: [1.00, 0.95, 0.85, 0.70, 0.50],
+      upWeeks: monthsToWeeks(2),      // 原 连续 2 个月 → 9 周
+      downWeeks: monthsToWeeks(3)     // 原 连续 3 个月 → 13 周
     },
 
     /* ---------------- 事件 ---------------- */
     events: {
-      cooldownMonths: 24,
-      bingeMonths: 3,
-      atrocityMonths: 2
+      cooldownWeeks: monthsToWeeks(24),   // 原 24 个月 → 104 周
+      bingeWeeks: monthsToWeeks(3),       // 原 连续 3 个月 → 13 周
+      atrocityWeeks: monthsToWeeks(2),    // 原 连续 2 个月 → 9 周
+      strikeWeeks: monthsToWeeks(6)       // 原 停工 6 个月 → 26 周
     },
 
     /* ---------------- 输入默认值 ---------------- */
@@ -178,6 +208,29 @@
       planetCut: false
     },
 
+    /* ---------------- 周期事件：设备故障 / 维修 / 轮班 / 补给 / 检疫 ----------------
+       这些是周级事件，只有周步长才能表示。
+       enabled：只往事件流写检修 / 轮班 / 补给 / 检疫，不改任何数值（默认开）。
+       downtime：故障停机模型，开启后故障期间农环产出 ×0.55 并记 MTTR（默认关，
+                 因为当前粮食余量≈0，任何停机都会把基线推向短缺）。 */
+    maintenance: {
+      enabled: true,            // 周期事件（周级）总开关：检修 / 轮班 / 补给 / 检疫
+      downtime: false,          // 故障停机模型：开启后故障期间农环降载（会改数值）
+      mttrWeeks: 3,             // MTTR 基准（可调 1–6 周）
+      mttrMinWeeks: 1,
+      mttrMaxWeeks: 6,
+      baseIntervalWeeks: 26,    // 无磨损、无缺料时的平均无故障间隔
+      wearShorten: 0.55,        // 磨损对故障间隔的缩短比例（最多 −55%）
+      gapShorten: 0.30,         // 维修缺口对故障间隔的缩短比例（最多 −30%）
+      minIntervalWeeks: 4,      // 故障间隔下限
+      downtimeYield: 0.55,      // 停机期间农环产出系数
+      cycleWeeks: 13,           // 例行检修窗口：每季一次
+      shiftWeeks: 13,           // 轮班周期（每季换班）
+      supplyWeeks: 26,          // 补给窗口：每半年一次
+      quarantineWeeks: 26,      // 隔离检疫窗口：每半年一次
+      quarantineShare: 0.15     // 感染面超过该值时检疫事件升级为「事件」级
+    },
+
     /* ---------------- 社会层：权力、服从、哗变、感染 ---------------- */
     society: {
       enabled: true,
@@ -194,92 +247,101 @@
       baseW: { slave: 20, elite: 52 },                            // 【推定】
 
       // 舒适度 c：配给 0.40 / 磨损 0.25 / 医疗 0.20 / 拥挤 0.15【用户定】
-      // 倒 U 中心 0.82 按基线（配给 1.0、磨损 0、医疗 0.8）反推，宽度 0.20【推定】
       comfort: { wRation: 0.40, wWear: 0.25, wMed: 0.20, wCrowd: 0.15,
                  center: 0.82, width: 0.20, maxPenalty: 25 },
-      will: { expK: 5.5, comfortStart: 0.75, comfortSpan: 0.35, comfortGain: 18 },
+      will: { expK: 5.5, comfortStart: 0.75, comfortSpan: 0.35, comfortGain: 18,
+              expPerWeek: perWeek(0.005) },   // 原 经验 +0.005/月 → 0.00115/周
       trauma: { oK: 3.0, oCap: 18, wK: 2.5, wCap: 15, decay: 0.08 },
 
       // 教育迁移：40–50 年量级完成 1%【用户定】
-      // 经历 3 时 p=0.0019/月 ≈ 44 年；经历 6 时 ≈ 30 年
-      eduMigration: { rate: 0.0010, expK: 0.30, wGain: 12, oLoss: 6, months: 36 },
+      // 原 0.0010/月 ≈ 44 年；按周等比例折算
+      eduMigration: { rate: perWeek(0.0010), expK: 0.30, wGain: 12, oLoss: 6, weeks: monthsToWeeks(36) },
 
       dominion: { base: 38, ageK: 0.30, netK: 10, execK: 10, spanBase: 8, spanK: 0.42 },
       stress: { oK: 0.55, wK: 0.30, structK: 0.15, infK: 0.10,
-                breakAt: 0.55, breakMonths: 2, spread: 0.20 },
+                breakAt: 0.55, breakWeeks: monthsToWeeks(2), spread: 0.20 },
 
-      // 五级阶梯：每级进入/退出/持续
+      // 五级阶梯：每级进入/退出/持续（连续月数 → 周数）
       ladder: {
-        l1At: 0.45, l1Months: 2,
-        l2At: 0.55, l2Months: 3, l2QueueShare: 0.15, l2Exit: 0.45, l2ExitMonths: 2,
-        l3Depts: 2, l3Months: 2, l3K: 0.50, l3Exit: 3,
-        l4Coverage: 0.40, l4Months: 2, l4D: 50,
-        l5D: 30, l5Coverage: 0.50, l5Months: 3, l5Hold: 6,
+        l1At: 0.45, l1Weeks: monthsToWeeks(2),
+        l2At: 0.55, l2Weeks: monthsToWeeks(3), l2QueueShare: 0.15, l2Exit: 0.45, l2ExitWeeks: monthsToWeeks(2),
+        l3Depts: 2, l3Weeks: monthsToWeeks(2), l3K: 0.50, l3Exit: 3,
+        l4Coverage: 0.40, l4Weeks: monthsToWeeks(2), l4D: 50,
+        l5D: 30, l5Coverage: 0.50, l5Weeks: monthsToWeeks(3), l5HoldWeeks: monthsToWeeks(6),
         prodMul: [1, 0.98, 0.65, 0.40, 0.20, 0.10],
-        deathPerMonth: [0, 0, 0.0015, 0.004, 0.010, 0.020],
+        deathPerWeek: [0, 0, perWeek(0.0015), perWeek(0.004), perWeek(0.010), perWeek(0.020)],
         orderPerLevel: 0.06
       },
 
       // 扑灭手段：全部有成本；镇压消耗警备耐久与金属，不动战斗编制
+      // 所有时长/冷却由「月」换成「周」；食品成本按周消费量折算
       actions: {
-        suppress: { label: "武力镇压", o: 12, oDecay: 6, w: 1.2, wMonths: 6,
-                    dur: 8, metal: 6, wear: 0.05, death: 0.004, order: -0.02,
-                    cd: 6, uses: [1, 0.60, 0.35], fanatic: 1,
-                    note: "消耗警备耐久 8、金属 6 t，镇压机磨损；长期镇压抬高自由意志" },
-        concede:  { label: "让步加配额", o: 8, w: -2, foodShare: 0.04, foodMonths: 6,
-                    order: 0.02, cd: 12, uses: [1, 0.50, 0.30],
-                    note: "补发 4% 口粮配额 6 个月，直接吃粮食储备" },
+        suppress: { label: "武力镇压", o: 12, oDecay: 6, w: 1.2, wWeeks: monthsToWeeks(6),
+                    durCost: 8, metal: 6, wear: 0.05, death: 0.004, order: -0.02,
+                    cdWeeks: monthsToWeeks(6), uses: [1, 0.60, 0.35], fanatic: 1,
+                    note: "消耗警备耐久 8 点、金属 6 t，镇压机磨损；长期镇压抬高自由意志" },
+        concede:  { label: "让步加配额", o: 8, w: -2, foodShare: 0.04, foodWeeks: monthsToWeeks(6),
+                    order: 0.02, cdWeeks: monthsToWeeks(12), uses: [1, 0.50, 0.30],
+                    note: "补发 4% 口粮配额 6 个月量，直接吃粮食储备" },
         execute:  { label: "处决领头", o: 18, oDecay: 3, w: 3, death: 0.002, d: -5,
-                    cd: 9, uses: [1, 0.55, 0.30],
+                    cdWeeks: monthsToWeeks(9), uses: [1, 0.55, 0.30],
                     note: "短期服从 +18（恐惧），自由意志永久 +3，统御力 −5" },
-        replace:  { label: "换掉中层", o: 5, d: -8, spread: 0.12, cd: 12, uses: [1, 0.70, 0.45],
+        replace:  { label: "换掉中层", o: 5, d: -8, spread: 0.12, cdWeeks: monthsToWeeks(12), uses: [1, 0.70, 0.45],
                     note: "损失统御力积累，其他节点应力 +0.12，可能开新裂口" },
-        interrogate: { label: "潜伏机审讯", o: 6, w: 2, metal: 4, dur: 2,
-                    cd: 4, uses: [1, 0.80, 0.60], needInfiltrator: true,
-                    note: "潜伏机混入人群审讯，不需编队出动；消耗金属 4 t 与耐久 2" },
-        lockdown: { label: "封锁隔离", w: 1, dur: 2, metal: 3, prodMul: 0.85, prodMonths: 3,
-                    iso: 0.25, isoMonths: 3, infSpread: 0.60, cd: 3, uses: [1, 0.80, 0.65],
-                    note: "产出 −15%，感染扩散 −40%，隔离执行度 +0.25，持续 3 个月" },
-        ritual:   { label: "仪式宣传", o: 6, w: -1, foodShare: 0.01, foodMonths: 1,
-                    needL1: true, cd: 3, uses: [1, 0.75, 0.50],
-                    note: "消耗 1% 口粮；L1 死亡后失效" }
+        interrogate: { label: "潜伏机审讯", o: 6, w: 2, metal: 4, durCost: 2,
+                    iso: 0.10, isoWeeks: monthsToWeeks(3),
+                    cdWeeks: monthsToWeeks(4), uses: [1, 0.80, 0.60], needInfiltrator: true,
+                    note: "潜伏机混入人群审讯，不需编队出动；消耗金属 4 t 与耐久 2 点" },
+        lockdown: { label: "封锁隔离", w: 1, durCost: 2, metal: 3,
+                    prodMul: 0.85, prodWeeks: monthsToWeeks(3),
+                    iso: 0.25, isoWeeks: monthsToWeeks(3), infSpread: 0.60,
+                    cdWeeks: monthsToWeeks(3), uses: [1, 0.80, 0.65],
+                    note: "产出 −15%，感染扩散 −40%，隔离执行度 +0.25，持续 3 个月量" },
+        ritual:   { label: "仪式宣传", o: 6, w: -1, foodShare: 0.01, foodWeeks: monthsToWeeks(1),
+                    needL1: true, cdWeeks: monthsToWeeks(3), uses: [1, 0.75, 0.50],
+                    note: "消耗 1% 口径的口粮；L1 死亡后失效" }
       },
 
       // 机器哗变：连锁数由科技等级决定
       machine: {
         techHydro: 0.55, techClone: 0.25, techMed: 0.20,
-        at: 0.65, months: 2, oLow: 45,
+        at: 0.65, weeks: monthsToWeeks(2), oLow: 45,
         secondAt: 0.72, secondMaint: 0.55, secondEnergy: 0.12,
         thirdAt: 0.80,
         maxChainBase: 1, maxChainTech: 3,   // 科技 0→1 个，满级→3 个
         firstDept: "农环",
-        prodLoss: 0.15, procMonths: 3, procMul: 0.60,
-        overrideMW: 5, overrideMetal: 30
+        prodLoss: 0.15, procWeeks: monthsToWeeks(3), procMul: 0.60,
+        overrideMW: 5, overrideMetal: 30,
+        energyHistWeeks: 52                 // 原 12 个月窗口 → 52 周
       },
 
       // 感染：全人群累积；贵族抵抗系数低（不易感染），转化时间更长
+      // base/ageK/... 为「每月对感染度 C 的加成」，按 ×12/52 折到周
       infection: {
-        base: 0.006, ageK: 0.0018, ageCap: 25,
-        lifeK: 0.0001, lifeFloor: 40,
-        mutK: 0.030, isoK: 0.040, densityK: 0.020,
-        medK: 0.030, execK: 0.100, cap: 0.80,
+        base: perWeek(0.006), ageK: perWeek(0.0018), ageCap: 25,
+        lifeK: perWeek(0.0001), lifeFloor: 40,
+        mutK: perWeek(0.030), isoK: perWeek(0.040), densityK: perWeek(0.020),
+        medK: perWeek(0.030), execK: perWeek(0.100), cap: perWeek(0.80),   // 原 0.80/月上限 → 0.185/周
         resist: { L1: 0.35, L2: 0.45, L3: 0.70, L4n: 0.90, L4c: 1.00 },
         hearing: 30, deform: 60, thrall: 85,
-        thrallMonths: { L1: 24, L2: 24, L3: 18, L4: 12 },
-        convertRate: 0.0025,
-        convertRateNoble: 0.0008
+        thrallWeeks: { L1: monthsToWeeks(24), L2: monthsToWeeks(24),
+                       L3: monthsToWeeks(18), L4: monthsToWeeks(12) },
+        convertRate: perWeek(0.0025),        // 原 0.25%/月 → 0.0577%/周
+        convertRateNoble: perWeek(0.0008)    // 原 0.08%/月 → 0.0185%/周
       },
 
       // 召唤：12 名 / 均值 55 / 峰值 90，连续 6 个月【用户定】
       // 产能惩罚是机械化程度的函数：机械越多，影响越小
       summon: {
-        n: 12, meanC: 55, maxC: 90, months: 6, lockYears: 120,
-        popLoss: 0.25, popMonths: 24, orderLoss: 0.35,
-        prodMonths: 12,            // 产能惩罚持续 12 个月（此前缺失，导致 NaN 与永久惩罚）
+        n: 12, meanC: 55, maxC: 90,
+        weeks: monthsToWeeks(6),            // 原 连续 6 个月 → 26 周
+        lockYears: 120,
+        popLoss: 0.25, popWeeks: monthsToWeeks(24), orderLoss: 0.35,
+        prodWeeks: monthsToWeeks(12),       // 产能惩罚 12 个月 → 52 周
         mechHydro: 0.40, mechClone: 0.25, mechWear: 0.20, mechMed: 0.15,
         prodBase: 0.45, prodMech: 0.55,
         laborBase: 0.70, laborExtra: 0.30,
-        stressAdd: 0.25, permBase: 0.008,
+        stressAdd: 0.25, permBase: perWeek(0.008),   // 永久基线：原 +0.008/月 → +0.00185/周
         newThralls: 5, newThrallK: 0.4
       },
 
@@ -291,18 +353,20 @@
         secondedFromCombat: 60,    // 说明用：自战斗编制划出，指挥链独立
         suppressors: 4,            // 重型镇压机：可见、威慑
         infiltrators: 6,           // 潜伏侦察/审讯机：不直接抓捕
-        robotMetalTpy: 24,         // 两型机器人维修金属（约 2 t/月）
-        recoverStrength: 0.5,      // 每月补员 0.5 人（从未定抽调）
-        recoverDur: 1.2,
-        recoverMetal: 3,
-        suppressDur: 8, suppressMetal: 6, suppressWear: 0.05,
-        exposeMonths: 18,          // 潜伏机暴露的检查周期
+        robotMetalTpy: 24,         // 两型机器人维修金属（约 2 t/月，年量）
+        recoverStrengthPerWeek: perWeek(0.5),     // 原 0.5 人/月 → 0.115 人/周
+        recoverDur: perWeek(1.2),                 // 原 1.2 耐久/月 → 0.277/周
+        recoverMetal: perWeek(3),                 // 原 3 t/月 → 1.385 t/周
+        lackDurabilityPerWeek: perWeek(1.5),      // 原 缺料时耐久 −1.5/月 → −0.346/周
+        suppressMetal: 6,
+        suppressWear: 0.05,
+        exposeWeeks: monthsToWeeks(18),           // 原 18 个月 → 78 周
         effectMin: 0.40
       },
 
       lifespan: { L1: 600, L2: 300, L3: 120, L4: 65, clone: 30 },  // 【推定】长生种
-      // 手动触发参数：mutinyMonths 为余震月数，期间持续压制 O / 抬高 W
-      trigger: { mutinyS: 0.62, mutinyO: 16, mutinyW: 76, mutinyMonths: 18,
+      // 手动触发参数：mutinyWeeks 为余震周数，期间持续压制 O / 抬高 W
+      trigger: { mutinyS: 0.62, mutinyO: 16, mutinyW: 76, mutinyWeeks: monthsToWeeks(18),
                  infectC: 92, infectSpreadC: 68, infectSpreadC2: 62 }
     },
 
@@ -314,7 +378,7 @@
         { key: "cloneBatch",     group: "人口与消费", label: "克隆批次频率",   min: 0,    max: 2,    step: 0.05, unit: "×",   digits: 2, path: "clone",    note: "1.0 = 96 筒约 38 具/年；>1.05 会触发克隆槽扩建" },
         { key: "dormancyTarget", group: "人口与消费", label: "休眠推进力度",   min: 0,    max: 0.60, step: 0.01, unit: "占比", digits: 0, percent: true, path: "dormancy", note: "目标休眠人数占在册总数；受舱位、药剂、最低醒态限制" },
 
-        { key: "hydroTarget",    group: "生产与资源", label: "水培扩建投入",   min: 0,    max: 30,   step: 1,    unit: "单元/年", digits: 0, path: "hydro", note: "1 单元 = 1000 m² 等效栽培面；建设有 6 个月滞后" },
+        { key: "hydroTarget",    group: "生产与资源", label: "水培扩建投入",   min: 0,    max: 30,   step: 1,    unit: "单元/年", digits: 0, path: "hydro", note: "1 单元 = 1000 m² 等效栽培面；建设有 26 周滞后" },
         { key: "metalHydro",     group: "生产与资源", label: "金属分配 · 水培", min: 0,   max: 100,  step: 1,    unit: "%",  digits: 0, path: "metal",    note: "四份金属配额自动归一化；给水培多，维修就少" },
         { key: "metalPods",      group: "生产与资源", label: "金属分配 · 休眠舱", min: 0, max: 100,  step: 1,    unit: "%",  digits: 0, path: "metal",    note: "目标休眠超过舱位时自动开工" },
         { key: "metalClone",     group: "生产与资源", label: "金属分配 · 克隆槽", min: 0, max: 100,  step: 1,    unit: "%",  digits: 0, path: "metal",    note: "克隆批次 > 1.05 且筒数不足时自动开工" },
@@ -326,6 +390,16 @@
         { key: "planetCut",      group: "保障与底线", label: "行星补给中断",   min: 0,    max: 1,    step: 1,    unit: "", toggle: true, path: "food", note: "情景开关：用来复现「食物减少」的起点" }
       ]
     }
+  };
+
+  // 时间工具单独挂出，供引擎 / 主站适配层 / 验收脚本共用（不进 CONFIG，避免 JSON 克隆丢函数）
+  global.XuanShuTime = {
+    WEEKS_PER_YEAR: WEEKS_PER_YEAR,
+    WEEKS_PER_QUARTER: WEEKS_PER_QUARTER,
+    WEEKS_PER_MONTH: WEEKS_PER_MONTH,
+    perWeek: perWeek,
+    powWeek: powWeek,
+    monthsToWeeks: monthsToWeeks
   };
 
   global.XUANSHU_CONFIG = CONFIG;
