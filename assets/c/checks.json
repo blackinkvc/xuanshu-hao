@@ -1,0 +1,226 @@
+{
+  "crew-001": {
+    "float": {
+      "size": [
+        1680,
+        2240
+      ],
+      "corners_alpha": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "transparent_ratio": 0.817,
+      "edge_white_fringe_ratio": 0.0017,
+      "alpha": true,
+      "pass": true
+    },
+    "avatar": {
+      "size": [
+        1920,
+        1920
+      ],
+      "square": true,
+      "corner_bg_ok": true,
+      "flat_bg_ratio": 0.504,
+      "pass": true
+    }
+  },
+  "crew-002": {
+    "float": {
+      "size": [
+        1680,
+        2240
+      ],
+      "corners_alpha": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "transparent_ratio": 0.822,
+      "edge_white_fringe_ratio": 0.0119,
+      "alpha": true,
+      "pass": true
+    },
+    "avatar": {
+      "size": [
+        1920,
+        1920
+      ],
+      "square": true,
+      "corner_bg_ok": true,
+      "flat_bg_ratio": 0.441,
+      "pass": true
+    }
+  },
+  "crew-003": {
+    "float": {
+      "size": [
+        1680,
+        2240
+      ],
+      "corners_alpha": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "transparent_ratio": 0.772,
+      "edge_white_fringe_ratio": 0.0607,
+      "alpha": true,
+      "pass": true
+    },
+    "avatar": {
+      "size": [
+        1920,
+        1920
+      ],
+      "square": true,
+      "corner_bg_ok": true,
+      "flat_bg_ratio": 0.432,
+      "pass": true
+    }
+  },
+  "crew-004": {
+    "float": {
+      "size": [
+        1680,
+        2240
+      ],
+      "corners_alpha": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "transparent_ratio": 0.763,
+      "edge_white_fringe_ratio": 0.0215,
+      "alpha": true,
+      "pass": true
+    },
+    "avatar": {
+      "size": [
+        1920,
+        1920
+      ],
+      "square": true,
+      "corner_bg_ok": false,
+      "flat_bg_ratio": 0.486,
+      "pass": true
+    }
+  },
+  "crew-005": {
+    "float": {
+      "size": [
+        1680,
+        2240
+      ],
+      "corners_alpha": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "transparent_ratio": 0.821,
+      "edge_white_fringe_ratio": 0.0445,
+      "alpha": true,
+      "pass": true
+    },
+    "avatar": {
+      "size": [
+        1920,
+        1920
+      ],
+      "square": true,
+      "corner_bg_ok": true,
+      "flat_bg_ratio": 0.538,
+      "pass": true
+    }
+  },
+  "crew-006": {
+    "float": {
+      "size": [
+        1680,
+        2240
+      ],
+      "corners_alpha": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "transparent_ratio": 0.805,
+      "edge_white_fringe_ratio": 0.0565,
+      "alpha": true,
+      "pass": true
+    },
+    "avatar": {
+      "size": [
+        1920,
+        1920
+      ],
+      "square": true,
+      "corner_bg_ok": false,
+      "flat_bg_ratio": 0.458,
+      "pass": true
+    }
+  },
+  "crew-007": {
+    "float": {
+      "size": [
+        1680,
+        2240
+      ],
+      "corners_alpha": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "transparent_ratio": 0.806,
+      "edge_white_fringe_ratio": 0.0022,
+      "alpha": true,
+      "pass": true
+    },
+    "avatar": {
+      "size": [
+        1920,
+        1920
+      ],
+      "square": true,
+      "corner_bg_ok": true,
+      "flat_bg_ratio": 0.491,
+      "pass": true
+    }
+  },
+  "crew-011": {
+    "float": {
+      "size": [
+        1680,
+        2240
+      ],
+      "corners_alpha": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "transparent_ratio": 0.783,
+      "edge_white_fringe_ratio": 0.0105,
+      "alpha": true,
+      "pass": true
+    },
+    "avatar": {
+      "size": [
+        1920,
+        1920
+      ],
+      "square": true,
+      "corner_bg_ok": true,
+      "flat_bg_ratio": 0.517,
+      "pass": true
+    }
+  }
+}
