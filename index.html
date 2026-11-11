@@ -1996,6 +1996,9 @@ body.light .clt{color:#6b7c8c}
 .gs-base::after{content:"";position:absolute;left:19%;right:19%;bottom:-6px;height:8px;border-radius:50%;
   border:1px solid color-mix(in srgb,var(--eye,#5fd0ff) 18%,transparent);border-top-color:transparent}
 .ov-figure.cut img{max-height:min(470px,56vh)}
+/* 图上自带环时只保留牵引光柱，不再叠加第二道上环 */
+.ov-figure.baked-ring .gs-ring{display:none}
+.ov-figure.baked-ring .gs-beam.up{top:6%;height:30px;width:10px}
 @media (max-width:1100px){.ov-figure.cut img{max-height:min(430px,54vh)}}
 @media (max-width:760px){.ov-figure{padding:34px 0 44px}.ov-figure.cut img{max-height:min(360px,46vh)}
   .gs-ring{top:-6px;height:17px;width:64%}.gs-base{bottom:-38px;height:26px}.gs-beam.up{top:-4px;height:30px}.gs-beam.dn{bottom:-22px;height:46px}}
@@ -2181,17 +2184,23 @@ body.light .clt{color:#6b7c8c}
     + '</svg>');
   /* 悬浮立绘候选：grav 新引力座版优先，其次旧版；路径固定，不加哈希/版本号 */
   var FLOAT_CACHE = {}, FLOAT_WAIT = {};
-  /* 001 的 grav 版已撤出总览、改挂详情页展示（原文件保留不删不改名），这里不再探测 */
-  var GRAV_OFF = {'CREW-001': 1};
+  /* 悬浮位换图映射（唯一入口）：按人物 ID 直接指定固定路径，优先于默认 grav/旧版候选。
+     以后换图只需加一行：'CREW-00X': {src: 'assets/c/crew-00x/grav/crew-00x-float-yyy.png'}
+     bakedRing: true 表示图上自带上环，页面不再叠加 CSS 上环。 */
+  var FLOAT_SRC = {
+    'CREW-001': {src: 'assets/c/crew-001/grav/crew-001-float-clean.png', bakedRing: true}
+  };
+  /* 详情页展示图：旧版浮图文件原地保留，挂到图组末尾 */
   var GRAV_SHOW = {
-    'CREW-001': {src: 'assets/c/crew-001/grav/crew-001-float.png', no: 'G0', title: '引力座立绘',
-      note: '原总览悬浮位图（头顶单环版），已从总览撤下，文件原样保留'}
+    'CREW-001': {src: 'assets/c/crew-001/grav/crew-001-float.png', no: 'G0', title: '引力座立绘（旧版）',
+      note: '原总览悬浮图（腹甲 / 黑蕾丝版），已被 clean 版替换；从总览撤下，文件原样保留'}
   };
   function floatCandidates(c){
     if(!FLOAT_OK[c.id]) return [];
+    if(FLOAT_SRC[c.id]) return [FLOAT_SRC[c.id].src];
     var n = c.id.replace('CREW-','').toLowerCase();
-    var grav = GRAV_OFF[c.id] ? [] : ['assets/c/crew-' + n + '/grav/crew-' + n + '-float.png'];
-    return grav.concat(['assets/c/crew-' + n + '/crew-' + n + '-float.png']);
+    return ['assets/c/crew-' + n + '/grav/crew-' + n + '-float.png',
+            'assets/c/crew-' + n + '/crew-' + n + '-float.png'];
   }
   function floatOf(c){
     var a = floatCandidates(c);
@@ -3011,10 +3020,13 @@ body.light .clt{color:#6b7c8c}
         if(p){
           if(im.getAttribute('src') !== p){ im.src = p; ovFill(im, p, i); }
           fig.classList.add('cut'); fig.classList.remove('soft');
+          var ov = FLOAT_SRC[c.id];
+          fig.classList.toggle('baked-ring', !!(ov && ov.bakedRing));
         }else{
           var msrc = figSrc(c);
           if(msrc && im.getAttribute('src') !== msrc){ im.src = msrc; ovFill(im, msrc, i); }
           fig.classList.add('soft'); fig.classList.remove('cut');
+          fig.classList.remove('baked-ring');
         }
       });
     }
