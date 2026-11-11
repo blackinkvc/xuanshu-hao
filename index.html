@@ -1509,6 +1509,9 @@ body.no-motion .hud-page{animation:none}
 .grow .gt a.gloc:hover{color:var(--hud-2)}
 .grow .gt .gnote{display:block;margin-top:1px;font-size:9px;line-height:1.45;color:var(--ink-5);
   white-space:normal;word-break:break-word}
+/* 装备图原位放大：复用立绘的 .cz-in 面板，去掉两侧边线贴合列表 */
+.gear-index .cz-in{margin:0;border-width:1px 0;border-color:var(--line3)}
+.gear-index .cz-in .cz-pic img{max-height:min(70vh,680px)}
 .grow .gcat{font:600 8.5px/1 ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:1.2px;
   color:var(--hud-3);border:0;border-left:1px solid rgba(var(--hud-rgb),.4);padding:2px 6px;text-align:left;white-space:nowrap}
 .grow .gown{font-size:10.5px;line-height:1.35;color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;
@@ -1530,6 +1533,12 @@ body.no-motion .hud-page{animation:none}
 .rooms-cmd .gsearch{border-radius:0}
 .rooms-cmd .cmd-tag{font:600 8px/1 ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:1.8px;color:var(--ink-5)}
 .rooms-cmd .cmd-tag b{color:var(--hud);font-weight:600}
+/* 全局展开/收起：与筛选控件同一行 */
+.rooms-cmd .rooms-all{flex:0 0 auto;border:1px solid var(--line2);background:rgba(var(--hud-rgb),.06);
+  color:var(--ink-2);font:600 10px/1 ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:.6px;
+  padding:0 9px;height:26px;cursor:pointer;white-space:nowrap;border-radius:0}
+.rooms-cmd .rooms-all:hover{color:var(--hud-2);border-color:var(--hud)}
+.rooms-cmd .rooms-all.on{color:var(--hud-3);border-color:var(--hud);background:rgba(var(--hud-rgb),.16)}
 
 .deck-wrap{display:block}
 .deck-tracks{display:flex;flex-direction:column;gap:14px;min-width:0}
@@ -1962,6 +1971,34 @@ body.light .clnote{color:#6b7c8c}
 body.light .cln{color:#33414f}
 body.light .clt{color:#6b7c8c}
 @media(max-width:780px){.clrow{grid-template-columns:1fr;gap:2px}.clt{white-space:normal}}
+/* 悬浮位：上下成对引力座（上环 + 下座 + 两道牵引光柱），颜色跟随人物 --eye */
+.ov-figbox{position:relative;display:flex;align-items:flex-end;max-height:100%;max-width:100%}
+.ov-figure{padding:40px 0 52px;align-items:center}
+.ov-gseat{position:absolute;left:0;right:0;top:0;bottom:0;pointer-events:none;z-index:5;display:none}
+.ov-figure.cut .ov-gseat{display:block}
+.gs-ring{position:absolute;left:50%;top:-20px;width:72%;max-width:258px;height:19px;transform:translateX(-50%);
+  border-radius:50%;border:1.5px solid color-mix(in srgb,var(--eye,#5fd0ff) 58%,transparent);
+  box-shadow:0 0 14px color-mix(in srgb,var(--eye,#5fd0ff) 34%,transparent),
+    inset 0 0 10px color-mix(in srgb,var(--eye,#5fd0ff) 22%,transparent)}
+.gs-ring::after{content:"";position:absolute;left:-7px;right:-7px;top:3px;bottom:3px;border-radius:50%;
+  border:1px solid color-mix(in srgb,var(--eye,#5fd0ff) 22%,transparent)}
+.gs-beam{position:absolute;left:50%;width:12px;transform:translateX(-50%);border-radius:6px;filter:blur(3px);
+  background:linear-gradient(180deg,color-mix(in srgb,var(--eye,#5fd0ff) 52%,transparent),transparent)}
+.gs-beam.up{top:-18px;height:44px}
+.gs-beam.dn{bottom:-28px;height:60px;background:linear-gradient(0deg,color-mix(in srgb,var(--eye,#5fd0ff) 46%,transparent),transparent)}
+.gs-base{position:absolute;left:50%;bottom:-44px;width:78%;max-width:300px;height:30px;transform:translateX(-50%);border-radius:50%;
+  background:radial-gradient(ellipse at 50% 40%,rgba(255,255,255,.15),transparent 54%),
+    radial-gradient(ellipse at 50% 50%,#1b2733 0 48%,#0c1218 66%,rgba(6,10,14,0) 73%);
+  box-shadow:0 0 0 1px color-mix(in srgb,var(--eye,#5fd0ff) 34%,transparent),0 10px 24px rgba(0,0,0,.62),
+    inset 0 2px 5px rgba(255,255,255,.09)}
+.gs-base::before{content:"";position:absolute;left:9%;right:9%;top:1px;height:2px;border-radius:50%;filter:blur(.6px);
+  background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--eye,#5fd0ff) 70%,transparent),transparent)}
+.gs-base::after{content:"";position:absolute;left:19%;right:19%;bottom:-6px;height:8px;border-radius:50%;
+  border:1px solid color-mix(in srgb,var(--eye,#5fd0ff) 18%,transparent);border-top-color:transparent}
+.ov-figure.cut img{max-height:min(470px,56vh)}
+@media (max-width:1100px){.ov-figure.cut img{max-height:min(430px,54vh)}}
+@media (max-width:760px){.ov-figure{padding:34px 0 44px}.ov-figure.cut img{max-height:min(360px,46vh)}
+  .gs-ring{top:-6px;height:17px;width:64%}.gs-base{bottom:-38px;height:26px}.gs-beam.up{top:-4px;height:30px}.gs-beam.dn{bottom:-22px;height:46px}}
 </style>
 </head>
 <body>
@@ -2144,11 +2181,17 @@ body.light .clt{color:#6b7c8c}
     + '</svg>');
   /* 悬浮立绘候选：grav 新引力座版优先，其次旧版；路径固定，不加哈希/版本号 */
   var FLOAT_CACHE = {}, FLOAT_WAIT = {};
+  /* 001 的 grav 版已撤出总览、改挂详情页展示（原文件保留不删不改名），这里不再探测 */
+  var GRAV_OFF = {'CREW-001': 1};
+  var GRAV_SHOW = {
+    'CREW-001': {src: 'assets/c/crew-001/grav/crew-001-float.png', no: 'G0', title: '引力座立绘',
+      note: '原总览悬浮位图（头顶单环版），已从总览撤下，文件原样保留'}
+  };
   function floatCandidates(c){
     if(!FLOAT_OK[c.id]) return [];
     var n = c.id.replace('CREW-','').toLowerCase();
-    return ['assets/c/crew-' + n + '/grav/crew-' + n + '-float.png',
-            'assets/c/crew-' + n + '/crew-' + n + '-float.png'];
+    var grav = GRAV_OFF[c.id] ? [] : ['assets/c/crew-' + n + '/grav/crew-' + n + '-float.png'];
+    return grav.concat(['assets/c/crew-' + n + '/crew-' + n + '-float.png']);
   }
   function floatOf(c){
     var a = floatCandidates(c);
@@ -2558,6 +2601,7 @@ body.light .clt{color:#6b7c8c}
     if(img){
       e.preventDefault();
       if(img.closest('.crew-page')){ crewZoom(img); return; }
+      if(img.closest('.gear-index')){ gearZoom(img); return; }
       lbOpen(img); SND.click(); return;
     }
     if(e.target.closest('#lb')){
@@ -3033,7 +3077,10 @@ body.light .clt{color:#6b7c8c}
       +   '<div class="ov-space"><i></i></div>'
       +   '<div class="ov-ring r1"></div><div class="ov-ring r2"></div><div class="ov-ring r3"></div>'
       +   '<div class="ov-figure" id="ovFig"><span class="ov-aura"></span>'
-      +     '<img id="ovImg" alt="" decoding="async"><span class="ov-plinth"></span></div>'
+      +     '<div class="ov-figbox"><img id="ovImg" alt="" decoding="async">'
+      +       '<span class="ov-gseat" aria-hidden="true"><i class="gs-ring"></i><i class="gs-beam up"></i>'
+      +       '<i class="gs-beam dn"></i><i class="gs-base"></i></span></div>'
+      +     '<span class="ov-plinth"></span></div>'
       +   '<div class="ov-cname"><b id="ovCN"></b><em id="ovCE"></em></div>'
       +   '<aside class="ov-pcard" id="ovPcard" aria-label="当前人物状态卡">'
       +     '<div class="ov-pcol">'
@@ -3671,6 +3718,9 @@ body.light .clt{color:#6b7c8c}
         add(it.src, c.id + ' · ' + s.id + ' · ' + it.no + ' ' + it.title);
       });
     });
+    /* 从总览撤下的展示图：接在图组最后（文件路径不变、不压缩不改名） */
+    var gv = GRAV_SHOW[c.id];
+    if(gv) add(gv.src, c.id + ' · GRAV · ' + gv.no + ' ' + gv.title);
     /* 解锁后把参考图与弃用图并入同一翻页序列 */
     if(isUnlocked()){
       var ex = extrasOf(c.id);
@@ -4030,6 +4080,17 @@ body.light .clt{color:#6b7c8c}
       });
       h += '</div></section>';
     });
+    /* 从总览撤下的展示图：作为独立一组放在图组最后 */
+    var gv = GRAV_SHOW[c.id];
+    if(gv){
+      h += '<section class="film film-grav"><div class="film-h"><span class="sid">GRAV</span><b>' + esc(gv.title) + '</b>'
+        + '<span class="spare">总览已撤下</span><span class="ct">1 / 1 FRAMES</span></div>'
+        + '<div class="film-note">' + esc(gv.note) + '</div>'
+        + '<div class="film-track"><div class="fcell"><div class="fim"><span class="fno">' + esc(gv.no) + '</span>'
+        + '<img loading="lazy" decoding="async" src="' + esc(gv.src) + '" alt="' + esc(gv.title) + '"'
+        + ' data-full="' + esc(gv.src) + '" data-cap="' + esc(c.id + ' · GRAV · ' + gv.no + ' ' + gv.title) + '"></div>'
+        + '<div class="ftx"><b>' + esc(gv.no) + '</b><span>' + esc(gv.title) + '</span></div></div></div></section>';
+    }
     h += '</div>';
 
     /* 底部：参考图 / 垃圾箱（默认收起，跟随全站解锁开关） */
@@ -4364,6 +4425,7 @@ body.light .clt{color:#6b7c8c}
   /* ---------- 舱室页 #/rooms ---------- */
   var ROOMS = null, ROOMS_META = null, ROOMS_BUSY = false, ROOMS_ERR = false, ROOM_BY = {}, ROOM_S = {}, RQ = '', ROOMS_Q = [];
   var RCOLL = {}, UCOLL = {};
+  var ROOM_ALL = false;   /* 全局展开态：允许同时展开多间 */
   var ROOM_GROUPS = [
     ['位置与编号', ['房间编号', '单元编号', '甲板', '分区', '房间名']],
     ['功能与尺度', ['用途', '面积m2', '净高m', '定员']],
@@ -4435,7 +4497,7 @@ body.light .clt{color:#6b7c8c}
       +   '<span>定员 <b>' + esc(r['定员']) + '</b></span>'
       +   '<span>' + esc(deck ? deck.label : r['甲板']) + '</span></div>'
       + '<div class="nuse">' + esc(roomVal(r['用途'])) + '</div>'
-      + '</a><div class="room-inline"></div></div>';
+      + '</a><div class="room-inline">' + (active ? roomDetail(r) : '') + '</div></div>';
   }
   function roomDetail(r){
     var meta = ROOMS_META || {};
@@ -4487,6 +4549,7 @@ body.light .clt{color:#6b7c8c}
       + '<h1>舱室明细</h1><span class="sub" id="roomSub">索引加载中…</span></div>';
     h += '<div class="rooms-cmd hud-brk">'
       + '<span class="cmd-tag">REG&gt; <b>BY DECK</b></span>'
+      + '<button class="rooms-all" id="roomAll" type="button" aria-pressed="false" title="一次展开/收起当前列表里的全部房间">全部展开</button>'
       + '<div id="roomChips"></div>'
       + '<label class="hud-input gsearch"><svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/></svg>'
       + '<input id="rq" type="search" value="' + esc(RQ) + '" placeholder="搜索编号 / 房间名 / 用途 / 单元" aria-label="搜索舱室"></label>'
@@ -4518,6 +4581,11 @@ body.light .clt{color:#6b7c8c}
             return '<a class="hud-chip' + (deck === d.k ? ' on' : '') + '" href="#/rooms' + roomQuery({deck: d.k}) + '" title="'
               + esc(d.label) + '">' + esc(d.k) + ' <i>' + d.count + '</i></a>';
           }).join('');
+      /* 进入页面：甲板 / 单元默认全部收起，房间详情也不展开（深链定位的除外） */
+      RCOLL = {}; UCOLL = {}; ROOM_ALL = false;
+      decks.forEach(function(d){ RCOLL[d.k] = 1; });
+      Object.keys(unitsMeta).forEach(function(u){ UCOLL[u] = 1; });
+      if(deck !== 'all') delete RCOLL[deck];
       var cur = id ? roomById(id) : null;
       if(cur){
         delete RCOLL[cur['甲板']];
@@ -4547,13 +4615,33 @@ body.light .clt{color:#6b7c8c}
         }
       }
       function toggleRoom(item){
+        if(!item) return;
         if(item.classList.contains('on')){
+          /* 收起：只收这一间，其他已展开的保持不动 */
           closeRoom(item);
           try{ history.replaceState(null, '', docUrl('')); }catch(e){}
-          return;
+        }else{
+          /* 展开：回到单开逻辑（其他自动收起） */
+          openRoom(item, true);
         }
-        openRoom(item, true);
+        if(ROOM_ALL){ ROOM_ALL = false; syncAllBtn(); }
       }
+      function syncAllBtn(){
+        var b = document.getElementById('roomAll');
+        if(!b) return;
+        b.textContent = ROOM_ALL ? '全部收起' : '全部展开';
+        b.setAttribute('aria-pressed', ROOM_ALL ? 'true' : 'false');
+        if(ROOM_ALL) b.classList.add('on'); else b.classList.remove('on');
+      }
+      function setAllOpen(open){
+        ROOM_ALL = !!open;
+        if(open){ RCOLL = {}; UCOLL = {}; }
+        paint();
+        syncAllBtn();
+        SND.click();
+      }
+      var allBtn = document.getElementById('roomAll');
+      if(allBtn) allBtn.addEventListener('click', function(){ setAllOpen(!ROOM_ALL); });
       host.addEventListener('click', function(e){
         var t = e.target;
         var dh = t.closest && t.closest('.deck-h');
@@ -4629,7 +4717,7 @@ body.light .clt{color:#6b7c8c}
               + '<span class="uk">' + esc(uk) + '</span><b>' + esc(u.name || '') + '</b>'
               + '<span class="uc">' + ucnt + ' · ' + (u.area || 0) + ' m²</span>'
               + '<span class="tg">' + (uColl ? '＋' : '－') + '</span></button>'
-              + '<div class="unit-body">' + urs.map(function(r){ return roomCard(r, false); }).join('') + '</div></section>';
+              + '<div class="unit-body">' + urs.map(function(r){ return roomCard(r, ROOM_ALL); }).join('') + '</div></section>';
           });
           html += '</div></section>';
         });
@@ -4643,10 +4731,12 @@ body.light .clt{color:#6b7c8c}
       inp.addEventListener('input', function(){
         RQ = inp.value;
         if(RQ.trim()){ RCOLL = {}; UCOLL = {}; }
+        if(ROOM_ALL){ ROOM_ALL = false; syncAllBtn(); }
         cur = null; id = '';
         try{ history.replaceState(null, '', docUrl('')); }catch(e){}
         paint();
       });
+      syncAllBtn();
       paint();
       if(cur){
         var citem = host.querySelector('.room-item[data-id="' + cur['房间编号'] + '"]');
