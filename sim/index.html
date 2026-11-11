@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark light" />
+    <title>玄枢号 · 工作台</title>
+    <meta name="description" content="玄枢号舰员档案与舱室资料库" />
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem("xs-theme");
+          if (t === "light" || t === "dark") document.documentElement.dataset.theme = t;
+        } catch (e) {}
+      })();
+      // 老 hash 深链回退：/xuanshu-hao/#/crew/CREW-001 -> /xuanshu-hao/crew/CREW-001/
+      (function () {
+        if (location.pathname.indexOf("/xuanshu-hao/") !== 0) return;
+        var m = (location.hash || "").match(/^#\/crew\/(CREW-\d+)/i);
+        if (m) location.replace("/xuanshu-hao/crew/" + m[1].toUpperCase() + "/");
+        // 舰体 3D 老深链：#/ship/3d -> 独立舰船页，不落 404
+        if (/^#\/ship\/3d(\?|$)/i.test(location.hash || "")) {
+          location.replace("/xuanshu-hao/ship/");
+        }
+      })();
+    </script>
+    <script type="module" crossorigin src="/xuanshu-hao/assets/index-Bbv3D8Of.js"></script>
+    <link rel="stylesheet" crossorigin href="/xuanshu-hao/assets/index-AMi-ukss.css">
+  </head>
+  <body>
+    <div id="root"><div class="site is-locked"><header class="hdr"><a class="brand" href="/xuanshu-hao/"><span class="brand-mark">玄</span><span class="brand-txt"><b>玄枢号 · 工作台</b><em>XUANSHU ARCHIVE</em></span></a><nav class="nav"><a href="/xuanshu-hao/" class="">总览</a><a href="/xuanshu-hao/crew/" class="">舰员列表</a><a href="/xuanshu-hao/gear/" class="">装备</a><a href="/xuanshu-hao/rooms/" class="">房间</a><a href="/xuanshu-hao/ship/" class="">舰体 3D</a><a href="/xuanshu-hao/sim/" class="on">舰务模拟</a><a href="/xuanshu-hao/changelog/" class="">版本记录</a></nav><div class="hdr-tools"><div class="world"><button type="button" class="world-btn" aria-haspopup="dialog" aria-expanded="false" title="玄枢历 · 世界时间流"><span class="k">玄枢历</span><b>41,000</b><span class="u">年</span></button></div><button type="button" class="icon-btn" aria-label="切换深色模式" title="切到浅色">☾</button><button type="button" class="icon-btn" aria-label="设置" title="设置">⚙</button></div></header><main class="site-main"><article class="sim"><nav class="crumbs"><a href="/xuanshu-hao/">总览</a><span>/</span><span>舰务模拟</span></nav><div class="sec-head"><h2>舰务模拟</h2><span>正在加载计算内核…</span></div><div class="sim-kpi"><div class="sim-cell"><span>在册</span><b>—</b></div><div class="sim-cell"><span>醒态</span><b>—</b></div><div class="sim-cell"><span>休眠</span><b>—</b></div><div class="sim-cell"><span>在岗</span><b>—</b></div><div class="sim-cell"><span>秩序</span><b>—</b></div><div class="sim-cell"><span>舰内年</span><b>—</b></div></div><div class="sim-main"><section class="sim-panel"><h3>参数面板</h3><p class="sim-pending">参数面板随内核加载后出现。</p></section><section class="sim-panel"><h3>推进与处置</h3><p class="sim-pending">内核未加载，暂不可推进。</p></section></div><section class="sim-panel sim-events"><h3>模拟事件流</h3><p class="sim-pending">内核加载后显示。</p></section><p class="sim-foot">引擎：<!-- -->待加载<!-- --> · 档案值来自 sim-config，推算值由引擎按月步进得出。</p></article></main><footer class="ftr"><span><b>玄枢号 · 工作台</b> · 舰员 <!-- -->41<!-- --> 名 · 数据版本 <!-- -->2026-11-11</span><span class="ftr-stamp">构建 <!-- -->2026-11-11 17:13 (UTC+8)<!-- --> · commit <!-- -->local</span></footer><div id="toast" role="status" aria-live="polite"></div></div></div>
+    <script id="__APP_DATA__" type="application/json">{"kind":"sim","route":"/sim/","meta":{"title":"玄枢号 · 工作台","crewCount":41,"artwork":300,"missing":70,"planned":361,"trash":275,"note":"数据源：01_设定档案/01_人物档案 + 07_发布产物 + 03_弃用图区_不进档案","updated":"2026-11-11","loopScope":"full"}}</script>
+    <script>window.__BUILD__={"time":"2026-11-11 17:13 (UTC+8)","data":"2026-11-11","sha":"local"};</script>
+  </body>
+</html>
