@@ -905,7 +905,8 @@
       // base/ageK/... 为「每月对感染度 C 的加成」，按 ×12/52 折到周
       infection: {
         // 全船感染累积的整体时间尺度：1 = 原速率；调低即整体放慢感染演化
-        growthMul: 1,
+        // v1.1 平衡：1 → 0.126，被动不动约 980–990 年自然崩坏，轻度经营可过千年
+        growthMul: 0.126,
         base: perWeek(0.006), ageK: perWeek(0.0018), ageCap: 25,
         lifeK: perWeek(0.0001), lifeFloor: 40,
         mutK: perWeek(0.030), isoK: perWeek(0.040), densityK: perWeek(0.020),
