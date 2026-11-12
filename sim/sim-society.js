@@ -608,7 +608,8 @@
         F.densityK * thrallDensity -
         F.medK * env.med -
         F.execK * cp + soc.infection.perm;
-      d = clamp(d * resistOf(q, cfg) * spread, 0, F.cap);
+      d = clamp(d * (F.growthMul == null ? 1 : F.growthMul) *
+        resistOf(q, cfg) * spread, 0, F.cap);
       q.C = clamp(q.C + d, 0, 100);
 
       var stage = q.C >= F.thrall ? 3 : (q.C >= F.deform ? 2 : (q.C >= F.hearing ? 1 : 0));

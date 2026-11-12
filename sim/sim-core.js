@@ -218,6 +218,22 @@
     if (global.XuanShuPeople && cfg.people && cfg.people.enabled !== false) {
       state.people = global.XuanShuPeople.create(cfg);
     }
+    // 玩家身份层：未选身份前不推进时间，但状态先建好，便于前端展示三选一
+    if (global.XuanShuPlayer && cfg.player && cfg.player.enabled !== false) {
+      state.player = global.XuanShuPlayer.create(cfg);
+    }
+    // 奇遇与牌库：牌库进度、运气、历史都是长期状态，随存档走
+    if (global.XuanShuEncounter && cfg.encounter && cfg.encounter.enabled !== false) {
+      state.encounter = global.XuanShuEncounter.create(cfg);
+    }
+    // 古神契约：契约、神恩、神噬跨轮保留
+    if (global.XuanShuGods && cfg.gods && cfg.gods.enabled !== false) {
+      state.gods = global.XuanShuGods.create(cfg);
+    }
+    // 千年节点 / 自动推演 / 胜负：开局未选身份前为 started=false，时间闸门关闭
+    if (global.XuanShuRun && cfg.run && cfg.run.enabled !== false) {
+      state.run = global.XuanShuRun.create(cfg);
+    }
     pushSeries(state, cfg);
     return state;
   }
@@ -397,6 +413,14 @@
     var NS = Math.sqrt(cfg.time.monthsPerYear / cfg.time.weeksPerYear);
     var noise = function (amp) { return 1 + amp * NS * (nextRand(state) * 2 - 1); };
 
+    // 奇遇卡的限时修正（state.encounter.mods）：只读查询，不消耗随机数
+    var ENC = (global.XuanShuEncounter && state.encounter) ? global.XuanShuEncounter : null;
+    var mMul = function (k, b) { return ENC ? ENC.modMul(state, k, b) : b; };
+    var mAdd = function (k, b) { return ENC ? ENC.modAdd(state, k, b) : b; };
+    // 古神修正（主约 100%，旁约祝福/诅咒 50%）
+    var GOD = (global.XuanShuGods && state.gods && state.gods.enabled) ? global.XuanShuGods : null;
+    var gMul = function (k, b) { return GOD ? GOD.gMul(state, cfg, k, b) : b; };
+
     // 先交付到期项目；同类交付按批次累计，避免每交付一个就刷一条事件
     var doneHydro = popDue(state.projects.hydro, state.weeks);
     var donePods = popDue(state.projects.pods, state.weeks);
@@ -437,14 +461,16 @@
     var rest = Math.max(0, energy - lifeMW);
     var agriMW = rest * I.agriShare;
     var indMW = rest * (1 - I.agriShare);
-    var metalSupplyY = cfg.metal.supplyTpy * clamp(indMW / cfg.energy.industryFullMW, 0, 1);
+    var metalSupplyY = (cfg.metal.supplyTpy * clamp(indMW / cfg.energy.industryFullMW, 0, 1)) +
+      mAdd("metalPerYear", 0);
 
     // 医疗
     var medCoverage = clamp(
       (cfg.medical.coverageBase + cfg.medical.coverageGain * I.medical) *
       clamp(lifeMW / cfg.energy.lifeMW, 0.5, 1) *
       (1 - 0.10 * state.wear), 0, 1
-    );
+    ) + mAdd("medCoverage", 0);
+    medCoverage = clamp(medCoverage, 0, 1);
 
     // 社会层：先结算服从 / 哗变 / 感染，再让秩序与产能吃它的反馈
     if (state.society && global.XuanShuSociety) {
@@ -482,16 +508,16 @@
       production *= pmEff *
         (1 - 0.25 * clamp(soc.infection.share || 0, 0, 1)) *
         (1 - cfg.society.machine.prodLoss * Math.min(3, soc.machine.depts.length)) *
-        (soc.effects.prodMul || 1);
+        (soc.effects.prodMul || 1) * gMul("prodMul", 1);
     }
     production *= maintYield;
-    var planet = I.planetCut ? 0 : cfg.food.planetTpy;
+    var planet = I.planetCut ? 0 : (cfg.food.planetTpy + mAdd("foodPerYear", 0));
 
     // 粮食结算：库存永不为负
     var baseDemand = t0.awake * cfg.food.perCapitaTpy +
       t0.dormant * cfg.food.perCapitaTpy * cfg.food.dormantFactor;
     var standardNeed = baseDemand * dt;
-    var need = standardNeed * I.ration;
+    var need = standardNeed * I.ration * mMul("foodUse", 1) * gMul("foodUse", 1);
     var available = state.stocks.food + (production + planet) * dt;
     var consumed = Math.min(need, available);
     var rationActual = standardNeed > 0 ? clamp(consumed / standardNeed, 0, 1.2) : 1;
@@ -534,7 +560,7 @@
       clamp((rationActual - 0.5) / 0.4, 0, 1) *
       (0.6 + 0.4 * medCoverage) *
       (0.7 + 0.3 * clamp(state.order / 0.8, 0, 1)) *
-      noise(0.10);
+      noise(0.10) * mMul("birthMul", 1) * gMul("birthMul", 1);
     state.groups[cfg.population.undecidedId].awake += birthsY * dt;
 
     // 成熟：未定 → 在岗
@@ -549,7 +575,7 @@
     var cloneOutY = state.infra.clonePods * cfg.clone.outputPerPodYear * I.cloneBatch *
       clamp((rationActual - 0.45) / 0.4, 0, 1) *
       clamp(energy / cfg.energy.baseMW, 0, 1) *
-      (0.85 + 0.15 * medCoverage);
+      (0.85 + 0.15 * medCoverage) * mMul("cloneMul", 1) * gMul("cloneMul", 1);
     var t1 = totals(state, cfg);
     var cloneShareNow = (state.groups.clone.awake + state.groups.clone.dormant) / Math.max(1, t1.total);
     if (state.clonePause > 0) {
@@ -624,7 +650,8 @@
     var dormantNow = totals(state, cfg).dormant;
     var drugProd = cfg.hibernation.drugProdTpy *
       (0.5 + 0.5 * medCoverage) * clamp(energy / cfg.energy.baseMW, 0, 1) * dt;
-    var drugMaint = dormantNow * cfg.hibernation.drugPerDormantYear * dt;
+    var drugMaint = dormantNow * cfg.hibernation.drugPerDormantYear * dt *
+      Math.max(0, 1 - (ENC ? ENC.modSum(state, "drugSave") : 0));
     state.stocks.drug = clamp(state.stocks.drug + drugProd - drugMaint, 0, cfg.hibernation.drugCap);
 
     // 金属与建设（配额按年补给拆分，未用完的配额留在各自账户里滚存）
@@ -860,50 +887,111 @@
     if (global.XuanShuPeople && cfg.people && cfg.people.enabled !== false) {
       global.XuanShuPeople.sync(state, cfg);
     }
+    if (global.XuanShuPlayer) {
+      global.XuanShuPlayer.sync(state, cfg);
+      if (state.weeks % cfg.time.weeksPerYear === 0) {
+        // 顺序：周结算 → 玩家周更新（sync 已做）→ 年度奇遇 → 怀孕
+        if (global.XuanShuEncounter) global.XuanShuEncounter.yearly(state, cfg);
+        global.XuanShuPlayer.yearly(state, cfg);
+        // 古神：神恩回归、周期索取、祝福/诅咒年度结算
+        if (global.XuanShuGods) global.XuanShuGods.yearly(state, cfg);
+      }
+    }
     if (state.weeks % cfg.time.weeksPerYear === 0) pushSeries(state, cfg);
 
-    // 1000 年回滚
+    // 失败检查（每周一次，优先级 0–6）：命中即终局，时间冻结
+    if (global.XuanShuRun) global.XuanShuRun.weekly(state, cfg);
+
+    // 千年节点 / 胜利 / 回滚：老存档与关闭 run 时仍走原回滚
     if (cfg.time.rollback && state.weeks >= cfg.time.loopYears * cfg.time.weeksPerYear) {
-      var keepEvents = state.events;
-      var keepSeries = state.series;
-      var nextLoop = state.loop + 1;
-      var seed = state.rngA;
-      var fresh = createState(cfg, seed);
-      fresh.loop = nextLoop;
-      fresh.events = keepEvents;
-      fresh.series = keepSeries;
-      fresh.inputs = clone(state.inputs);
-      fresh.cooldown = state.cooldown;
-      state.loop = fresh.loop;
-      state.weeks = 0;
-      state.rngA = fresh.rngA;
-      state.groups = fresh.groups;
-      state.stocks = fresh.stocks;
-      state.infra = fresh.infra;
-      state.order = cfg.order.init;
-      state.wear = 0;
-      state.phase = 0;
-      state.phaseUp = 0;
-      state.phaseDown = 0;
-      state.projects = fresh.projects;
-      state.flags = { atrocity: false };
-      state.latches = {};
-      state.clonePause = 0;
-      state.streaks = { badRation: 0, extreme: 0, strike: 0 };
-      state.budget = fresh.budget;
-      state.buildAcc = fresh.buildAcc;
-      state.flowCarry = fresh.flowCarry;
-      state.maint = fresh.maint;
-      state.last = fresh.last;
-      if (global.XuanShuSociety) state.society = global.XuanShuSociety.create(cfg);
-      if (global.XuanShuPeople) state.people = global.XuanShuPeople.create(cfg);
-      // 判定日志保留（跨轮审计），槽位与压力清零（新的一轮重新累积）
-      if (global.XuanShuJudge && state.judge) state.judge.slots = {};
-      pushEvent(state, cfg, "loop", "系统", "循环回滚",
-        "第 " + (nextLoop - 1) + " 轮结束，全量回滚；进入第 " + nextLoop + " 轮",
-        "loopScope = full；人口、库存、设施、磨损回到本轮起点", true);
-      pushSeries(state, cfg);
+      var end = global.XuanShuRun
+        ? global.XuanShuRun.onLoopEnd(state, cfg)
+        : { action: "rollback" };
+      if (end.action === "rollback") rollover(state, cfg);
     }
+  }
+
+  /* ---------------- 千年回滚 ---------------- */
+
+  // 只重置舰务/社会层；玩家、奇遇牌库、古神契约、胜负与节点跨轮保留。
+  function rollover(state, cfg) {
+    var keepEvents = state.events;
+    var keepSeries = state.series;
+    var keepPlayer = state.player;
+    var keepEncounter = state.encounter;
+    var keepGods = state.gods;
+    var keepRun = state.run;
+    var nextLoop = state.loop + 1;
+    var seed = state.rngA;
+    var fresh = createState(cfg, seed);
+    fresh.loop = nextLoop;
+    fresh.events = keepEvents;
+    fresh.series = keepSeries;
+    fresh.inputs = clone(state.inputs);
+    fresh.cooldown = state.cooldown;
+    state.loop = fresh.loop;
+    state.weeks = 0;
+    state.rngA = fresh.rngA;
+    state.groups = fresh.groups;
+    state.stocks = fresh.stocks;
+    state.infra = fresh.infra;
+    state.order = cfg.order.init;
+    state.wear = 0;
+    state.phase = 0;
+    state.phaseUp = 0;
+    state.phaseDown = 0;
+    state.projects = fresh.projects;
+    state.flags = { atrocity: false };
+    state.latches = {};
+    state.clonePause = 0;
+    state.streaks = { badRation: 0, extreme: 0, strike: 0 };
+    state.budget = fresh.budget;
+    state.buildAcc = fresh.buildAcc;
+    state.flowCarry = fresh.flowCarry;
+    state.maint = fresh.maint;
+    state.last = fresh.last;
+    if (global.XuanShuSociety) state.society = global.XuanShuSociety.create(cfg);
+    if (global.XuanShuPeople) state.people = global.XuanShuPeople.create(cfg);
+    // 玩家身份是跨轮长期状态：健康、年龄、权限、动作冷却、契约都保留
+    if (global.XuanShuPlayer) {
+      state.player = keepPlayer || global.XuanShuPlayer.create(cfg);
+      global.XuanShuPlayer.sync(state, cfg);
+    }
+    // 奇遇牌库进度跨轮保留（剩余/已抽/洗牌轮次/历史/运气）；
+    // 限时修正是按周计时的，回滚后周序归零，必须清掉。
+    if (global.XuanShuEncounter) {
+      state.encounter = keepEncounter || global.XuanShuEncounter.create(cfg);
+      state.encounter.mods = [];
+      state.encounter.pending = null;
+      global.XuanShuEncounter.ensure(state, cfg);
+    }
+    // 古神契约跨轮保留：主约/旁约、神恩、神噬、索取队列
+    if (global.XuanShuGods) {
+      state.gods = keepGods || global.XuanShuGods.create(cfg);
+      global.XuanShuGods.ensure(state, cfg);
+    }
+    // 胜负、运气、自动开关、千年节点跨轮保留
+    if (global.XuanShuRun) {
+      state.run = keepRun || global.XuanShuRun.create(cfg);
+      global.XuanShuRun.ensure(state, cfg);
+    }
+    // 判定日志保留（跨轮审计），槽位与压力清零（新的一轮重新累积）
+    if (global.XuanShuJudge && state.judge) state.judge.slots = {};
+    pushEvent(state, cfg, "loop", "系统", "循环回滚",
+      "第 " + (nextLoop - 1) + " 轮结束，全量回滚；进入第 " + nextLoop + " 轮",
+      "loopScope = full；人口、库存、设施、磨损回到本轮起点", true);
+    pushSeries(state, cfg);
+  }
+
+  // 时间闸门：未选身份、节点挂起、终局都不再推进；老存档（run.enabled=false）不受影响。
+  function blockReason(state, cfg) {
+    var r = state.run;
+    if (r && r.enabled && !r.legacy) {
+      if (!r.started) return "needMode";
+      if (r.pendingNode) return "pendingNode";
+      if (r.status && r.status !== "playing") return "ended";
+    }
+    return "";
   }
 
   /* ---------------- 实例 ---------------- */
@@ -937,9 +1025,13 @@
       getInputs: function () { return clone(state.inputs); },
 
       // 推进 n 周（内部最小步长就是 1 周；大跨度由这里循环，阈值判定一次都不会漏）
+      // 时间闸门：未选身份 / 千年节点挂起 / 终局时不再推进，返回带 blocked 的快照。
       step: function (weeks) {
         var n = Math.max(0, Math.round(isNum(weeks) ? weeks : 1));
-        for (var i = 0; i < n; i++) stepWeek(state, cfg);
+        for (var i = 0; i < n; i++) {
+          if (blockReason(state, cfg)) break;
+          stepWeek(state, cfg);
+        }
         return api.getState();
       },
 
@@ -957,6 +1049,7 @@
           loopYear: Math.round(state.weeks / wpy * 100) / 100,
           year: Math.round(((state.loop - 1) * cfg.time.loopYears + state.weeks / wpy) * 100) / 100,
           weeks: state.weeks,
+          blocked: blockReason(state, cfg) || null,
           weekOfYear: (state.weeks % wpy) + 1,
           quarter: Math.floor((state.weeks % wpy) / cfg.time.weeksPerQuarter) + 1,
           weekOfQuarter: (state.weeks % cfg.time.weeksPerQuarter) + 1,
@@ -1004,7 +1097,19 @@
             ? global.XuanShuPeople.brief(state, cfg) : null,
           // 随机判定摘要：计数、最近 10 条、各槽压力/冷却
           judge: (global.XuanShuJudge && state.judge)
-            ? global.XuanShuJudge.brief(state, cfg) : null
+            ? global.XuanShuJudge.brief(state, cfg) : null,
+          // 玩家身份摘要：当前身份、个人属性、可见范围
+          player: (global.XuanShuPlayer && state.player)
+            ? global.XuanShuPlayer.brief(state, cfg) : null,
+          // 奇遇摘要：待选三张、牌库进度、运气、历史
+          encounter: (global.XuanShuEncounter && state.encounter)
+            ? global.XuanShuEncounter.brief(state, cfg) : null,
+          // 古神摘要：主约、神恩、祝福/诅咒、神噬、待回应索取
+          gods: (global.XuanShuGods && state.gods)
+            ? global.XuanShuGods.brief(state, cfg) : null,
+          // 千年节点 / 自动推演 / 胜负摘要
+          run: (global.XuanShuRun && state.run)
+            ? global.XuanShuRun.brief(state, cfg) : null
         };
       },
 
@@ -1061,6 +1166,90 @@
       getEvents: function () { return state.events; },
       getConfig: function () { return cfg; },
 
+      /* ---------- 玩家身份层 ---------- */
+      startGame: function (mode, opts) {
+        var r = global.XuanShuPlayer
+          ? global.XuanShuPlayer.start(state, cfg, mode, opts || {})
+          : { ok: false, msg: "玩家身份层未加载" };
+        // 选定身份即开跑：run.started 放行时间闸门
+        if (r && r.ok !== false && global.XuanShuRun) global.XuanShuRun.start(state, cfg);
+        return r;
+      },
+
+      getPlayer: function () {
+        return global.XuanShuPlayer ? global.XuanShuPlayer.brief(state, cfg) : null;
+      },
+
+      listActions: function () {
+        return global.XuanShuPlayer ? global.XuanShuPlayer.listActions(state, cfg) : [];
+      },
+
+      playerAct: function (id, payload) {
+        return global.XuanShuPlayer
+          ? global.XuanShuPlayer.act(state, cfg, id, payload || {})
+          : { ok: false, msg: "玩家身份层未加载" };
+      },
+
+      /* ---------- 奇遇与牌库 ---------- */
+      getEncounter: function () {
+        return global.XuanShuEncounter ? global.XuanShuEncounter.brief(state, cfg) : null;
+      },
+
+      chooseCard: function (index, opts) {
+        return global.XuanShuEncounter
+          ? global.XuanShuEncounter.choose(state, cfg, index, opts || {})
+          : { ok: false, msg: "奇遇层未加载" };
+      },
+
+      /* ---------- 古神契约 ---------- */
+      getGods: function () {
+        return global.XuanShuGods ? global.XuanShuGods.brief(state, cfg) : null;
+      },
+
+      /** 回应周期索取（目前是赤织母的献祭） */
+      resolveTithe: function (accept) {
+        return global.XuanShuGods
+          ? global.XuanShuGods.resolveTithe(state, cfg, !!accept)
+          : { ok: false, msg: "古神层未加载" };
+      },
+
+      /* ---------- 千年节点 / 自动推演 / 胜负 ---------- */
+      getRun: function () {
+        return global.XuanShuRun ? global.XuanShuRun.brief(state, cfg) : null;
+      },
+
+      /** 结算千年节点："auto" 自动推演 / "manual" 继续手动；结算后立即回滚进下一轮 */
+      resolveMillennium: function (mode) {
+        if (!global.XuanShuRun) return { ok: false, msg: "run 层未加载" };
+        var r = global.XuanShuRun.resolve(state, cfg, mode);
+        if (r.ok && r.rollback) rollover(state, cfg);
+        return r;
+      },
+
+      /** 任意时刻切自动/手动；切回手动的当轮仍会走完，下一次千年节点重新挂起 */
+      setAuto: function (v) {
+        return global.XuanShuRun
+          ? global.XuanShuRun.setAuto(state, cfg, v)
+          : { ok: false, msg: "run 层未加载" };
+      },
+
+      /** 自动推演一个 chunk（默认 1 年）；遇节点先按自动结算，遇终局立即停 */
+      autoStep: function (years) {
+        if (!global.XuanShuRun) return api.getState();
+        if (state.run && state.run.pendingNode) {
+          var rr = global.XuanShuRun.resolve(state, cfg, "auto");
+          if (rr.ok) rollover(state, cfg);
+        }
+        var y = isNum(years) ? years
+          : ((cfg.run && isNum(cfg.run.autoChunkYears)) ? cfg.run.autoChunkYears : 1);
+        var n = Math.max(1, Math.round(y * cfg.time.weeksPerYear));
+        for (var i = 0; i < n; i++) {
+          if (blockReason(state, cfg)) break;
+          stepWeek(state, cfg);
+        }
+        return api.getState();
+      },
+
       reset: function () {
         state = createState(cfg, seed);
         return api.getState();
@@ -1079,6 +1268,10 @@
       restore: function (obj) {
         if (!obj || !obj.groups || !obj.stocks) throw new Error("状态格式不正确");
         state = clone(obj);
+        if (global.XuanShuPlayer) global.XuanShuPlayer.ensure(state, cfg);
+        if (global.XuanShuEncounter) global.XuanShuEncounter.ensure(state, cfg);
+        if (global.XuanShuGods) global.XuanShuGods.ensure(state, cfg);
+        if (global.XuanShuRun) global.XuanShuRun.ensure(state, cfg);
         return api.getState();
       },
 
@@ -1086,6 +1279,10 @@
         var obj = typeof json === "string" ? JSON.parse(json) : json;
         if (!obj || !obj.groups || !obj.stocks) throw new Error("状态格式不正确");
         state = obj;
+        if (global.XuanShuPlayer) global.XuanShuPlayer.ensure(state, cfg);
+        if (global.XuanShuEncounter) global.XuanShuEncounter.ensure(state, cfg);
+        if (global.XuanShuGods) global.XuanShuGods.ensure(state, cfg);
+        if (global.XuanShuRun) global.XuanShuRun.ensure(state, cfg);
         return api.getState();
       }
     };

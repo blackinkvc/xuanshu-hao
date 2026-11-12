@@ -163,10 +163,13 @@
       rand: entry.rand, fired: fired, pressure: entry.pressure
     };
 
-    var log = ensure(state, cfg).log;
-    log.push(entry);
-    var cap = num(J.logCap) || 400;
-    if (log.length > cap) log.splice(0, log.length - cap);
+    // log:false 的高频判定只更新槽位与 last，不挤占判定日志
+    if (def.log !== false) {
+      var log = ensure(state, cfg).log;
+      log.push(entry);
+      var cap = num(J.logCap) || 400;
+      if (log.length > cap) log.splice(0, log.length - cap);
+    }
 
     return {
       judged: true, fired: fired, allow: fired,

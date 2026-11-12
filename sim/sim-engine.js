@@ -19,14 +19,16 @@
      RNG 与判定槽位随 exportState / importState 一起走，续跑逐位一致。
 
    加载顺序（浏览器）：
-     sim-config.js → sim-judge.js → sim-people.js → sim-society.js → sim-core.js → sim-engine.js
+     sim-config.js → sim-judge.js → sim-people.js → sim-society.js
+     → sim-player.js → sim-encounter.js → sim-gods.js → sim-run.js
+     → sim-core.js → sim-engine.js
    Node：
      const engine = require("./sim-engine.js");
    ========================================================================= */
 (function (global) {
   "use strict";
 
-  var VERSION = "2.1.0";
+  var VERSION = "2.2.0";
 
   // 一周为 1：单位 → 周数。month 不是整数周，按 52/12 折算后再取整。
   var UNITS = {
@@ -83,6 +85,10 @@
         if (!global.XuanShuJudge) require("./sim-judge.js");
         if (!global.XuanShuPeople) require("./sim-people.js");
         if (!global.XuanShuSociety) require("./sim-society.js");
+        if (!global.XuanShuPlayer) require("./sim-player.js");
+        if (!global.XuanShuEncounter) require("./sim-encounter.js");
+        if (!global.XuanShuGods) require("./sim-gods.js");
+        if (!global.XuanShuRun) require("./sim-run.js");
         if (!global.XuanShuSim) require("./sim-core.js");
       } catch (e) { /* 浏览器里没有 require，走下面的报错 */ }
     }
@@ -256,6 +262,85 @@
       getPeople: function (opts) { return sim.getPeople(opts || { detail: true }); },
       playerView: function (intel) { return sim.playerView({ intel: intel || "mid" }); },
       truthView: function () { return sim.truthView({ detail: true }); },
+
+      // —— 玩家身份层（v2.2.0） ——
+      /**
+       * 开局三选一 / 创造模式入口。
+       * @param {"ruler"|"mid"|"slave"|"creator"} mode
+       * @param {{dept?:string, name?:string, queueId?:string}} [opts]
+       */
+      startGame: function (mode, opts) {
+        var r = sim.startGame(mode, opts || {});
+        emit("player", r, {});
+        return r;
+      },
+      getPlayer: function () { return sim.getPlayer(); },
+      /** 返回全部动作的 {id,label,cat,modeOk,available,reason,code,cdLeft,desc} */
+      listActions: function () { return sim.listActions(); },
+      /** 执行一个动作；门禁失败返回 {ok:false,msg,code}，不抛异常 */
+      doAction: function (id, payload) {
+        if (id === "jump_time" && payload && (payload.weeks || payload.years)) {
+          var w = payload.weeks || Math.round(payload.years * 52);
+          var r0 = sim.playerAct(id, payload);
+          if (r0.ok) stepWeeks(w);
+          emit("player", r0, {});
+          return r0;
+        }
+        var r = sim.playerAct(id, payload || {});
+        emit("player", r, {});
+        return r;
+      },
+      playerAct: function (id, payload) { return this.doAction(id, payload); },
+
+      // —— 奇遇与牌库（v2.2.0） ——
+      /** 待选三张 / 牌库进度 / 运气 / 历史 */
+      getEncounter: function () { return sim.getEncounter(); },
+      /**
+       * 三选一结算，立即生效、不可反悔。
+       * @param {number} index 0–2
+       * @param {{choice?:string, auto?:boolean}} [opts] 卡牌有子选项时传 choice
+       * 返回 {ok, msg, needChoice?, choices?, card, encounter}
+       */
+      chooseCard: function (index, opts) {
+        var r = sim.chooseCard(index, opts || {});
+        emit("encounter", r, {});
+        return r;
+      },
+
+      // —— 古神契约（v2.2.0） ——
+      /** 四位神的主约/旁约、神恩、祝福/诅咒、神噬、待回应索取 */
+      getGods: function () { return sim.getGods(); },
+      /** 回应周期索取；accept=true 接受献祭 */
+      resolveTithe: function (accept) {
+        var r = sim.resolveTithe(accept);
+        emit("gods", r, {});
+        return r;
+      },
+
+      // —— 千年节点 / 自动推演 / 胜负（v2.2.0） ——
+      /** 胜负、节点、运气、连续计数、历史 */
+      getRun: function () { return sim.getRun(); },
+      /**
+       * 结算千年节点；结算后立即回滚进下一轮。
+       * @param {"auto"|"manual"} mode auto=自动推演到结束，manual=继续手动
+       */
+      resolveMillennium: function (mode) {
+        var r = sim.resolveMillennium(mode);
+        emit("run", r, {});
+        return r;
+      },
+      /** 任意时刻切自动/手动；false 时当前轮走完，下个千年节点重新挂起 */
+      setAuto: function (v) {
+        var r = sim.setAuto(v);
+        emit("run", r, {});
+        return r;
+      },
+      /** 自动推演一个 chunk（默认 1 年）；返回快照，run 未结束可循环调用 */
+      autoStep: function (years) {
+        var s = sim.autoStep(years);
+        emit("auto", null, { weeks: 0 });
+        return s;
+      },
 
       // —— 随机判定：日志与导出 ——
       getJudgeLog: function () { return sim.getJudgeLog(); },
