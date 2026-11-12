@@ -372,7 +372,8 @@
           cfg.judge.items.supply_window.successEffect) || {};
         var addF = (se.foodT != null ? se.foodT : (M.supplyFoodT || 0));
         var addM = (se.metalT != null ? se.metalT : (M.supplyMetalT || 0));
-        if (addF > 0) state.stocks.food = Math.min(cfg.food.cap, state.stocks.food + addF);
+        if (addF > 0) state.stocks.food = cfg.food.cap > 0
+          ? Math.min(cfg.food.cap, state.stocks.food + addF) : (state.stocks.food + addF);
         if (addM > 0) state.stocks.metal = Math.min(cfg.metal.cap, state.stocks.metal + addM);
         pushEvent(state, cfg, "supply", "补给", "补给窗口 · 行星来货",
           "本窗口补给已入库并完成对账" +
@@ -511,6 +512,20 @@
         (soc.effects.prodMul || 1) * gMul("prodMul", 1);
     }
     production *= maintYield;
+    // v1.2 长期折损：年份不可逆衰减 + 农环老化 + 人口结构 + 船况磨损
+    // 四项独立相乘；只作用于水培产出，行星来货仍按 planetTpy 恒定。
+    var FD = cfg.food.decay;
+    if (FD) {
+      var absY = (state.loop - 1) * cfg.time.loopYears + state.weeks / cfg.time.weeksPerYear;
+      var ageLoss = clamp((FD.yearRate || 0) * absY, 0, 1);
+      var ringLoss = (FD.ringK || 0) * clamp(absY / (FD.ringYears || 1), 0, 1);
+      var structLoss = (FD.structK || 0) *
+        (1 - clamp(t0.working / cfg.population.laborFull, 0, 1));
+      var wearLoss = (FD.wearK || 0) * clamp(state.wear, 0, 1);
+      var decayF = 1 - Math.min(FD.maxLoss == null ? 0.70 : FD.maxLoss,
+        ageLoss + ringLoss + structLoss + wearLoss);
+      production *= decayF;
+    }
     var planet = I.planetCut ? 0 : (cfg.food.planetTpy + mAdd("foodPerYear", 0));
 
     // 粮食结算：库存永不为负
@@ -518,11 +533,15 @@
       t0.dormant * cfg.food.perCapitaTpy * cfg.food.dormantFactor;
     var standardNeed = baseDemand * dt;
     var need = standardNeed * I.ration * mMul("foodUse", 1) * gMul("foodUse", 1);
+    // v1.2 储备自然损耗：按现存库存的年率折损，库存越高损耗越多
+    var spoil = cfg.food.spoilagePerYear || 0;
+    if (spoil > 0) state.stocks.food *= Math.max(0, 1 - spoil * dt);
     var available = state.stocks.food + (production + planet) * dt;
     var consumed = Math.min(need, available);
     var rationActual = standardNeed > 0 ? clamp(consumed / standardNeed, 0, 1.2) : 1;
     state.stocks.food = Math.max(0, available - consumed);
-    state.stocks.food = Math.min(state.stocks.food, cfg.food.cap);
+    // cap > 0 才封顶；v1.2 默认 cap=0，天花板已拆，由损耗而非硬上限约束库存
+    if (cfg.food.cap > 0) state.stocks.food = Math.min(state.stocks.food, cfg.food.cap);
     var shortfall = need - consumed;
 
     // 水

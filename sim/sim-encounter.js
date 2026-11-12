@@ -500,7 +500,7 @@
     var ops = (card.ops || []).slice();
     var soc = state.society || {};
     var caps = {
-      food: cfg.food.cap, water: cfg.water.cap,
+      food: cfg.food.cap > 0 ? cfg.food.cap : 1e9, water: cfg.water.cap,
       metal: cfg.metal.cap, drug: cfg.hibernation.drugCap
     };
     ops.forEach(function (op) {
