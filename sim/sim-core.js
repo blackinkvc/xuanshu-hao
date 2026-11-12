@@ -522,8 +522,11 @@
       var structLoss = (FD.structK || 0) *
         (1 - clamp(t0.working / cfg.population.laborFull, 0, 1));
       var wearLoss = (FD.wearK || 0) * clamp(state.wear, 0, 1);
-      var decayF = 1 - Math.min(FD.maxLoss == null ? 0.70 : FD.maxLoss,
-        ageLoss + ringLoss + structLoss + wearLoss);
+      // v1.2：maxLoss 只封顶「年份 + 农环」这类不可逆的基础产能折损；
+      // 磨损与人口结构属于当期船况/在岗状态，按实际值叠加，不并进同一个上限。
+      // 这样勤维护、保住人口结构的经营路线不会被基础上限之外的部分二次惩罚。
+      var baseLoss = Math.min(FD.maxLoss == null ? 0.12 : FD.maxLoss, ageLoss + ringLoss);
+      var decayF = 1 - clamp(baseLoss + structLoss + wearLoss, 0, 0.95);
       production *= decayF;
     }
     var planet = I.planetCut ? 0 : (cfg.food.planetTpy + mAdd("foodPerYear", 0));
