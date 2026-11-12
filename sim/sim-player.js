@@ -91,7 +91,7 @@
       health: 82, pregnant: 0, pregnantWeeks: 0,
       complianceBonus: 0, willBonus: 0, dominionBonus: 0, authorityBonus: 0,
       compliance: 50, will: 30, dominion: 0, authority: 0,
-      infectionC: 0, stage: 0, age: 34,
+      infectionC: 0, stage: 0, age: 34, infectionYears: 0,
       confinedUntil: -1, interrogatedUntil: -1, hiddenUntil: -1,
       alive: true
     };
@@ -258,6 +258,11 @@
     h += (ration - 1) * 6;
     h += (med - 0.80) * 10;
     h -= p.pc.infectionC * 0.02;
+    // v1.3 感染慢性侵蚀：按感染-年累积，超过免疫容忍度后线性扣健康。
+    // 累积量记在玩家身上，跨千年回滚保留；容忍度以内完全不生效。
+    p.pc.infectionYears = num(p.pc.infectionYears, 0) + p.pc.infectionC / 100 / 52;
+    var chronic = Math.max(0, p.pc.infectionYears - num(cfg.player.infectionFreeYears, 800));
+    h -= num(cfg.player.infectionChronicK, 0) * chronic;
     if (p.pc.pregnant) h -= 0.10;
     if (state.weeks < p.pc.confinedUntil) h -= 0.35;
     if (state.weeks < p.pc.interrogatedUntil) h -= 0.50;

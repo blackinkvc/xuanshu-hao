@@ -414,6 +414,12 @@
       creatorEntry: true,
       startingHealth: 82,
       healthRegress: 0.010,
+      // v1.3 感染慢性侵蚀：按「感染-年」累积（每周 C/100/52），超过免疫容忍度后
+      // 才开始按周扣健康；阈值以下不产生影响，避免动摇被动侧千年内的死亡分布。
+      // 定稿值经 12 种子复测：被动侧累计感染-年 < 300，慢性项恒为 0（基准分布不动）；
+      // 轻度经营约 3,900 感染-年时被拖到崩盘边缘，强经营（医疗 1.0）仍可走满 41,000 年。
+      infectionChronicK: 0.00006,    // 超出容忍度后，每 1 感染-年每周扣 0.00006 健康
+      infectionFreeYears: 800,       // 免疫容忍度：累计 800 感染-年以内不侵蚀
       pregnancyBase: 0.08,
       pregnancyWeeks: 39,
       titleDominion: { ruler: 15, mid: 5, slave: 0, creator: 0 },
