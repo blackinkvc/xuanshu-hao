@@ -28,20 +28,28 @@
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   }
 
-  function pushEvent(state, cfg, type, level, title, text) {
+  function pushEvent(state, cfg, type, level, title, text, deltas, note) {
     if (!state.events) state.events = [];
-    state.events.push({
+    var evYear = Math.floor(state.weeks / cfg.time.weeksPerYear);
+    var evWeek = (state.weeks % cfg.time.weeksPerYear) + 1;
+    var entry = {
       t: (state.loop - 1) * cfg.time.loopYears + state.weeks / cfg.time.weeksPerYear,
       loop: state.loop,
-      year: Math.floor(state.weeks / cfg.time.weeksPerYear),
-      week: (state.weeks % cfg.time.weeksPerYear) + 1,
+      year: evYear,
+      week: evWeek,
       quarter: Math.floor((state.weeks % cfg.time.weeksPerYear) / cfg.time.weeksPerQuarter) + 1,
+      timeLabel: "第 " + (evYear + 1) + " 年第 " + evWeek + " 周",
       type: type,
       level: level,
       title: title,
       text: text,
       basis: ""
-    });
+    };
+    var D = global.XuanShuSim && global.XuanShuSim.cleanDeltas
+      ? global.XuanShuSim.cleanDeltas(deltas) : null;
+    if (D) entry.deltas = D;
+    if (note) entry.note = note;
+    state.events.push(entry);
     if (state.events.length > cfg.time.eventCap) state.events.shift();
   }
 
@@ -158,15 +166,15 @@
   }
 
   function start(state, cfg, mode, opts) {
-    if (!cfg.player || cfg.player.enabled === false) return { ok: false, msg: "玩家身份层未启用" };
-    if (cfg.player.modes.indexOf(mode) < 0) return { ok: false, msg: "未知身份：" + mode };
+    if (!cfg.player || cfg.player.enabled === false) return { ok: false, msg: "身份层没开" };
+    if (cfg.player.modes.indexOf(mode) < 0) return { ok: false, msg: "没有这个身份" };
     if (mode === "creator" && cfg.player.creatorEntry === false) {
       return { ok: false, msg: "创造模式入口已关闭" };
     }
     var p = ensure(state, cfg);
-    if (p.started) return { ok: false, msg: "本局已选择身份：" + p.mode };
+    if (p.started) return { ok: false, msg: "本局已经选过身份了" };
     var q = queueFor(state, cfg, mode, opts);
-    if (mode !== "creator" && !q) return { ok: false, msg: "没有可绑定的队列" };
+    if (mode !== "creator" && !q) return { ok: false, msg: "这个身份现在没有能落脚的位置" };
 
     p.started = true;
     p.legacy = false;
@@ -200,14 +208,22 @@
     }
 
     p.scope = scopeOf(state, cfg, p);
-    pushEvent(state, cfg, "player_start", "身份",
-      "开局 · " + modeLabel(mode),
-      "绑定 " + (q ? q.name + "（" + q.id + "）" : "观测者") + "；可见情报 " + p.intel);
-    return { ok: true, msg: "已选择身份：" + modeLabel(mode), player: brief(state, cfg) };
+    pushEvent(state, cfg, "player_start", "身份", "你登上了玄枢号",
+      "你以" + modeLabel(mode) + "的身份登舰，情报只够看到" + intelText(p.intel) + "。",
+      null, "身份定了，接下来怎么活看你自己");
+    return { ok: true, msg: "你以" + modeLabel(mode) + "的身份登舰", player: brief(state, cfg) };
   }
 
+  var INTEL_TEXT = {
+    low: "街谈巷议",
+    mid: "部门里的消息",
+    high: "高层里的消息",
+    truth: "全部真相"
+  };
+  function intelText(level) { return INTEL_TEXT[level] || "一点风声"; }
+
   function modeLabel(mode) {
-    return { ruler: "统治者", mid: "中层贵族", slave: "奴隶", creator: "创造模式" }[mode] || mode;
+    return { ruler: "最高贵族", mid: "中层贵族", slave: "奴隶", creator: "创造模式" }[mode] || mode;
   }
 
   function intelRank(s) {
@@ -270,7 +286,8 @@
     if (p.pc.health <= 0 && p.pc.alive) {
       p.pc.alive = false;
       p.pc.health = 0;
-      pushEvent(state, cfg, "player_death", "终局", "玩家死亡", "健康归零，身份层终止。");
+      pushEvent(state, cfg, "player_death", "终局", "你死了", "健康归零，意识在维生舱里熄灭。",
+      { "健康": -100 }, "这具身体撑不住了");
     }
     p.intel = effectiveIntel(state, cfg, p);
     p.scope = scopeOf(state, cfg, p);
@@ -290,7 +307,8 @@
         if (state.groups && state.groups.undecided) {
           state.groups.undecided.awake = num(state.groups.undecided.awake) + 1;
         }
-        pushEvent(state, cfg, "player_birth", "身份", "玩家分娩", "健康 −10，未定人口 +1。");
+        pushEvent(state, cfg, "player_birth", "身份", "你有了一个孩子", "健康 −10，船上多了 1 个孩子。",
+      { "健康": -10, "人口": 1 }, "船上添了一口人");
       }
       return;
     }
@@ -352,58 +370,59 @@
     var left;
     switch (code) {
       case "mode":
-        return "该动作只有" + a.mode.map(modeLabel).join(" / ") + "可用，" + modeLabel(p.mode) + "没有这条路径";
+        return "这个动作只有" + a.mode.map(function (m) { return "「" + modeLabel(m) + "」"; }).join("、") +
+          "能做，你的身份做不了";
       case "confined":
         left = Math.max(0, p.pc.confinedUntil - stateOf(p).weeks);
-        return "你被禁闭在" + zone + "，还剩 " + left + " 周，没有人会听你的号令";
+        return "你被关在" + zone + "，还剩 " + left + " 周，没人会听你的";
       case "interrogated":
         left = Math.max(0, p.pc.interrogatedUntil - stateOf(p).weeks);
-        return "审讯尚未结束（还剩 " + left + " 周），任何动作都会被记录";
+        return "审讯还没完（还剩 " + left + " 周），你现在做什么都会被记下来";
       case "hidden":
         left = Math.max(0, p.pc.hiddenUntil - stateOf(p).weeks);
-        return "你正在躲藏，还剩 " + left + " 周，不能行动";
+        return "你正躲着，还剩 " + left + " 周，动不了";
       case "health":
-        return "健康只有 " + rnd(p.pc.health) + "（需 ≥" + need + "），你连站都站不稳";
+        return "健康只有 " + rnd(p.pc.health) + "（要 ≥" + need + "），你连站都站不稳";
       case "pregnant":
-        return "孕期第 " + rnd(p.pc.pregnantWeeks) + " 周，无法执行该动作";
+        return "怀孕第 " + rnd(p.pc.pregnantWeeks) + " 周，做不了这个";
       case "stage":
-        return "感染已到" + stageName(p.pc.stage) + "阶段，身体不听使唤";
+        return "感染已经到了" + stageName(p.pc.stage) + "，身体不听使唤";
       case "infection":
-        return "感染度只有 " + rnd(p.pc.infectionC) + "（需 ≥" + need + "），你还没有听见低语";
+        return "感染度只有 " + rnd(p.pc.infectionC) + "（要 ≥" + need + "），你还没听见低语";
       case "compliance":
-        return "服从度只有 " + rnd(p.pc.compliance) + "（需 ≥" + need + "），你的命令传不出这层甲板";
+        return "服从度只有 " + rnd(p.pc.compliance) + "（要 ≥" + need + "），你的话传不出这层甲板";
       case "willMin":
-        return "自由意志 " + rnd(p.pc.will) + " 低于 " + need + "，你还没有下定决心";
+        return "不服只有 " + rnd(p.pc.will) + "，低于 " + need + "，你还没下定决心";
       case "willMax":
-        return "自由意志 " + rnd(p.pc.will) + " 高于 " + need + "，你已经不肯按旧规矩行事";
+        return "不服已经到了 " + rnd(p.pc.will) + "，高于 " + need + "，你不肯再按旧规矩来";
       case "dominion":
         var target = (a.effect && a.effect.type === "purge_tech") ? "技术环"
-          : (p.mode === "mid" ? (p.pc.dept || "该部门") : "全船");
-        return "统御力不足 " + rnd(p.pc.dominion) + "（需 ≥" + need + "），无法号令" + target;
+          : (p.mode === "mid" ? (p.pc.dept || "这个部门") : "全船");
+        return "统御力只有 " + rnd(p.pc.dominion) + "（要 ≥" + need + "），你号令不动" + target;
       case "authority":
-        return "你的权限等级 " + rnd(p.pc.authority) + "（需 ≥" + need + "），" +
-          (p.pc.dept || "该部门") + "不在你的管辖内";
+        return "你的权限只有 " + rnd(p.pc.authority) + "（要 ≥" + need + "），" +
+          (p.pc.dept || "这个部门") + "不归你管";
       case "order":
-        return "全船秩序 " + pct(num(stateOf(p).order, 0)) + "（需 ≥" + pct(need) + "），现在下令只会激起反弹";
+        return "全船秩序 " + pct(num(stateOf(p).order, 0)) + "（要 ≥" + pct(need) + "），现在下令只会激起反弹";
       case "orderMax":
-        return "全船秩序 " + pct(num(stateOf(p).order, 0)) + "（需 ≤" + pct(need) + "），现在太稳了，反而不好动手";
+        return "全船秩序 " + pct(num(stateOf(p).order, 0)) + "（要 ≤" + pct(need) + "），现在太稳了，反而不好动手";
       case "garrison":
-        return "警备可用度 " + pct(garrisonAvail(stateOf(p), cfg)) + "（需 ≥" + pct(need) + "），没有人手执行";
+        return "警备还能用 " + pct(garrisonAvail(stateOf(p), cfg)) + "（要 ≥" + pct(need) + "），没人手执行";
       case "garrisonMax":
-        return "警备可用度 " + pct(garrisonAvail(stateOf(p), cfg)) + "（需 ≤" + pct(need) + "），巡逻太密，跑不掉";
+        return "警备还能用 " + pct(garrisonAvail(stateOf(p), cfg)) + "（要 ≤" + pct(need) + "），巡逻太密，跑不掉";
       case "lockdown":
-        return "当前处于封锁状态，舱门不开";
+        return "现在封着舱，门打不开";
       case "zone":
         return "你不在" + need + "，够不到控制台";
       case "dept":
         return "你只管" + p.pc.dept + "，" + need + "不归你调";
       case "intel":
-        return "情报档位不足（当前 " + p.intel + "，需 " + need + "），你根本不知道目标在哪";
+        return "情报不够，你现在只知道" + intelText(p.intel) + "（要到" + intelText(need) + "）";
       case "cooldown":
         left = Math.max(0, (p.actionCd[a.id] || 0) - stateOf(p).weeks);
-        return "距离上次「" + a.label + "」还需要 " + left + " 周";
+        return "距离上次「" + a.label + "」还要 " + left + " 周";
       default:
-        return "当前无法执行该动作";
+        return "现在做不了这个动作";
     }
   }
 
@@ -446,7 +465,7 @@
     if (typeof g.garrisonMin === "number" && at.garrison < g.garrisonMin) return { ok: false, code: "garrison", reason: reason(p, cfg, a, "garrison", g.garrisonMin) };
     if (typeof g.garrisonMax === "number" && at.garrison > g.garrisonMax) return { ok: false, code: "garrisonMax", reason: reason(p, cfg, a, "garrisonMax", g.garrisonMax) };
     if (g.lockdown === "no" && at.lockdown) return { ok: false, code: "lockdown", reason: reason(p, cfg, a, "lockdown") };
-    if (g.lockdown === "yes" && !at.lockdown) return { ok: false, code: "lockdown", reason: "当前没有封锁，无法执行该动作" };
+    if (g.lockdown === "yes" && !at.lockdown) return { ok: false, code: "lockdown", reason: "现在没封锁，这个动作做不了" };
     if (g.zones && g.zones.length && g.zones.indexOf(p.pc.zone) < 0) {
       return { ok: false, code: "zone", reason: reason(p, cfg, a, "zone", g.zones.map(function (z) { return zoneName(cfg, z); }).join(" / ")) };
     }
@@ -573,10 +592,11 @@
     payload = payload || {};
     var p = ensure(state, cfg);
     var a = cfg.player.actions[id];
-    if (!a) return { ok: false, msg: "未知动作：" + id };
+    if (!a) return { ok: false, msg: "没有这个动作" };
     var g = gate(state, cfg, id, payload);
     if (!g.ok) return { ok: false, msg: g.reason, code: g.code, action: id };
 
+    var M0 = global.XuanShuSim.metrics(state, cfg);
     var msg = "";
     var critical = false;
     var at;
@@ -609,26 +629,26 @@
         var base = effectiveIntel(state, cfg, p);
         var buff = base === "low" ? "mid" : "high";
         p.intelBuff = { level: buff, until: state.weeks + 8 };
-        msg = "巡视：秩序 +2%，服从 +2，情报提升到 " + buff + "（8 周）";
+        msg = "巡视完：秩序 +2%、服从 +2，情报升到「" + intelText(buff) + "」，管 8 周";
         markCd(p, id, a.cdWeeks);
       } else if (et === "purge_tech") {
         if (state.society.machine) state.society.machine.tech = clamp(num(state.society.machine.tech) - 0.03, 0, 1);
         var dT = state.society.depts["技术"];
         if (dT) dT.I = clamp(num(dT.I) - 0.15, 0, 1);
         addQueue100(state, function (q) { return q.dept === "技术"; }, "W", 4);
-        msg = "清洗技术环：科技 −0.03，技术环失序 −0.15，技术队列自由意志 +4";
+        msg = "技术环清洗完：科技 −0.03，技术部门失序 −0.15，技术部门不服 +4";
         markCd(p, id, a.cdWeeks);
       } else if (et === "petition") {
         var okP = randNext(state) < 0.5;
         if (okP) {
           var needFood = num(state.stocks.food) < 60;
           var needMetal = num(state.stocks.metal) < 80;
-          if (needFood) { state.stocks.food = num(state.stocks.food) + 20; msg = "上奏获批：粮食 +20 t"; }
-          else if (needMetal) { state.stocks.metal = num(state.stocks.metal) + 15; msg = "上奏获批：金属 +15 t"; }
-          else { state.society.garrison.strength = num(state.society.garrison.strength) + 5; msg = "上奏获批：警备兵力 +5"; }
+          if (needFood) { state.stocks.food = num(state.stocks.food) + 20; msg = "上面批了：粮食 +20 吨"; }
+          else if (needMetal) { state.stocks.metal = num(state.stocks.metal) + 15; msg = "上面批了：金属 +15 吨"; }
+          else { state.society.garrison.strength = num(state.society.garrison.strength) + 5; msg = "上面批了：警备多 5 个人"; }
         } else {
           state.order = clamp(num(state.order) - 0.01, 0.05, 1);
-          msg = "上奏被驳回：秩序 −1%";
+          msg = "上面驳回了：秩序 −1%";
         }
         markCd(p, id, a.cdWeeks);
       } else if (et === "inform_peer") {
@@ -636,17 +656,17 @@
         var peers = qlist(state).filter(function (q) { return q.layer === "L2" && q.id !== p.pc.queueId; });
         if (peers.length) peers[0].S = clamp(num(peers[0].S) + 0.05, 0, 1);
         addQueue100(state, function (q) { return q.dept === p.pc.dept; }, "W", 2);
-        msg = "举报同僚：权限 +5，同僚应力 +0.05，本部门自由意志 +2";
+        msg = "举报成功：权限 +5，被举报的人压力 +0.05，本部门不服 +2";
         markCd(p, id, a.cdWeeks);
       } else if (et === "embezzle") {
         var okE = riskCheck(state, cfg, a);
         state.order = clamp(num(state.order) - 0.02, 0.05, 1);
         if (okE) {
-          if (num(state.stocks.food) < 60) { state.stocks.food = num(state.stocks.food) + 15; msg = "截留成功：粮食 +15 t，秩序 −2%"; }
-          else { state.stocks.metal = num(state.stocks.metal) + 20; msg = "截留成功：金属 +20 t，秩序 −2%"; }
+          if (num(state.stocks.food) < 60) { state.stocks.food = num(state.stocks.food) + 15; msg = "截下 15 吨粮：秩序 −2%"; }
+          else { state.stocks.metal = num(state.stocks.metal) + 20; msg = "截下 20 吨金属：秩序 −2%"; }
         } else {
           critical = riskFail(state, cfg, id, p);
-          msg = "截留被发现：权限 −8，同僚应力 +0.08";
+          msg = "被查出来了：权限 −8，同僚压力 +0.08";
         }
         markCd(p, id, a.cdWeeks);
       } else if (et === "inspect") {
@@ -660,16 +680,16 @@
         addQueue100(state, function (q) { return q.id === p.pc.queueId; }, "W", -2);
         p.pc.health = clamp(p.pc.health - 4, 0, 100);
         if (state.society.effects) state.society.effects.oShift += 1;
-        msg = "加班：服从 +2、自由 −2、健康 −4，产出略升";
+        msg = "加班：服从 +2、不服 −2、健康 −4，产出略升";
         markCd(p, id, a.cdWeeks);
       } else if (et === "steal_food") {
         var okS = riskCheck(state, cfg, a);
         if (okS) {
           state.stocks.food = num(state.stocks.food) + 8;
-          msg = "偷配给成功：粮食 +8 t";
+          msg = "偷到了：粮食 +8 吨";
         } else {
           critical = riskFail(state, cfg, id, p);
-          msg = "偷配给被发现：健康 −6，禁闭 4 周";
+          msg = "被抓了：健康 −6，关 4 周禁闭";
         }
         markCd(p, id, a.cdWeeks);
       } else if (et === "hide") {
@@ -684,15 +704,15 @@
             var sell = Math.min(25, num(state.stocks.food));
             state.stocks.food = num(state.stocks.food) - sell;
             state.stocks.metal = num(state.stocks.metal) + 20;
-            msg = "黑市卖出：粮 −" + Math.round(sell) + " t，金属 +20 t";
+            msg = "卖粮换了 20 吨金属：粮 −" + Math.round(sell) + " 吨";
           } else {
             state.stocks.metal = Math.max(0, num(state.stocks.metal) - 10);
             state.stocks.food = num(state.stocks.food) + 35;
-            msg = "黑市买入：金属 −10 t，粮食 +35 t";
+            msg = "用 10 吨金属换了 35 吨粮";
           }
         } else {
           critical = riskFail(state, cfg, id, p);
-          msg = "黑市被查：金属 −10 t，禁闭 4 周";
+          msg = "黑市被端了：金属 −10 吨，关 4 周禁闭";
         }
         markCd(p, id, a.cdWeeks);
       } else if (et === "inform") {
@@ -701,8 +721,8 @@
         addQueue100(state, function (q) { return q.id === p.pc.queueId; }, "W", 2);
         var peers2 = qlist(state).filter(function (q) { return q.layer === "L4" && q.id !== p.pc.queueId; });
         if (peers2.length) peers2[0].S = clamp(num(peers2[0].S) + 0.05, 0, 1);
-        if (okI) msg = "告密成功：服从 +4、自由 +2，同僚应力 +0.05";
-        else { critical = riskFail(state, cfg, id, p); msg = "告密被报复：健康 −8，禁闭 4 周"; }
+        if (okI) msg = "告密成功：服从 +4、不服 +2，同僚压力 +0.05";
+        else { critical = riskFail(state, cfg, id, p); msg = "告密被报复：健康 −8，关 4 周禁闭"; }
         markCd(p, id, a.cdWeeks);
       } else if (et === "sabotage") {
         var okD = riskCheck(state, cfg, a);
@@ -710,10 +730,10 @@
           state.wear = clamp(num(state.wear) + 0.03, 0, 1);
           var dS = state.society.depts[p.pc.dept];
           if (dS) dS.I = clamp(num(dS.I) + 0.05, 0, 1);
-          msg = "破坏成功：磨损 +0.03，部门失序 +0.05";
+          msg = "破坏成了：磨损 +3%，部门失序 +0.05";
         } else {
           critical = riskFail(state, cfg, id, p);
-          msg = "破坏失败：健康 −15，禁闭 8–12 周，部门失序 +0.08";
+          msg = "破坏失败：健康 −15，关 8–12 周禁闭，部门失序 +0.08";
         }
         markCd(p, id, a.cdWeeks);
       } else if (et === "escape") {
@@ -731,7 +751,7 @@
         if (state.society.infection) state.society.infection.thralls = num(state.society.infection.thralls) + 1;
         addQueue100(state, null, "C", 1);
         addQueue100(state, function (q) { return q.id === p.pc.queueId; }, "O", -1);
-        msg = "照料眷属：眷属 +1，全队列感染 +1，服从 −1";
+        msg = "照料眷属：眷属 +1，全船感染 +1，服从 −1";
         markCd(p, id, a.cdWeeks);
       } else if (et === "eavesdrop") {
         var okV = riskCheck(state, cfg, a);
@@ -770,7 +790,9 @@
     if (p.history.length > 200) p.history.shift();
     pushEvent(state, cfg, "player_action", "行动",
       modeLabel(p.mode) + " · " + a.label,
-      msg + (p.mode === "creator" ? "（调试）" : ""));
+      msg + (p.mode === "creator" ? "（调试）" : ""),
+      global.XuanShuSim.diffMetrics(M0, global.XuanShuSim.metrics(state, cfg)),
+      p.mode === "creator" ? "" : "你亲自动了手");
     return { ok: true, msg: msg, action: id, critical: critical, player: brief(state, cfg) };
   }
 

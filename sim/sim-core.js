@@ -81,24 +81,72 @@
 
   /* ---------------- 事件 ---------------- */
 
-  function pushEvent(state, cfg, type, level, title, text, basis, force) {
+  // 影响面板只认这 8 项；没有变化的项直接省略，界面显示「没有直接影响」。
+  var METRIC_KEYS = ["人口", "健康", "粮食", "秩序", "磨损", "感染", "耐久", "警备"];
+
+  function cleanDeltas(d) {
+    if (!d) return null;
+    var out = {}, n = 0;
+    METRIC_KEYS.forEach(function (k) {
+      var v = typeof d[k] === "number" ? d[k] : 0;
+      if (!isFinite(v)) v = 0;
+      v = Math.round(v * 10) / 10;
+      if (v !== 0) { out[k] = v; n++; }
+    });
+    return n ? out : null;
+  }
+
+  // 统一量纲：人口/警备=人，粮食=吨，其余=百分点/点
+  function metrics(state, cfg) {
+    var tots = totals(state, cfg);
+    var p = state.player;
+    var soc = state.society || {};
+    return {
+      "人口": Math.round(tots.total),
+      "健康": p && p.pc ? Math.round((typeof p.pc.health === "number" ? p.pc.health : 0)) : 0,
+      "粮食": Math.round(state.stocks.food),
+      "秩序": Math.round(state.order * 100),
+      "磨损": Math.round(state.wear * 100),
+      "感染": Math.round(((soc.infection || {}).share || 0) * 100),
+      "耐久": Math.round((soc.garrison || {}).durability || 0),
+      "警备": Math.round((soc.garrison || {}).strength || 0)
+    };
+  }
+
+  function diffMetrics(before, after) {
+    var out = {};
+    METRIC_KEYS.forEach(function (k) {
+      var d = (after[k] || 0) - (before[k] || 0);
+      if (d !== 0) out[k] = Math.round(d * 10) / 10;
+    });
+    return out;
+  }
+
+  function pushEvent(state, cfg, type, level, title, text, basis, force, deltas, note) {
     if (!force) {
       var last = state.cooldown[type];
       if (last !== undefined && state.weeks - last < cfg.events.cooldownWeeks) return false;
       state.cooldown[type] = state.weeks;
     }
-    state.events.push({
+    var evYear = Math.floor(state.weeks / cfg.time.weeksPerYear);
+    var evWeek = (state.weeks % cfg.time.weeksPerYear) + 1;
+    var entry = {
       t: Math.round(((state.loop - 1) * cfg.time.loopYears + state.weeks / cfg.time.weeksPerYear) * 100) / 100,
       loop: state.loop,
-      year: Math.floor(state.weeks / cfg.time.weeksPerYear),
-      week: (state.weeks % cfg.time.weeksPerYear) + 1,
+      year: evYear,
+      week: evWeek,
       quarter: Math.floor((state.weeks % cfg.time.weeksPerYear) / cfg.time.weeksPerQuarter) + 1,
+      timeLabel: "第 " + (evYear + 1) + " 年第 " + evWeek + " 周",
       type: type,
       level: level || "事件",
       title: title,
       text: text,
       basis: basis || ""
-    });
+    };
+    var D = cleanDeltas(deltas);
+    if (D) entry.deltas = D;
+    if (note) entry.note = note;
+    state.events.push(entry);
     if (state.events.length > cfg.time.eventCap) state.events.shift();
     return true;
   }
@@ -132,11 +180,11 @@
   }
 
   // 只在「条件从假变真」时记一条，避免同类预警刷屏
-  function latchEvent(state, cfg, key, condition, type, level, title, text, basis) {
+  function latchEvent(state, cfg, key, condition, type, level, title, text, basis, deltas, note) {
     if (condition) {
       if (!state.latches[key]) {
         state.latches[key] = true;
-        pushEvent(state, cfg, type, level, title, text, basis, true);
+        pushEvent(state, cfg, type, level, title, text, basis, true, deltas, note);
       }
     } else {
       state.latches[key] = false;
@@ -307,8 +355,8 @@
       if (m.repairLeft <= 0) {
         m.active = false;
         m.sinceFault = 0;
-        pushEvent(state, cfg, "maint_done", "维修", "设备修复完成",
-          "停机 " + m.mttr + " 周后恢复，农环回到满负荷",
+        pushEvent(state, cfg, "maint_done", "维修", "设备修好了",
+          "修了 " + m.mttr + " 周，农环恢复正常产量",
           "MTTR 实际 " + m.mttr + " 周（基准 " + M.mttrWeeks + " 周）", true);
       }
     } else {
@@ -334,11 +382,12 @@
           m.active = true;
           m.faults++;
           yieldF = M.downtimeYield;
-          pushEvent(state, cfg, "maint_fault", "维修", "设备故障 · 停机检修",
-            "农环一组栽培单元停机，产出降至 " + Math.round(M.downtimeYield * 100) + "%",
+          pushEvent(state, cfg, "maint_fault", "维修", "设备停摆 · 抢修中",
+            "农环一组停了，粮食产出只剩 " + Math.round(M.downtimeYield * 100) + "%",
             "磨损 " + wear.toFixed(2) + "、维修缺口 " + Math.round(gap * 100) +
             "% → 故障间隔 " + interval + " 周，MTTR " + m.mttr + " 周" +
-            (jr ? "；判定 p=" + jr.probability.toFixed(2) + "，随机数 " + jr.rand.toFixed(3) : ""), true);
+            (jr ? "；判定 p=" + jr.probability.toFixed(2) + "，随机数 " + jr.rand.toFixed(3) : ""), true,
+            null, "设备老化，农环停了一组");
         } else if (jr.judged) {
           // 判定未成立：保留基数（不清零），冷却结束后再判
           m.sinceFault = interval;
@@ -348,14 +397,14 @@
 
     if (w - m.lastCycle >= M.cycleWeeks) {
       m.lastCycle = w;
-      pushEvent(state, cfg, "maint_cycle", "维修", "季度例行检修",
-        "第 " + Math.round(w / cfg.time.weeksPerQuarter) + " 季检修完成，未发现结构性缺陷",
+      pushEvent(state, cfg, "maint_cycle", "维修", "例行检修",
+        "这一轮例行检修做完了，没发现结构性问题",
         "每 " + M.cycleWeeks + " 周一个检修窗口", true);
     }
     if (w - m.lastShift >= M.shiftWeeks) {
       m.lastShift = w;
-      pushEvent(state, cfg, "shift", "轮班", "轮班交接",
-        "本班次交接完成，在岗 " + Math.round(totals(state, cfg).working) + " 人",
+      pushEvent(state, cfg, "shift", "轮班", "换班了",
+        "换班完成，现在 " + Math.round(totals(state, cfg).working) + " 人在岗",
         "轮班周期 " + M.shiftWeeks + " 周", true);
     }
     if (w - m.lastSupply >= M.supplyWeeks) {
@@ -375,17 +424,18 @@
         if (addF > 0) state.stocks.food = cfg.food.cap > 0
           ? Math.min(cfg.food.cap, state.stocks.food + addF) : (state.stocks.food + addF);
         if (addM > 0) state.stocks.metal = Math.min(cfg.metal.cap, state.stocks.metal + addM);
-        pushEvent(state, cfg, "supply", "补给", "补给窗口 · 行星来货",
-          "本窗口补给已入库并完成对账" +
-          (addF || addM ? "（粮食 +" + addF + " t、金属 +" + addM + " t）" : ""),
+        pushEvent(state, cfg, "supply", "补给", "补给到了",
+          "行星来的货已入库：粮食 +" + addF + " 吨、金属 +" + addM + " 吨",
           "补给节奏 " + M.supplyWeeks + " 周" +
-          (sjr ? "；判定 p=" + sjr.probability.toFixed(2) : ""), true);
+          (sjr ? "；判定 p=" + sjr.probability.toFixed(2) : ""), true,
+          { "粮食": addF }, "行星来货，粮食和金属补了一批");
       } else {
-        pushEvent(state, cfg, "supply", "补给", "补给窗口 · 未到货",
-          state.inputs.planetCut ? "行星补给已切断，本窗口无来货" : "航线延误，本窗口无来货",
+        pushEvent(state, cfg, "supply", "补给", "这次补给没到",
+          state.inputs.planetCut ? "行星补给线被切断了，这趟没有货" : "航线延误，这趟没有货",
           "补给节奏 " + M.supplyWeeks + " 周；判定 p=" +
           (sjr ? sjr.probability.toFixed(2) : "—") + "，压力 " +
-          (sjr ? sjr.pressure.toFixed(2) : "—") + "，下个窗口更易到货", true);
+          (sjr ? sjr.pressure.toFixed(2) : "—") + "，下个窗口更易到货", true,
+          null, "补给没到，库存只能继续往下掉");
       }
     }
     if (w - m.lastQuarantine >= M.quarantineWeeks) {
@@ -393,10 +443,10 @@
       var ishare = (state.society && state.society.infection)
         ? (state.society.infection.share || 0) : 0;
       pushEvent(state, cfg, "quarantine", "检疫",
-        ishare >= M.quarantineShare ? "全船检疫 · 升级" : "例行检疫",
+        ishare >= M.quarantineShare ? "全船检疫升级" : "例行检疫",
         ishare >= M.quarantineShare
-          ? "感染面 " + Math.round(ishare * 100) + "%，隔离区扩大"
-          : "抽检完成，未发现新的转化个案",
+          ? Math.round(ishare * 100) + "% 的人已经感染，隔离区扩大"
+          : "抽检完了，没发现新的感染者",
         "检疫周期 " + M.quarantineWeeks + " 周", true);
     }
     return yieldF;
@@ -435,22 +485,25 @@
     state.infra.clonePods += doneClone;
 
     if (state.buildAcc.hydro >= 25) {
-      pushEvent(state, cfg, "build_hydro", "建设", "水培扩建交付",
+      pushEvent(state, cfg, "build_hydro", "建设", "水培扩建完成",
         "新增 " + state.buildAcc.hydro + " 个栽培单元，总数 " + state.infra.hydro +
-        "，等效 " + (state.buildAcc.hydro * 1000).toLocaleString("en-US") + " m²",
-        "金属配额到位，工期 " + cfg.metal.hydroLeadWeeks + " 周", true);
+        "，折合 " + (state.buildAcc.hydro * 1000).toLocaleString("en-US") + " 平方米",
+        "金属配额到位，工期 " + cfg.metal.hydroLeadWeeks + " 周", true, null,
+        "水培多了一批，粮食产出往上走");
       state.buildAcc.hydro = 0;
     }
     if (state.buildAcc.pods >= 50) {
-      pushEvent(state, cfg, "build_pods", "建设", "休眠舱交付",
+      pushEvent(state, cfg, "build_pods", "建设", "休眠舱造好了",
         "新增 " + state.buildAcc.pods + " 个休眠位，总数 " + state.infra.pods,
-        "工期 " + cfg.hibernation.podLeadWeeks + " 周", true);
+        "工期 " + cfg.hibernation.podLeadWeeks + " 周", true, null,
+        "能多冻 " + state.buildAcc.pods + " 个人");
       state.buildAcc.pods = 0;
     }
     if (state.buildAcc.clonePods >= 6) {
-      pushEvent(state, cfg, "build_clone", "建设", "克隆槽交付",
+      pushEvent(state, cfg, "build_clone", "建设", "克隆槽造好了",
         "新增 " + state.buildAcc.clonePods + " 个培育筒，总数 " + state.infra.clonePods,
-        "工期 " + cfg.clone.podLeadWeeks + " 周", true);
+        "工期 " + cfg.clone.podLeadWeeks + " 周", true, null,
+        "克隆产能多了一截");
       state.buildAcc.clonePods = 0;
     }
 
@@ -786,9 +839,10 @@
         var fromName = cfg.phase.names[state.phase];
         state.phase = Math.min(4, state.phase + 1);
         state.phaseUp = 0;
-        pushEvent(state, cfg, "phase", "系统", "阶段变化",
+        pushEvent(state, cfg, "phase", "系统", "粮食状况变了",
           fromName + " → " + cfg.phase.names[state.phase],
-          "粮食 " + Math.round(days) + " 日，实际配给 " + rationActual.toFixed(2), true);
+          "粮食 " + Math.round(days) + " 日，实际配给 " + rationActual.toFixed(2), true,
+          null, "粮食只够吃 " + Math.max(1, Math.round(days / 30)) + " 个月");
       }
     } else if (targetPhase < state.phase) {
       state.phaseDown++;
@@ -802,9 +856,10 @@
         var fromName2 = cfg.phase.names[state.phase];
         state.phase = Math.max(0, state.phase - 1);
         state.phaseDown = 0;
-        pushEvent(state, cfg, "phase", "系统", "阶段变化",
+        pushEvent(state, cfg, "phase", "系统", "粮食状况变了",
           fromName2 + " → " + cfg.phase.names[state.phase],
-          "粮食 " + Math.round(days) + " 日，实际配给 " + rationActual.toFixed(2), true);
+          "粮食 " + Math.round(days) + " 日，实际配给 " + rationActual.toFixed(2), true,
+          null, "粮食只够吃 " + Math.max(1, Math.round(days / 30)) + " 个月");
       }
     } else {
       state.phaseUp = 0;
@@ -812,44 +867,47 @@
     }
 
     // 条件事件（同一状态只记一次，恢复后才重新布防）
-    latchEvent(state, cfg, "food_low", days < 60, "food_low", "预警", "粮食余量预警",
-      "粮食 " + Math.round(state.stocks.food) + " t，约 " + Math.round(days) + " 日",
-      "低于 60 日线；日耗 " + (baseDemand / 365).toFixed(1) + " t");
+    latchEvent(state, cfg, "food_low", days < 60, "food_low", "预警", "粮食快见底",
+      "粮食只够吃 " + Math.max(1, Math.round(days / 30)) + " 个月",
+      "低于 60 日线；日耗 " + (baseDemand / 365).toFixed(1) + " 吨", null,
+      "余粮不到两个月，得赶紧补");
 
     var wDays = waterDays(state, cfg, t4);
-    latchEvent(state, cfg, "water_low", wDays < 20, "water_low", "预警", "循环水缓冲偏低",
-      "水储备 " + Math.round(state.stocks.water) + " t，约 " + Math.round(wDays) + " 日用量",
-      "按 28.5 kg/人·日 总用水量折算");
+    latchEvent(state, cfg, "water_low", wDays < 20, "water_low", "预警", "循环水偏少",
+      "水还剩 " + Math.round(state.stocks.water) + " 吨，够用 " + Math.round(wDays) + " 天",
+      "按 28.5 kg/人·日 总用水量折算", null, "水循环撑不了多久");
 
     latchEvent(state, cfg, "drug_low", state.stocks.drug < 100, "drug_low", "预警", "休眠药剂见底",
-      "库存 " + Math.round(state.stocks.drug) + " 份",
-      "入舱 1 份/人，维持 0.02 份/人·年");
+      "只剩 " + Math.round(state.stocks.drug) + " 份，够 " + Math.round(state.stocks.drug) + " 人入舱",
+      "入舱 1 份/人，维持 0.02 份/人·年", null, "药剂不够，想睡的人排不上");
 
-    latchEvent(state, cfg, "metal_low", state.stocks.metal < 500, "metal_low", "预警", "金属库存告急",
-      "库存 " + Math.round(state.stocks.metal) + " t",
-      "低于 500 t；建设与维修将受配额限制");
+    latchEvent(state, cfg, "metal_low", state.stocks.metal < 500, "metal_low", "预警", "金属快用完",
+      "金属只剩 " + Math.round(state.stocks.metal) + " 吨，建设和维修都得排队",
+      "低于 500 吨；建设与维修将受配额限制", null, "金属不够，扩建和维修都要停");
 
     latchEvent(state, cfg, "pods_full", delta > 0 && state.infra.pods <= t2.dormant + 1 &&
       targetDorm > t2.dormant + 5,
       "pods_full", "预警", "休眠位已满",
-      "休眠 " + Math.round(t2.dormant) + " / 舱位 " + state.infra.pods,
-      "目标 " + Math.round(targetDorm) + " 人，缺口 " + Math.max(0, Math.round(targetDorm - t2.dormant)));
+      "想睡的有 " + Math.round(targetDorm) + " 人，舱位只有 " + state.infra.pods + " 个",
+      "目标 " + Math.round(targetDorm) + " 人，缺口 " + Math.max(0, Math.round(targetDorm - t2.dormant)), null,
+      "舱位满了，多出来的人只能继续醒着");
 
-    latchEvent(state, cfg, "clone_cap", cloneCapped, "clone_cap", "预警", "触及克隆上限",
-      "克隆占比 " + (cloneShareNow * 100).toFixed(1) + "%",
-      "档案上限 18%；产量归零直到占比回落");
+    latchEvent(state, cfg, "clone_cap", cloneCapped, "clone_cap", "预警", "克隆人太多了",
+      "克隆人已经占到 " + (cloneShareNow * 100).toFixed(1) + "%",
+      "档案上限 18%；产量归零直到占比回落", null, "克隆占比碰到上限，产量先停");
 
-    latchEvent(state, cfg, "pop_floor", t4.total < 1600, "pop_floor", "危机", "人口跌破危机下限",
-      "在册 " + Math.round(t4.total) + " 人",
-      "档案下限 1,600 人；生保与航行编制不足");
+    latchEvent(state, cfg, "pop_floor", t4.total < 1600, "pop_floor", "危机", "人不够了",
+      "全船只剩 " + Math.round(t4.total) + " 人，撑不住航行编制",
+      "档案下限 1,600 人；生保与航行编制不足", null, "人少了，船已经开不动");
 
     if (state.order < 0.40) {
       if (!state.latches.strike) {
         state.latches.strike = true;
         state.streaks.strike = cfg.events.strikeWeeks;
         pushEvent(state, cfg, "strike", "事件", "环区停工",
-          "秩序 " + state.order.toFixed(2) + "，部分环区停止常规作业",
-          "秩序低于 0.40；产出 ×0.85，持续 " + cfg.events.strikeWeeks + " 周", true);
+          "秩序 " + Math.round(state.order * 100) + "%，部分环区停工，产出少一成半",
+          "秩序低于 0.40；产出 ×0.85，持续 " + cfg.events.strikeWeeks + " 周", true,
+          null, "没人听调度，产出掉了一截");
       }
     } else if (state.order >= 0.45) {
       state.latches.strike = false;
@@ -860,9 +918,10 @@
     if (state.streaks.badRation === cfg.events.bingeWeeks) {
       state.order = clamp(state.order - 0.10, 0.05, 1);
       var killed = killProportional(state, cfg, 0.003);
-      pushEvent(state, cfg, "binge", "事件", "配给点争抢",
-        "登记冲突，秩序 −0.10，本周额外死亡 " + Math.round(killed) + " 人",
-        "实际配给 " + rationActual.toFixed(2) + " 连续 " + cfg.events.bingeWeeks + " 周低于 0.90", true);
+      pushEvent(state, cfg, "binge", "事件", "抢粮",
+        "配给点打起来了：秩序 −10%，这 7 天多死 " + Math.round(killed) + " 人",
+        "实际配给 " + rationActual.toFixed(2) + " 连续 " + cfg.events.bingeWeeks + " 周低于 0.90", true,
+        { "人口": -Math.round(killed), "秩序": -10 }, "配给不够，配给点打起来了");
     }
 
     if (extremeActive && rationActual < 0.45) state.streaks.extreme++;
@@ -871,15 +930,17 @@
       state.order = clamp(state.order - 0.18, 0.05, 1);
       var killed2 = killProportional(state, cfg, 0.004);
       state.flags.atrocity = true;
-      pushEvent(state, cfg, "atrocity", "危机", "底线事件",
-        "配给体系外出现以死者遗体为食的记录，细节封存。秩序 −0.18，本周额外死亡 " + Math.round(killed2) + " 人",
-        "实际配给 " + rationActual.toFixed(2) + " 连续 " + cfg.events.atrocityWeeks + " 周低于 0.45，且已授权极端措施", true);
+      pushEvent(state, cfg, "atrocity", "危机", "有人吃死者",
+        "出现吃死者遗体的事。秩序 −18%，这 7 天多死 " + Math.round(killed2) + " 人",
+        "实际配给 " + rationActual.toFixed(2) + " 连续 " + cfg.events.atrocityWeeks + " 周低于 0.45，且已授权极端措施", true,
+        { "人口": -Math.round(killed2), "秩序": -18 }, "断粮逼到人吃死者");
     }
 
     if (reviveFails >= 1) {
-      pushEvent(state, cfg, "revive_fail", "事件", "复温失败",
-        "本批唤醒失败 " + Math.round(reviveFails) + " 人",
-        "复温失败率 " + ((cfg.hibernation.reviveFail + 0.004 * (1 - medCoverage)) * 100).toFixed(1) + "%", true);
+      pushEvent(state, cfg, "revive_fail", "事件", "有人没醒过来",
+        "这批唤醒有 " + Math.round(reviveFails) + " 人没醒过来",
+        "复温失败率 " + ((cfg.hibernation.reviveFail + 0.004 * (1 - medCoverage)) * 100).toFixed(1) + "%", true,
+        null, "复温失败，这批人没能下船");
     }
 
     if (state.streaks.strike > 0) state.streaks.strike--;
@@ -999,8 +1060,8 @@
     }
     // 判定日志保留（跨轮审计），槽位与压力清零（新的一轮重新累积）
     if (global.XuanShuJudge && state.judge) state.judge.slots = {};
-    pushEvent(state, cfg, "loop", "系统", "循环回滚",
-      "第 " + (nextLoop - 1) + " 轮结束，全量回滚；进入第 " + nextLoop + " 轮",
+    pushEvent(state, cfg, "loop", "系统", "这一轮结束",
+      "第 " + (nextLoop - 1) + " 轮结束，一切回到本轮起点；进入第 " + nextLoop + " 轮",
       "loopScope = full；人口、库存、设施、磨损回到本轮起点", true);
     pushSeries(state, cfg);
   }
@@ -1192,7 +1253,7 @@
       startGame: function (mode, opts) {
         var r = global.XuanShuPlayer
           ? global.XuanShuPlayer.start(state, cfg, mode, opts || {})
-          : { ok: false, msg: "玩家身份层未加载" };
+          : { ok: false, msg: "身份层没加载" };
         // 选定身份即开跑：run.started 放行时间闸门
         if (r && r.ok !== false && global.XuanShuRun) global.XuanShuRun.start(state, cfg);
         return r;
@@ -1209,7 +1270,7 @@
       playerAct: function (id, payload) {
         return global.XuanShuPlayer
           ? global.XuanShuPlayer.act(state, cfg, id, payload || {})
-          : { ok: false, msg: "玩家身份层未加载" };
+          : { ok: false, msg: "身份层没加载" };
       },
 
       /* ---------- 奇遇与牌库 ---------- */
@@ -1317,7 +1378,10 @@
     createSim: createSim,
     createState: createState,
     totals: totals,
-    normalizedShares: normalizedShares
+    normalizedShares: normalizedShares,
+    metrics: metrics,
+    diffMetrics: diffMetrics,
+    cleanDeltas: cleanDeltas
   };
 
   if (typeof module !== "undefined" && module.exports) module.exports = global.XuanShuSim;

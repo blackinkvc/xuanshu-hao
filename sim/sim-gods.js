@@ -28,16 +28,24 @@
     return (state.loop - 1) * cfg.time.loopYears + state.weeks / cfg.time.weeksPerYear;
   }
 
-  function pushEvent(state, cfg, title, text, basis) {
+  function pushEvent(state, cfg, title, text, basis, deltas, note) {
     if (!state.events) state.events = [];
-    state.events.push({
+    var evYear = Math.floor(state.weeks / cfg.time.weeksPerYear);
+    var evWeek = (state.weeks % cfg.time.weeksPerYear) + 1;
+    var entry = {
       t: Math.round(absYear(state, cfg) * 100) / 100,
       loop: state.loop,
-      year: Math.floor(state.weeks / cfg.time.weeksPerYear),
-      week: (state.weeks % cfg.time.weeksPerYear) + 1,
+      year: evYear,
+      week: evWeek,
       quarter: Math.floor((state.weeks % cfg.time.weeksPerYear) / cfg.time.weeksPerQuarter) + 1,
+      timeLabel: "第 " + (evYear + 1) + " 年第 " + evWeek + " 周",
       type: "gods", level: "古神", title: title, text: text, basis: basis || ""
-    });
+    };
+    var D = global.XuanShuSim && global.XuanShuSim.cleanDeltas
+      ? global.XuanShuSim.cleanDeltas(deltas) : null;
+    if (D) entry.deltas = D;
+    if (note) entry.note = note;
+    state.events.push(entry);
     if (state.events.length > cfg.time.eventCap) state.events.shift();
   }
 
@@ -229,8 +237,8 @@
     if (!rec.blessed && rec.favor >= blessAt) {
       rec.blessed = true;
       g.history.push({ year: Math.round(now), id: id, type: "bless", text: "祝福 · " + NAMES[id] });
-      pushEvent(state, cfg, "古神祝福 · " + NAMES[id], "神恩 " + Math.round(rec.favor) + "，祝福生效。",
-        "神恩 ≥" + blessAt);
+      pushEvent(state, cfg, "古神祝福 · " + NAMES[id], "古神满意了，祝福生效。",
+        "好感 ≥" + blessAt, null, "古神站到了你这边");
     } else if (rec.blessed && rec.favor < calmAt) {
       rec.blessed = false;
       g.history.push({ year: Math.round(now), id: id, type: "blessEnd", text: "祝福消退 · " + NAMES[id] });
@@ -238,8 +246,8 @@
     if (!rec.cursed && rec.favor <= curseAt) {
       rec.cursed = true;
       g.history.push({ year: Math.round(now), id: id, type: "curse", text: "诅咒 · " + NAMES[id] });
-      pushEvent(state, cfg, "古神诅咒 · " + NAMES[id], "神恩 " + Math.round(rec.favor) + "，诅咒降临。",
-        "神恩 ≤" + curseAt);
+      pushEvent(state, cfg, "古神诅咒 · " + NAMES[id], "古神发怒了，诅咒降临。",
+        "好感 ≤" + curseAt, null, "古神开始惩罚这条船");
     } else if (rec.cursed && rec.favor > -calmAt) {
       rec.cursed = false;
       g.history.push({ year: Math.round(now), id: id, type: "curseEnd", text: "诅咒消退 · " + NAMES[id] });
@@ -273,7 +281,8 @@
         var total = 0;
         Object.keys(state.groups || {}).forEach(function (k) { total += num(state.groups[k].awake); });
         var lost = removePop(state, Math.max(1, Math.round(total * 0.01)));
-        if (lost) pushEvent(state, cfg, "缄默之喉 · 人口流失", "十年一次，吞噬 " + lost + " 人。", "诅咒");
+        if (lost) pushEvent(state, cfg, "缄默之喉 · 人口流失", "古神饿了，吞掉 " + lost + " 人。", "诅咒",
+          { "人口": -lost }, "每十年少一批人");
       }
       if (id === "weaver") {
         var dep = randomDept(state, cfg);
@@ -281,7 +290,8 @@
           ((soc.queues) || []).forEach(function (q) {
             if (q.dept === dep && (q.layer === "L2" || q.layer === "L3")) q.S = clamp(num(q.S) + 0.10, 0, 1);
           });
-          pushEvent(state, cfg, "赤织母 · 部门失序", dep + " 的 S +0.10。", "诅咒");
+          pushEvent(state, cfg, "赤织母 · 部门失序", dep + "的人更不服管了。", "诅咒",
+            { "秩序": -3 }, "一个部门开始顶牛");
         }
       }
     }
@@ -289,7 +299,8 @@
       if (randNext(state) < 0.10) {
         ((soc.queues) || []).forEach(function (q) { q.C = clamp(num(q.C) + 2, 0, 100); });
         var d2 = removePop(state, 5);
-        pushEvent(state, cfg, "丰穰之腹 · 畸变", "克隆体畸变，感染 +2，损失 " + d2 + " 人。", "诅咒");
+        pushEvent(state, cfg, "丰穰之腹 · 畸变", "克隆体畸变，感染加重，死了 " + d2 + " 人。", "诅咒",
+          { "人口": -d2, "感染": 2 }, "克隆槽里出了怪胎");
       }
     }
   }
@@ -301,17 +312,20 @@
     Object.keys(state.groups || {}).forEach(function (k) { total += num(state.groups[k].awake); });
     var need = Math.max(8, Math.round(total * 0.008));
     var lost = removePop(state, need);
-    pushEvent(state, cfg, "缄默之喉 · 吞食", "每百年索取人口，吞下 " + lost + " 人。", "周期索取");
+    pushEvent(state, cfg, "缄默之喉 · 吞食", "古神又饿了，吞下 " + lost + " 人。", "周期索取",
+      { "人口": -lost }, "这条船定期要交人");
     return lost;
   }
 
   function starTithe(state, cfg) {
     if (randNext(state) < 0.5) {
       state.order = clamp(num(state.order) - 0.05, 0.05, 1);
-      pushEvent(state, cfg, "星启者 · 知识代价", "秩序 −5%。", "周期索取");
+      pushEvent(state, cfg, "星启者 · 知识代价", "星启者带走一部分知识，秩序 −5%。", "周期索取",
+        { "秩序": -5 }, "知道得越多，越难管");
     } else {
       state.stocks.drug = Math.max(0, num(state.stocks.drug) - 40);
-      pushEvent(state, cfg, "星启者 · 知识代价", "药剂 −40。", "周期索取");
+      pushEvent(state, cfg, "星启者 · 知识代价", "星启者拿走了 40 份休眠药剂。", "周期索取",
+        null, "药剂被抽走一批");
     }
   }
 
@@ -330,16 +344,17 @@
         var l2 = ((soc.queues || []).filter(function (q) { return q.layer === "L2"; }))[0];
         if (l2) l2.dPenalty = num(l2.dPenalty) + 6;
         else removePop(state, num(T.l4, 20));
-        msg = "献祭被接受，神恩 +" + num(T.acceptFavor, 10) + "，秩序 +3%。";
+        msg = "献祭被接受了，古神满意，秩序 +3%。";
       } else {
         adjustFavor(state, cfg, "weaver", num(T.refuseFavor, -30));
         ((soc.queues) || []).forEach(function (q) { q.C = clamp(num(q.C) + num(T.refuseC, 4), 0, 100); });
-        msg = "拒绝献祭，神恩 −30，全队列感染 +4。";
+        msg = "你拒绝了，古神发怒，所有人感染加重。";
       }
     } else {
-      msg = "索取已了结。";
+      msg = "索取已经了结。";
     }
-    if (!silent) pushEvent(state, cfg, "古神索取 · " + NAMES[t.id], msg, "第 " + t.year + " 年");
+    if (!silent) pushEvent(state, cfg, "古神索取 · " + NAMES[t.id], msg, "第 " + Math.round(t.year + 1) + " 年",
+      accept ? { "秩序": 3 } : { "感染": 4 }, accept ? "献祭换来了暂时的安宁" : "拒绝的代价是全船");
     g.pendingTithe = null;
     return { ok: true, msg: msg, accept: !!accept };
   }
@@ -394,9 +409,9 @@
         } else if (id === "weaver") {
           if (!g.pendingTithe) {
             g.pendingTithe = { id: "weaver", year: Math.round(now), atWeek: state.weeks,
-              ask: "赤织母要求献祭：处决 1 名 L2 或 20 名 L4。", acceptText: "献祭", refuseText: "拒绝" };
+              ask: "赤织母要一次献祭：处决 1 个中层贵族，或 20 个平民。", acceptText: "献祭", refuseText: "拒绝" };
             pushEvent(state, cfg, "赤织母 · 索取献祭",
-              "每 50 年一次：接受则神恩 +10、秩序 +3%；拒绝则神恩 −30、感染 +4。", "周期索取");
+              "赤织母每 50 年要一次献祭：答应就秩序 +3%，拒绝就全船感染加重。", "周期索取");
           }
         } else if (id === "star") {
           starTithe(state, cfg);

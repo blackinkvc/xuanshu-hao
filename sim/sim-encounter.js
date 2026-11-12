@@ -44,20 +44,38 @@
     return (state.loop - 1) * cfg.time.loopYears + state.weeks / cfg.time.weeksPerYear;
   }
 
-  function pushEvent(state, cfg, type, level, title, text, basis) {
+  var STOCK_LABEL = { food: "粮食", water: "水", metal: "金属", drug: "药剂" };
+  var STOCK_UNIT = { food: "吨", water: "吨", metal: "吨", drug: "份" };
+  var QUEUE_LABEL = { O: "服从", W: "不服", C: "感染", S: "压力" };
+  var PC_LABEL = {
+    health: "健康", compliance: "服从", will: "意志", dominion: "统御",
+    authority: "权限", infectionC: "感染", stage: "感染阶段", stress: "压力"
+  };
+  var INFRA_LABEL = { hydro: "水培", pods: "休眠舱", clonePods: "克隆槽" };
+  var RARITY_LABEL = { common: "常见", uncommon: "少见", rare: "稀有", epic: "罕见", legend: "传说" };
+
+  function pushEvent(state, cfg, type, level, title, text, basis, deltas, note) {
     if (!state.events) state.events = [];
-    state.events.push({
+    var evYear = Math.floor(state.weeks / cfg.time.weeksPerYear);
+    var evWeek = (state.weeks % cfg.time.weeksPerYear) + 1;
+    var entry = {
       t: Math.round(absYear(state, cfg) * 100) / 100,
       loop: state.loop,
-      year: Math.floor(state.weeks / cfg.time.weeksPerYear),
-      week: (state.weeks % cfg.time.weeksPerYear) + 1,
+      year: evYear,
+      week: evWeek,
       quarter: Math.floor((state.weeks % cfg.time.weeksPerYear) / cfg.time.weeksPerQuarter) + 1,
+      timeLabel: "第 " + (evYear + 1) + " 年第 " + evWeek + " 周",
       type: type,
       level: level || "奇遇",
       title: title,
       text: text,
       basis: basis || ""
-    });
+    };
+    var D = global.XuanShuSim && global.XuanShuSim.cleanDeltas
+      ? global.XuanShuSim.cleanDeltas(deltas) : null;
+    if (D) entry.deltas = D;
+    if (note) entry.note = note;
+    state.events.push(entry);
     if (state.events.length > cfg.time.eventCap) state.events.shift();
   }
 
@@ -353,31 +371,33 @@
     var p = state.player || {};
     var health = num(p.pc && p.pc.health, 0);
     if (nd.mode && p.mode && nd.mode.indexOf(p.mode) < 0) {
-      return { ok: false, reason: "该卡仅限 " + nd.mode.join(" / ") + " 身份" };
+      return { ok: false, reason: "这张卡只给「" + nd.mode.map(function (m) {
+        return { ruler: "最高贵族", mid: "中层贵族", slave: "奴隶", creator: "创造模式" }[m] || "这个身份";
+      }).join("」「") + "」身份" };
     }
     if (typeof nd.techMin === "number" && tech < nd.techMin) {
-      return { ok: false, reason: "需要科技 ≥" + nd.techMin.toFixed(2) + "（当前 " + tech.toFixed(2) + "）" };
+      return { ok: false, reason: "科技要到 " + nd.techMin.toFixed(2) + "，现在只有 " + tech.toFixed(2) };
     }
     if (typeof nd.orderMin === "number" && order < nd.orderMin) {
-      return { ok: false, reason: "需要秩序 ≥" + nd.orderMin.toFixed(2) + "（当前 " + order.toFixed(2) + "）" };
+      return { ok: false, reason: "秩序要到 " + Math.round(nd.orderMin * 100) + "%，现在只有 " + Math.round(order * 100) + "%" };
     }
     if (typeof nd.infectionMin === "number" && share * 100 < nd.infectionMin) {
-      return { ok: false, reason: "需要感染面 ≥" + nd.infectionMin + "%（当前 " + Math.round(share * 100) + "%）" };
+      return { ok: false, reason: "感染要到 " + nd.infectionMin + "%，现在只有 " + Math.round(share * 100) + "%" };
     }
     if (typeof nd.thrallsMin === "number" && thralls < nd.thrallsMin) {
-      return { ok: false, reason: "需要眷属 ≥" + nd.thrallsMin + "（当前 " + rnd(thralls) + "）" };
+      return { ok: false, reason: "眷属要到 " + nd.thrallsMin + " 个，现在只有 " + rnd(thralls) + " 个" };
     }
     if (typeof nd.popMin === "number" && total < nd.popMin) {
-      return { ok: false, reason: "需要在册人口 ≥" + nd.popMin + "（当前 " + rnd(total) + "）" };
+      return { ok: false, reason: "船上至少要有 " + nd.popMin + " 人，现在只有 " + rnd(total) + " 人" };
     }
     if (typeof nd.dormantMin === "number" && dormant < nd.dormantMin) {
-      return { ok: false, reason: "需要休眠人口 ≥" + nd.dormantMin + "（当前 " + rnd(dormant) + "）" };
+      return { ok: false, reason: "舱里至少要有 " + nd.dormantMin + " 人，现在只有 " + rnd(dormant) + " 人" };
     }
     if (typeof nd.healthMin === "number" && health < nd.healthMin) {
-      return { ok: false, reason: "需要健康 ≥" + nd.healthMin + "（当前 " + rnd(health) + "）" };
+      return { ok: false, reason: "健康要到 " + nd.healthMin + "，现在只有 " + rnd(health) };
     }
     if (nd.godPact && !(state.gods && hasPact(state))) {
-      return { ok: false, reason: "需要已与古神立约" };
+      return { ok: false, reason: "得先跟古神立约" };
     }
     return { ok: true, reason: "" };
   }
@@ -508,22 +528,23 @@
       if (k === "stock") {
         var key = op.k;
         state.stocks[key] = clamp(num(state.stocks[key]) + num(op.v), 0, caps[key] || 1e9);
-        notes.push((op.v >= 0 ? "+" : "") + op.v + " " + key);
+        notes.push((STOCK_LABEL[key] || key) + " " + (op.v >= 0 ? "+" : "") + op.v +
+          " " + (STOCK_UNIT[key] || ""));
       } else if (k === "stockPct") {
         var key2 = op.k;
         state.stocks[key2] = clamp(num(state.stocks[key2]) * (1 + num(op.v)), 0, caps[key2] || 1e9);
-        notes.push(key2 + " " + Math.round(op.v * 100) + "%");
+        notes.push((STOCK_LABEL[key2] || key2) + " " + (op.v >= 0 ? "+" : "") + Math.round(op.v * 100) + "%");
       } else if (k === "infra") {
         var cap = op.k === "hydro" ? cfg.food.hydroMax
           : (op.k === "clonePods" ? cfg.clone.maxPods : 1e9);
         state.infra[op.k] = clamp(num(state.infra[op.k]) + num(op.v), 0, cap);
-        notes.push(op.k + " " + (op.v >= 0 ? "+" : "") + op.v);
+        notes.push((INFRA_LABEL[op.k] || op.k) + " " + (op.v >= 0 ? "+" : "") + op.v);
       } else if (k === "order") {
         state.order = clamp(num(state.order) + num(op.v), 0.05, 1);
         notes.push("秩序 " + (op.v >= 0 ? "+" : "") + Math.round(op.v * 100) + "%");
       } else if (k === "wear") {
         state.wear = clamp(num(state.wear) + num(op.v), 0, 1);
-        notes.push("磨损 " + (op.v >= 0 ? "+" : "") + op.v);
+        notes.push("磨损 " + (op.v >= 0 ? "+" : "") + Math.round(op.v * 100) + "%");
       } else if (k === "tech") {
         if (soc.machine) soc.machine.tech = clamp(num(soc.machine.tech) + num(op.v), 0, 1);
         notes.push("科技 " + (op.v >= 0 ? "+" : "") + op.v);
@@ -539,14 +560,14 @@
             if (op.k === "S") q.S = clamp(num(q.S) + num(op.v), 0, 1);
           });
         }
-        notes.push("队列 " + op.k + " " + (op.v >= 0 ? "+" : "") + op.v);
+        notes.push("队伍" + (QUEUE_LABEL[op.k] || "") + " " + (op.v >= 0 ? "+" : "") + op.v);
       } else if (k === "infect") {
         addC(state, num(op.v));
         notes.push("感染 +" + op.v);
       } else if (k === "randomInfect") {
         if (randNext(state) < num(op.p, 0.3)) {
           addC(state, num(op.v));
-          notes.push("随机感染 +" + op.v);
+          notes.push("有人被感染 +" + op.v);
         }
       } else if (k === "thralls") {
         if (soc.infection) soc.infection.thralls = Math.max(0, num(soc.infection.thralls) + num(op.v));
@@ -554,7 +575,8 @@
       } else if (k === "garrison") {
         if (soc.garrison && typeof soc.garrison[op.k] === "number") {
           soc.garrison[op.k] = Math.max(0, num(soc.garrison[op.k]) + num(op.v));
-          notes.push("警备 " + op.k + " " + (op.v >= 0 ? "+" : "") + op.v);
+          notes.push("警备" + (op.k === "durability" ? "耐久" : "兵力") + " " +
+            (op.v >= 0 ? "+" : "") + op.v);
         }
       } else if (k === "pop") {
         popAdjust(state, cfg, op.group, num(op.v));
@@ -568,11 +590,11 @@
         if (state.player && state.player.pc) {
           var p = state.player.pc;
           p[op.k] = clamp(num(p[op.k]) + num(op.v), 0, 100);
-          notes.push("玩家 " + op.k + " " + (op.v >= 0 ? "+" : "") + op.v);
+          notes.push((PC_LABEL[op.k] || "你自己") + " " + (op.v >= 0 ? "+" : "") + op.v);
         }
       } else if (k === "godFavor" || k === "god" || k === "devour" || k === "summon") {
-        if (godOp(state, cfg, op)) notes.push("古神 " + k + " " + (op.v != null ? op.v : ""));
-        else notes.push("古神层未就绪");
+        if (godOp(state, cfg, op)) notes.push("古神的态度变了");
+        else notes.push("古神没有回应");
       } else if (k === "mod") {
         addMod(state, cfg, op.key, op.v, op.weeks, !!op.mul, card.id);
         if (op.key === "prodMul" && soc.effects) {
@@ -583,21 +605,21 @@
           soc.effects.infSpread = Math.max(0, 1 + num(op.v));
           soc.effects.infWeeks = Math.max(num(soc.effects.infWeeks), rnd(op.weeks || 26));
         }
-        notes.push("修正 " + op.key);
+        notes.push("留下一段长期影响");
       } else if (k === "flag") {
         if (state.player) {
           state.player.flags = state.player.flags || {};
           state.player.flags[op.k] = state.weeks + num(op.weeks, 52);
         }
-        notes.push("标记 " + op.k);
+        notes.push("这件事被记了一笔");
       } else if (k === "intel") {
         if (state.player) {
           state.player.intelBuff = { level: op.level || "high", until: state.weeks + num(op.weeks, 52) };
         }
-        notes.push("情报 " + (op.level || "high"));
+        notes.push("情报升到「" + ({ low: "街谈巷议", mid: "部门里的消息", high: "高层里的消息", truth: "全部真相" }[op.level] || "高层里的消息") + "」");
       } else if (k === "peek") {
         ensure(state, cfg).peek = Math.max(0, rnd(op.v));
-        notes.push("预览 " + op.v + " 次");
+        notes.push("能先看 " + op.v + " 张牌");
       } else if (k === "birth") {
         if (state.groups && state.groups.undecided) {
           state.groups.undecided.awake = num(state.groups.undecided.awake) + num(op.v);
@@ -607,21 +629,21 @@
         var dep = state.player && state.player.pc.dept || "勤务";
         var D = soc.depts && soc.depts[dep];
         if (D) D.I = clamp(num(D.I) + num(op.v), 0, 1);
-        notes.push(dep + " 失序 " + (op.v >= 0 ? "+" : "") + op.v);
+        notes.push("「" + dep + "」失序 " + (op.v >= 0 ? "+" : "") + op.v);
       } else if (k === "machine") {
         if (soc.machine) {
           if (op.k === "maxChain") soc.machine.maxChain = num(soc.machine.maxChain) + num(op.v);
           else if (op.k === "autonomy") soc.machine.A = clamp(num(soc.machine.A) + num(op.v), 0, 1);
           else if (op.k === "tech") soc.machine.tech = clamp(num(soc.machine.tech) + num(op.v), 0, 1);
         }
-        notes.push("机器 " + op.k);
+        notes.push("机器的状态变了");
       } else if (k === "removeL2") {
         var l2 = ((soc.queues || []).filter(function (q) { return q.layer === "L2"; }))[0];
         if (l2) l2.dPenalty = num(l2.dPenalty) + 8;
-        notes.push("移除 " + op.v + " 名 L2");
+        notes.push("拿掉了 " + op.v + " 个中层贵族");
       } else if (k === "vision") {
         addMod(state, cfg, "vision", op.v, 99999, false, card.id);
-        notes.push("可见 +" + op.v);
+        notes.push("看得更远");
       }
     });
 
@@ -640,16 +662,16 @@
         else { notes.push(pactByChoice(state, cfg, "random")); }
         break;
       case "cr_decompression":
-        if (choice === "pay") { state.stocks.metal = Math.max(0, num(state.stocks.metal) - 15); notes.push("金属 −15 t"); }
+        if (choice === "pay") { state.stocks.metal = Math.max(0, num(state.stocks.metal) - 15); notes.push("金属 −15 吨"); }
         else { popAdjust(state, cfg, "L4", -12); state.order = clamp(num(state.order) - 0.03, 0.05, 1); notes.push("人口 −12、秩序 −3%"); }
         break;
       case "tr_trader":
-        if (choice === "food") { state.stocks.food = num(state.stocks.food) + 50; state.stocks.metal = Math.max(0, num(state.stocks.metal) - 20); notes.push("粮 +50 t、金属 −20 t"); }
-        else { state.stocks.metal = num(state.stocks.metal) + 40; state.stocks.food = Math.max(0, num(state.stocks.food) - 20); notes.push("金属 +40 t、粮 −20 t"); }
+        if (choice === "food") { state.stocks.food = num(state.stocks.food) + 50; state.stocks.metal = Math.max(0, num(state.stocks.metal) - 20); notes.push("粮 +50 吨、金属 −20 吨"); }
+        else { state.stocks.metal = num(state.stocks.metal) + 40; state.stocks.food = Math.max(0, num(state.stocks.food) - 20); notes.push("金属 +40 吨、粮 −20 吨"); }
         break;
       case "tr_slave_trade":
-        if (choice === "buy") { popAdjust(state, cfg, "undecided", 20); state.stocks.metal = Math.max(0, num(state.stocks.metal) - 35); notes.push("人口 +20、金属 −35 t"); }
-        else { popAdjust(state, cfg, "L4", -20); state.stocks.metal = num(state.stocks.metal) + 25; notes.push("人口 −20、金属 +25 t"); }
+        if (choice === "buy") { popAdjust(state, cfg, "undecided", 20); state.stocks.metal = Math.max(0, num(state.stocks.metal) - 35); notes.push("人口 +20、金属 −35 吨"); }
+        else { popAdjust(state, cfg, "L4", -20); state.stocks.metal = num(state.stocks.metal) + 25; notes.push("人口 −20、金属 +25 吨"); }
         break;
       case "tr_relic_auction":
         if (choice === "tech") { if (soc.machine) soc.machine.tech = clamp(num(soc.machine.tech) + 0.04, 0, 1); notes.push("科技 +0.04"); }
@@ -764,14 +786,15 @@
     if (!e.pending) return { ok: false, msg: "当前没有待结算的奇遇" };
     var i = Math.floor(num(index, -1));
     var card = e.pending.cards[i];
-    if (!card) return { ok: false, msg: "候选序号无效：" + index };
-    if (!card.available) return { ok: false, msg: "该卡前置不满足：" + card.reason, code: "locked" };
+    if (!card) return { ok: false, msg: "没有这张卡" };
+    if (!card.available) return { ok: false, msg: "这张卡现在拿不到：" + card.reason, code: "locked" };
     if (card.choices && card.choices.length && !opts.choice) {
       return { ok: true, needChoice: true, choices: card.choices.slice(),
-        card: card, msg: "该卡需要再选一项" };
+        card: card, msg: "这张卡还要再选一步" };
     }
     var full = cardOf(cfg, e.pending.cat, card.id) || card;
     var notes = [];
+    var M0 = global.XuanShuSim.metrics(state, cfg);
     applyOps(state, cfg, full, opts.choice, notes);
     if (global.XuanShuGods) global.XuanShuGods.afterCard(state, cfg);
     var summary = notes.length ? notes.join("、") : (card.effectText || "");
@@ -794,8 +817,11 @@
     pushEvent(state, cfg, "encounter", "奇遇",
       "奇遇 · " + card.name,
       summary + (card.costText ? "（代价：" + card.costText + "）" : ""),
-      "类别 " + (e.pending.catLabel || e.pending.cat) + "，稀有度 " + card.rarity +
-      "，选择 " + (i + 1) + (opts.auto ? "（自动）" : ""));
+      "类别 " + (e.pending.catLabel || e.pending.cat) + "，稀有度 " +
+      (RARITY_LABEL[card.rarity] || "未知") + "，选了第 " + (i + 1) + " 张" +
+      (opts.auto ? "（电脑代选）" : ""),
+      global.XuanShuSim.diffMetrics(M0, global.XuanShuSim.metrics(state, cfg)),
+      card.followText || "");
 
     e.pending = null;
     return {

@@ -11,7 +11,7 @@
   var VERSION = "1.0.0";
 
   var FAILS = [
-    { id: "player_death", label: "玩家死亡" },
+    { id: "player_death", label: "你死了" },
     { id: "extinction", label: "文明断绝" },
     { id: "machine_takeover", label: "机器接管" },
     { id: "god_devour", label: "古神吞噬" },
@@ -31,16 +31,24 @@
     return absWeek(state, cfg) / cfg.time.weeksPerYear;
   }
 
-  function pushEvent(state, cfg, level, title, text, basis) {
+  function pushEvent(state, cfg, level, title, text, basis, deltas, note) {
     if (!state.events) state.events = [];
-    state.events.push({
+    var evYear = Math.floor(state.weeks / cfg.time.weeksPerYear);
+    var evWeek = (state.weeks % cfg.time.weeksPerYear) + 1;
+    var entry = {
       t: Math.round(absYear(state, cfg) * 100) / 100,
       loop: state.loop,
-      year: Math.floor(state.weeks / cfg.time.weeksPerYear),
-      week: (state.weeks % cfg.time.weeksPerYear) + 1,
+      year: evYear,
+      week: evWeek,
       quarter: Math.floor((state.weeks % cfg.time.weeksPerYear) / cfg.time.weeksPerQuarter) + 1,
+      timeLabel: "第 " + (evYear + 1) + " 年第 " + evWeek + " 周",
       type: "run", level: level || "系统", title: title, text: text, basis: basis || ""
-    });
+    };
+    var D = global.XuanShuSim && global.XuanShuSim.cleanDeltas
+      ? global.XuanShuSim.cleanDeltas(deltas) : null;
+    if (D) entry.deltas = D;
+    if (note) entry.note = note;
+    state.events.push(entry);
     if (state.events.length > cfg.time.eventCap) state.events.shift();
   }
 
@@ -137,8 +145,9 @@
     g.endedWeek = absWeek(state, cfg);
     g.endedYear = Math.round(absYear(state, cfg) * 100) / 100;
     g.history.push({ year: g.endedYear, type: "lose", id: id, reason: reason });
-    pushEvent(state, cfg, "终局", "失败 · " + (FAILS.filter(function (f) { return f.id === id; })[0] || {}).label,
-      reason, "失败判定优先级 " + FAILS.map(function (f) { return f.id; }).indexOf(id));
+    pushEvent(state, cfg, "终局", "失败了 · " + (FAILS.filter(function (f) { return f.id === id; })[0] || {}).label,
+      reason, "触发顺序 " + (FAILS.map(function (f) { return f.id; }).indexOf(id) + 1) + "/7",
+      null, reason);
     return g;
   }
 
@@ -151,7 +160,7 @@
     g.endedYear = num(cfg.run.targetYear, 41000);
     g.history.push({ year: g.endedYear, type: "win", reason: "玄枢号穿越 41,000 年，文明延续。" });
     pushEvent(state, cfg, "终局", "胜利 · 41,000 年", "玄枢号穿越 41,000 年，文明延续。",
-      "绝对年 ≥ " + num(cfg.run.targetYear, 41000));
+      "绝对年 ≥ " + num(cfg.run.targetYear, 41000), null, "你把这艘船带到了终点");
     return g;
   }
 
@@ -174,32 +183,37 @@
 
     // 0 玩家死亡（创造模式为观察者，不因此终局）
     if (pc && (!p.mode || p.mode !== "creator") && (pc.alive === false || num(pc.health) <= 0)) {
-      return lose(state, cfg, "player_death", "玩家的健康归零，意识在维生舱里熄灭。");
+      return lose(state, cfg, "player_death", "你的健康归零，意识在维生舱里熄灭。");
     }
     // 1 灭绝
     if (t.total < num(F.minPopulation, 200) || g.counters.noL2 >= num(F.l2EmptyWeeks, 26)) {
-      return lose(state, cfg, "extinction", "在册人口跌破 200，或 L2 管理层连续 26 周全灭。");
+      return lose(state, cfg, "extinction", "船上的人不到 " + num(F.minPopulation, 200) +
+        "，或中层贵族连续 " + num(F.l2EmptyWeeks, 26) + " 周一个不剩。");
     }
     // 2 机器接管
     if (soc.machine && (soc.machine.depts || []).length >= num(F.machineDepts, 4)) {
-      return lose(state, cfg, "machine_takeover", "机器已接管 4 个以上部门，舰务不再由人决定。");
+      return lose(state, cfg, "machine_takeover", "机器已经管了 " + num(F.machineDepts, 4) +
+        " 个以上部门，船上的事不再由人定。");
     }
     // 3 古神吞噬
     if (state.gods && num(state.gods.devour) >= num((cfg.gods || {}).devourCap, 100)) {
-      return lose(state, cfg, "god_devour", "神噬进度达到 100，玄枢号被古神吞入腹中。");
+      return lose(state, cfg, "god_devour", "古神的吞噬到了顶，玄枢号被吞进腹中。");
     }
     // 4 秩序崩溃
     if (g.counters.orderCollapse >= num(F.orderCollapseWeeks, 26)) {
-      return lose(state, cfg, "order_collapse", "秩序低于 15% 连续 26 周，船上已无有效命令。");
+      return lose(state, cfg, "order_collapse", "秩序连续 " + num(F.orderCollapseWeeks, 26) +
+        " 周低于 15%，船上已经没人执行命令。");
     }
     // 5 断粮
     if (g.counters.famine >= num(F.famineWeeks, 12)) {
-      return lose(state, cfg, "famine", "连续 12 周断粮，最后一名醒态个体在农环倒下。");
+      return lose(state, cfg, "famine", "连续 " + num(F.famineWeeks, 12) +
+        " 周没有粮，最后一个醒着的人倒在农环。");
     }
     // 6 全船眷属化
     if (soc.infection && num(soc.infection.share) >= num(F.thrallShare, 0.75) &&
         num(soc.infection.thralls) >= num(F.thrallCount, 1200)) {
-      return lose(state, cfg, "thrall_takeover", "感染面 ≥75% 且眷属 ≥1,200，全船完成眷属化。");
+      return lose(state, cfg, "thrall_takeover", "七成半以上的人感染、眷属超过 " +
+        num(F.thrallCount, 1200) + " 人，全船完成转化。");
     }
     return null;
   }
@@ -220,10 +234,10 @@
     if (!g.pendingNode) {
       g.pendingNode = { year: Math.round(now), atWeek: state.weeks,
         atAbsWeek: absWeek(state, cfg),
-        text: "第 " + Math.round(now) + " 年：自动推演到结束，还是继续手动？" };
+        text: "第 " + Math.round(now) + " 年：让电脑代玩到结束，还是继续手动？" };
       g.history.push({ year: Math.round(now), type: "node", text: "千年节点挂起" });
       pushEvent(state, cfg, "节点", "千年节点",
-        "已抵达第 " + Math.round(now) + " 年。可自动推演到结束，也可继续手动。",
+        "已抵达第 " + Math.round(now) + " 年。可以让电脑代玩到结束，也可以继续手动。",
         "每 1,000 年一次，时间冻结直到选择");
     }
     return { action: "freeze", pendingNode: g.pendingNode };
@@ -238,16 +252,16 @@
     g.auto = m === "auto";
     g.history.push({ year: node.year, type: "choice", mode: m,
       text: m === "auto" ? "选择自动推演" : "选择继续手动" });
-    pushEvent(state, cfg, "节点", "千年节点 · " + (m === "auto" ? "自动推演" : "继续手动"),
-      m === "auto" ? "进入自动推演，遇奇遇按身份偏好自动选牌。" : "继续手动，可随时再次进入自动推演。",
-      "第 " + node.year + " 年");
+    pushEvent(state, cfg, "节点", "千年节点 · " + (m === "auto" ? "电脑代玩" : "继续手动"),
+      m === "auto" ? "开始电脑代玩，奇遇会按你的处境自动选牌；你随时可以接手。" : "继续手动，随时可以切回电脑代玩。",
+      "第 " + Math.round(node.year + 1) + " 年");
     return { ok: true, mode: m, node: node, rollback: true };
   }
 
   function setAuto(state, cfg, v) {
     var g = ensure(state, cfg);
     g.auto = !!v;
-    g.history.push({ year: Math.round(absYear(state, cfg)), type: "auto", text: g.auto ? "开启自动推演" : "关闭自动推演" });
+    g.history.push({ year: Math.round(absYear(state, cfg)), type: "auto", text: g.auto ? "开启电脑代玩" : "关闭电脑代玩" });
     return { ok: true, auto: g.auto };
   }
 
