@@ -360,6 +360,13 @@
         return r;
       },
 
+      /** 首页三项操控：一次写入配给 / 休眠 / 航速（含秩序代价），返回前后值。 */
+      hudCommit: function (patch) {
+        var r = sim.hudCommit(patch);
+        emit("apply", { ok: true, msg: "船上三项已结算" }, {});
+        return r;
+      },
+
       /**
        * 导出/导入完整状态（含历史序列与事件），用于本地存档与主站共享状态。
        * v2 的存档里时间字段是 weeks；导入 v1 存档会因字段不符被拒绝。

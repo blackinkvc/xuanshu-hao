@@ -216,6 +216,10 @@
       },
       order: cfg.order.init,
       wear: 0,
+      // 航速：首页三项操控写这里，能耗 / 磨损 / 遭遇权重都读它
+      ship: {
+        speedC: (cfg.ship && cfg.ship.speedC) || 0.045
+      },
       phase: 0,
       phaseUp: 0,
       phaseDown: 0,
@@ -509,8 +513,11 @@
 
     var t0 = totals(state, cfg);
 
-    // 能源
-    var energy = cfg.energy.baseMW * (1 - 0.15 * state.wear);
+    // 能源：磨损先削一截，航速再按倍率抬（r=1 时与旧版完全一致）
+    var speedRatio = (state.ship && cfg.ship && cfg.ship.speedBaseC)
+      ? state.ship.speedC / cfg.ship.speedBaseC : 1;
+    var energy = cfg.energy.baseMW * (1 - 0.15 * state.wear) *
+      (1 + ((cfg.ship && cfg.ship.energyK) || 0) * (speedRatio - 1));
     var lifeMW = Math.min(cfg.energy.lifeMW, energy);
     var rest = Math.max(0, energy - lifeMW);
     var agriMW = rest * I.agriShare;
@@ -751,7 +758,12 @@
       maintGap = clamp(maintGap + 0.30 * (soc.mutiny.level / 5) +
         0.15 * clamp(soc.infection.share || 0, 0, 1), 0, 1);
     }
-    state.wear = clamp(state.wear + (0.50 * maintGap - 0.05 * (1 - maintGap)) * dt, 0, 1);
+    // 磨损恶化项随航速放大：跑得越快，同样的维修缺口磨得更狠（r=1 时与旧版一致）
+    var wearSpeedK = 1 + (((cfg.ship && cfg.ship.wearK) || 0)) *
+      (((state.ship && cfg.ship && cfg.ship.speedBaseC)
+        ? state.ship.speedC / cfg.ship.speedBaseC : 1) - 1);
+    state.wear = clamp(state.wear +
+      (0.50 * maintGap * wearSpeedK - 0.05 * (1 - maintGap)) * dt, 0, 1);
 
     var constructionSpend = 0;
     var availableMetal = Math.max(0, state.stocks.metal + capM - maintSpend);
@@ -1107,6 +1119,46 @@
 
       getInputs: function () { return clone(state.inputs); },
 
+      setShip: function (v) {
+        if (!isNum(v)) return api.getState();
+        var min = (cfg.ship && cfg.ship.speedMin) || 0.020;
+        var max = (cfg.ship && cfg.ship.speedMax) || 0.065;
+        state.ship.speedC = clamp(v, min, max);
+        return api.getState();
+      },
+
+      // 首页三项操控的唯一写入口：前端只负责算幅度与权限，
+      // 这里统一夹边界、记秩序代价，保证引擎与界面同源。
+      hudCommit: function (p) {
+        p = p || {};
+        var hp = (cfg.hud && cfg.hud.params) || {};
+        var before = {
+          ration: state.inputs.ration,
+          dormancyTarget: state.inputs.dormancyTarget,
+          speedC: state.ship.speedC,
+          order: state.order
+        };
+        if (isNum(p.ration) && hp.ration) {
+          state.inputs.ration = clamp(p.ration, hp.ration.min, hp.ration.max);
+        }
+        if (isNum(p.dormancyTarget) && hp.dormancy) {
+          state.inputs.dormancyTarget = clamp(p.dormancyTarget, hp.dormancy.min, hp.dormancy.max);
+        }
+        if (isNum(p.speedC) && hp.speed) {
+          state.ship.speedC = clamp(p.speedC, hp.speed.min, hp.speed.max);
+        }
+        if (isNum(p.orderDelta)) {
+          state.order = clamp(state.order + p.orderDelta, 0, 1);
+        }
+        var after = {
+          ration: state.inputs.ration,
+          dormancyTarget: state.inputs.dormancyTarget,
+          speedC: state.ship.speedC,
+          order: state.order
+        };
+        return { ok: true, before: before, after: after };
+      },
+
       // 推进 n 周（内部最小步长就是 1 周；大跨度由这里循环，阈值判定一次都不会漏）
       // 时间闸门：未选身份 / 千年节点挂起 / 终局时不再推进，返回带 blocked 的快照。
       step: function (weeks) {
@@ -1146,6 +1198,11 @@
           infra: clone(state.infra),
           order: state.order,
           wear: state.wear,
+          ship: state.ship ? {
+            speedC: state.ship.speedC,
+            ratio: Math.round((state.ship.speedC /
+              ((cfg.ship && cfg.ship.speedBaseC) || 0.045)) * 1000) / 1000
+          } : null,
           phase: state.phase,
           phaseName: cfg.phase.names[state.phase],
           foodDays: days,
@@ -1362,6 +1419,10 @@
         var obj = typeof json === "string" ? JSON.parse(json) : json;
         if (!obj || !obj.groups || !obj.stocks) throw new Error("状态格式不正确");
         state = obj;
+        // 旧档兼容：没有 ship 时补基准速度，读档后行为与旧版一致
+        if (!state.ship || !isNum(state.ship.speedC)) {
+          state.ship = { speedC: (cfg.ship && cfg.ship.speedC) || 0.045 };
+        }
         if (global.XuanShuPlayer) global.XuanShuPlayer.ensure(state, cfg);
         if (global.XuanShuEncounter) global.XuanShuEncounter.ensure(state, cfg);
         if (global.XuanShuGods) global.XuanShuGods.ensure(state, cfg);

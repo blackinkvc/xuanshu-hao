@@ -220,6 +220,19 @@
     if (global.XuanShuGods && state.gods && state.gods.enabled) {
       w.explore *= global.XuanShuGods.gMul(state, cfg, "exploreMul", 1);
     }
+    // 航速钩子：按类别乘 r^K，跑得快危机/探索升、贸易/社会降。
+    // 不能对所有类别同乘——pickCategory 会按总和归一化，统一乘等于没改。
+    if (state.ship && cfg.ship && cfg.ship.speedBaseC) {
+      var sr = state.ship.speedC / cfg.ship.speedBaseC;
+      var ek = cfg.ship.encounterK || {};
+      if (sr > 0 && sr !== 1) {
+        Object.keys(ek).forEach(function (c) {
+          if (typeof w[c] === "number" && typeof ek[c] === "number") {
+            w[c] *= Math.pow(Math.max(0.2, sr), ek[c]);
+          }
+        });
+      }
+    }
     return w;
   }
 

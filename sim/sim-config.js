@@ -809,6 +809,48 @@
       }
     },
 
+    /* ---------------- 航速（首页三项操控的引擎钩子） ----------------
+       速度只存一个数：state.ship.speedC。能耗、磨损、遭遇权重都从这里换算，
+       不在别处再写死系数。speedBaseC 是「1.0 倍」的锚点，旧档没有 ship 时补这个值。 */
+    ship: {
+      speedC: 0.045,              // 当前巡航速度（光速倍）
+      speedBaseC: 0.045,          // 基准速度：倍率 r = speedC / speedBaseC
+      speedMin: 0.020,
+      speedMax: 0.065,
+      energyK: 0.60,              // 能耗乘子 = 1 + energyK × (r − 1)
+      wearK: 1.20,                // 磨损恶化乘子 = 1 + wearK × (r − 1)
+      // 遭遇权重按类别乘 r^K：危机/探索随速度升，贸易/舒适随速度降
+      encounterK: { crisis: 1.5, explore: 0.9, tech: 0.2, trade: -0.8, society: -0.6 }
+    },
+
+    /* ---------------- 首页 HUD 三项操控（配给 / 休眠 / 航速） ----------------
+       结算单位 = HUD 当前选中的档位；1 周=1、1 月=4、1 季=12、1 年=52、10 年=520。
+       幅度随档位放大但有上下限；身份不够长时按身份上限结算并显示。 */
+    hud: {
+      enabled: true,
+      spanRefWeeks: 12,           // 幅度基准：一季 12 周
+      spanScaleMin: 0.25,
+      spanScaleMax: 4.0,
+      orderCostK: 0.025,          // 配给变动对秩序的代价系数（法令是 0.05，HUD 减半）
+      minAwake: 1500,             // 休眠硬下限：无论怎么控，船上至少留这么多醒着
+      lockExtraPeriod: false,     // false：点一次只走一个档位，下一项立刻可点（默认）；
+                                  // true ：再留同长共享窗口，窗口内三项都不能动
+      params: {
+        ration:   { baseStep: 0.06,  maxStep: 0.10, min: 0.60, max: 1.20, tri: [0.60, 1.00, 1.50] },
+        dormancy: { baseStep: 0.05,  maxStep: 0.06, min: 0.00, max: 0.60, tri: [0.50, 1.00, 1.60] },
+        speed:    { baseStep: 0.004, maxStep: 0.006, min: 0.020, max: 0.065, tri: [0.70, 1.00, 1.40] }
+      },
+      roles: {
+        creator: { label: "创造模式", w: 1.00, maxWeeks: 520 },
+        ruler:   { label: "最高贵族", w: 1.00, maxWeeks: 520,
+                   gate: { dominionMin: 45, healthMin: 30, authorityMin: 80, confined: false, interrogated: false } },
+        mid:     { label: "中层贵族", w: 0.60, maxWeeks: 52, speedMax: 0.050,
+                   gate: { authorityMin: 40 } },
+        machine: { label: "机器路线", w: 0.45, maxWeeks: 12,
+                   gate: { techMin: 0.55, authorityMax: 0.62, maintGapMax: 0.45 } }
+      }
+    },
+
     /* ---------------- 周期事件：设备故障 / 维修 / 轮班 / 补给 / 检疫 ----------------
        这些是周级事件，只有周步长才能表示。
        enabled：只往事件流写检修 / 轮班 / 补给 / 检疫，不改任何数值（默认开）。
@@ -825,8 +867,8 @@
       gapShorten: 0.30,         // 维修缺口对故障间隔的缩短比例（最多 −30%）
       minIntervalWeeks: 4,      // 故障间隔下限
       downtimeYield: 0.55,      // 停机期间农环产出系数
-      cycleWeeks: 13,           // 例行检修窗口：每季一次
-      shiftWeeks: 13,           // 轮班周期（每季换班）
+      cycleWeeks: 12,           // 例行检修窗口：每季一次（一季按 12 周）
+      shiftWeeks: 12,           // 轮班周期（每季换班，一季按 12 周）
       supplyWeeks: 26,          // 补给窗口：每半年一次
       supplyFoodT: 18,          // 补给窗口到货：粮食 +18 t（判定成立时）
       supplyMetalT: 12,         // 补给窗口到货：金属 +12 t
