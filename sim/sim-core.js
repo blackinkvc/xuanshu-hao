@@ -57,6 +57,20 @@
     return { awake: awake, dormant: dormant, total: awake + dormant, working: working };
   }
 
+  // 旧档兼容：舱位不得低于总人口，且至少留 20% 余量。
+  function ensurePods(state, cfg) {
+    if (!state || !state.groups) return;
+    if (!state.infra) state.infra = { hydro: 0, pods: 0, clonePods: 0 };
+    var total = 0;
+    (cfg.population.groups || []).forEach(function (g) {
+      var s = state.groups[g.id];
+      if (!s) return;
+      total += Math.round(Number(s.awake) || 0) + Math.round(Number(s.dormant) || 0);
+    });
+    var min = Math.max(total, Math.ceil(total * 1.2));
+    if (!isNum(state.infra.pods) || state.infra.pods < min) state.infra.pods = min;
+  }
+
   function foodDays(state, cfg, t) {
     var demand = t.awake * cfg.food.perCapitaTpy +
       t.dormant * cfg.food.perCapitaTpy * cfg.food.dormantFactor;
@@ -1445,6 +1459,7 @@
       restore: function (obj) {
         if (!obj || !obj.groups || !obj.stocks) throw new Error("状态格式不正确");
         state = clone(obj);
+        ensurePods(state, cfg);
         if (global.XuanShuPlayer) global.XuanShuPlayer.ensure(state, cfg);
         if (global.XuanShuEncounter) global.XuanShuEncounter.ensure(state, cfg);
         if (global.XuanShuGods) global.XuanShuGods.ensure(state, cfg);
@@ -1464,6 +1479,7 @@
           state.ship.propellant = (cfg.ship && cfg.ship.propellant && isNum(cfg.ship.propellant.initT))
             ? cfg.ship.propellant.initT : 2400;
         }
+        ensurePods(state, cfg);
         if (global.XuanShuPlayer) global.XuanShuPlayer.ensure(state, cfg);
         if (global.XuanShuEncounter) global.XuanShuEncounter.ensure(state, cfg);
         if (global.XuanShuGods) global.XuanShuGods.ensure(state, cfg);
