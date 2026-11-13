@@ -68,6 +68,31 @@
     return throughput > 0 ? state.stocks.water / (throughput / 365) : 9999;
   }
 
+  /* 推进工质：最小可用模型（与《推进_内循环_药剂_成瘾_营养_设计表》§1.3 一致）
+     r = v / speedBaseC
+     P(r) = 68 × (0.25 + 0.75·r³)，封顶 jetPeakMW
+     mWeek = perWeekBase × r^expo × P/68                t/周
+     mPerLy = mWeek × 52 / (speedBaseC·r)               t/光年（t_ly = 1/(base·r) 年）
+     可飞航程 = 剩余工质 / mPerLy（光年）× 9.4607e12 km */
+  var KM_PER_LY = 9460730472580.8;
+
+  function propellantUse(cfg, speedC) {
+    var sp = (cfg.ship && cfg.ship.propellant) || {};
+    var base = (cfg.ship && cfg.ship.speedBaseC) || 0.045;
+    var r = Math.max(0.01, (speedC || base) / base);
+    var mw = Math.min(68 * (0.25 + 0.75 * Math.pow(r, 3)), sp.jetPeakMW || 102);
+    var perWeek = (isNum(sp.perWeekBase) ? sp.perWeekBase : 0.28) *
+      Math.pow(r, isNum(sp.expo) ? sp.expo : 2.4) * (mw / 68);
+    var weeksPerLy = 52 / (base * r);
+    return { mWeek: perWeek, mPerLy: perWeek * weeksPerLy };
+  }
+
+  function remainingRangeKm(cfg, propellant, speedC) {
+    var u = propellantUse(cfg, speedC);
+    if (!(u.mPerLy > 0)) return 0;
+    return Math.max(0, propellant || 0) / u.mPerLy * KM_PER_LY;
+  }
+
   function normalizedShares(I) {
     var sum = I.metalHydro + I.metalPods + I.metalClone + I.metalMaint;
     if (sum <= 0) return { hydro: 15, pods: 20, clone: 5, maint: 60 };
@@ -217,8 +242,11 @@
       order: cfg.order.init,
       wear: 0,
       // 航速：首页三项操控写这里，能耗 / 磨损 / 遭遇权重都读它
+      // 工质：推进剂储量（不是化学燃料），飞行按周扣，剩余量换算成可飞航程
       ship: {
-        speedC: (cfg.ship && cfg.ship.speedC) || 0.045
+        speedC: (cfg.ship && cfg.ship.speedC) || 0.045,
+        propellant: (cfg.ship && cfg.ship.propellant && isNum(cfg.ship.propellant.initT))
+          ? cfg.ship.propellant.initT : 2400
       },
       phase: 0,
       phaseUp: 0,
@@ -512,6 +540,13 @@
     }
 
     var t0 = totals(state, cfg);
+
+    // 工质：按本周航速扣推进剂，扣到 0 为止（不反噬其它系统）
+    if (state.ship) {
+      var pUse = propellantUse(cfg, state.ship.speedC);
+      state.ship.propellant = Math.max(0,
+        (isNum(state.ship.propellant) ? state.ship.propellant : 0) - pUse.mWeek);
+    }
 
     // 能源：磨损先削一截，航速再按倍率抬（r=1 时与旧版完全一致）
     var speedRatio = (state.ship && cfg.ship && cfg.ship.speedBaseC)
@@ -1201,7 +1236,9 @@
           ship: state.ship ? {
             speedC: state.ship.speedC,
             ratio: Math.round((state.ship.speedC /
-              ((cfg.ship && cfg.ship.speedBaseC) || 0.045)) * 1000) / 1000
+              ((cfg.ship && cfg.ship.speedBaseC) || 0.045)) * 1000) / 1000,
+            propellant: Math.round((state.ship.propellant || 0) * 10) / 10,
+            rangeKm: Math.round(remainingRangeKm(cfg, state.ship.propellant, state.ship.speedC))
           } : null,
           phase: state.phase,
           phaseName: cfg.phase.names[state.phase],
@@ -1422,6 +1459,10 @@
         // 旧档兼容：没有 ship 时补基准速度，读档后行为与旧版一致
         if (!state.ship || !isNum(state.ship.speedC)) {
           state.ship = { speedC: (cfg.ship && cfg.ship.speedC) || 0.045 };
+        }
+        if (!isNum(state.ship.propellant)) {
+          state.ship.propellant = (cfg.ship && cfg.ship.propellant && isNum(cfg.ship.propellant.initT))
+            ? cfg.ship.propellant.initT : 2400;
         }
         if (global.XuanShuPlayer) global.XuanShuPlayer.ensure(state, cfg);
         if (global.XuanShuEncounter) global.XuanShuEncounter.ensure(state, cfg);

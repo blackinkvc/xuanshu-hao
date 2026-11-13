@@ -819,6 +819,14 @@
       speedMax: 0.065,
       energyK: 0.60,              // 能耗乘子 = 1 + energyK × (r − 1)
       wearK: 1.20,                // 磨损恶化乘子 = 1 + wearK × (r − 1)
+      /* 推进工质（不是化学燃料）：只记储量，按周扣，剩余量换算成可飞航程。
+         P(r) = 68 × (0.25 + 0.75·r³)，封顶 jetPeakMW；mWeek = perWeekBase × r^expo × P/68 */
+      propellant: {
+        initT: 2400,              // 初始工质储量（吨）
+        perWeekBase: 0.28,        // r = 1 时的每周消耗（吨）
+        expo: 2.4,                // 消耗随倍率的指数
+        jetPeakMW: 102            // 主推进峰值功率上限（MW）
+      },
       // 遭遇权重按类别乘 r^K：危机/探索随速度升，贸易/舒适随速度降
       encounterK: { crisis: 1.5, explore: 0.9, tech: 0.2, trade: -0.8, society: -0.6 }
     },
