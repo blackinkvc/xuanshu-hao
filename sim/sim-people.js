@@ -321,6 +321,37 @@
     };
   }
 
+  /** 个体 hp / mind 聚合：均值 + 分位数。字段暂由后续模型写入，缺失时返回 null 不编造。 */
+  function agg(arr) {
+    if (!arr.length) return null;
+    arr.sort(function (a, b) { return a - b; });
+    function pick(q) { return arr[Math.min(arr.length - 1, Math.max(0, Math.round((arr.length - 1) * q)))]; }
+    var sum = 0;
+    for (var i = 0; i < arr.length; i++) sum += arr[i];
+    var r1 = function (v) { return Math.round(v * 10) / 10; };
+    return { mean: r1(sum / arr.length), p25: r1(pick(0.25)), p50: r1(pick(0.5)), p75: r1(pick(0.75)) };
+  }
+
+  function wellbeing(state, cfg) {
+    if (!cfg.people || cfg.people.enabled === false) return null;
+    if (!state.people) sync(state, cfg);
+    if (!state.people) return { coverage: 0, hp: null, mind: null };
+    var hp = [], mind = [], total = 0;
+    Object.keys(state.people.groups).forEach(function (gid) {
+      state.people.groups[gid].forEach(function (p) {
+        total++;
+        if (typeof p.hp === "number" && isFinite(p.hp)) hp.push(p.hp);
+        if (typeof p.mind === "number" && isFinite(p.mind)) mind.push(p.mind);
+      });
+    });
+    return {
+      coverage: total ? Math.round((hp.length / total) * 1000) / 1000 : 0,
+      hp: agg(hp),
+      mind: agg(mind),
+      note: "个体 hp / mind 聚合；字段未接入前为 null，不做估算"
+    };
+  }
+
   /** 快照里的真值聚合（不含 4,000 条明细，避免每步序列化）。 */
   function brief(state, cfg) {
     if (!cfg.people || cfg.people.enabled === false) return null;
@@ -349,6 +380,7 @@
       total: total,
       implantedShare: total ? Math.round(implanted / total * 1000) / 1000 : 0,
       zones: zones,
+      wellbeing: wellbeing(state, cfg),
       note: "真值聚合；个人明细用 snapshot({view:'truth'})，玩家视图用 snapshot({view:'player',intel})"
     };
     ppl.cache = { week: week, brief: b };
@@ -362,6 +394,7 @@
     truth: truth,
     playerView: playerView,
     brief: brief,
+    wellbeing: wellbeing,
     posOf: posOf
   };
 
