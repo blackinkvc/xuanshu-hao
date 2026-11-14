@@ -468,6 +468,12 @@
     if (ad.blissWeeks > 0) resist = Math.min(0.95, resist + A.bliss.resistBonus);
     if (wTot > 0) resist = 0;
     ad.resistance = r3(resist);
+    // 监狱 B 类变异（古神耐受）提供全船抵抗加成，直接进入低语/梦中侵蚀公式；戒断时不给
+    if (wTot <= 0 && global.XuanShuPrison && global.XuanShuPrison.resistBonus) {
+      var pShield = global.XuanShuPrison.resistBonus(state, cfg);
+      if (!isNum(pShield)) pShield = 0;
+      if (pShield > 0) ad.resistance = r3(Math.min(0.95, ad.resistance + pShield));
+    }
     var fitPen = tot > 0
       ? (A.fitPenalty.light * ad.light + A.fitPenalty.mid * ad.mid + A.fitPenalty.heavy * ad.heavy) / nAdd
       : 0;

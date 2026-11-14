@@ -69,7 +69,7 @@
       captives: 0,
       history: [],
       seq: 0,
-      stats: { convicted: 0, executed: 0, died: 0, released: 0, sacrificed: 0, mutated: 0 },
+      stats: { convicted: 0, executed: 0, died: 0, released: 0, sacrificed: 0, mutated: 0, mutA: 0, mutB: 0, mutC: 0 },
       lastCrimeWeek: -999
     };
   }
@@ -79,8 +79,11 @@
     var p = state.prison;
     if (!Array.isArray(p.roster)) p.roster = [];
     if (!Array.isArray(p.history)) p.history = [];
-    if (!p.stats) p.stats = { convicted: 0, executed: 0, died: 0, released: 0, sacrificed: 0, mutated: 0 };
+    if (!p.stats) p.stats = { convicted: 0, executed: 0, died: 0, released: 0, sacrificed: 0, mutated: 0, mutA: 0, mutB: 0, mutC: 0 };
     if (typeof p.stats.mutated !== "number") p.stats.mutated = 0;
+    if (typeof p.stats.mutA !== "number") p.stats.mutA = 0;
+    if (typeof p.stats.mutB !== "number") p.stats.mutB = 0;
+    if (typeof p.stats.mutC !== "number") p.stats.mutC = 0;
     if (typeof p.captives !== "number") p.captives = 0;
     if (typeof p.seq !== "number") p.seq = p.roster.length;
     if (typeof p.lastCrimeWeek !== "number") p.lastCrimeWeek = -999;
@@ -217,9 +220,16 @@
         note: "",
         dose: 0,
         mutated: false,
+        mutType: "",
         mutation: "",
+        mutationText: "",
         mutYear: null,
-        mutationLabor: 0
+        mutationLabor: 0,
+        mutDeathK: 0,
+        mutResist: 0,
+        mutBlissClear: false,
+        mutBacklash: 0,
+        mutMindPerYear: 0
       };
       P.roster.push(pr);
       entries.push(pr);
@@ -246,6 +256,36 @@
 
   /* ---------------- 年度结算 ---------------- */
 
+  /** 按 classWeights 抽类型，再在类内等概率抽一条变异。剂量只影响是否发生，不影响比例。 */
+  function pickMutation(cfg, state) {
+    var MF = (cfg.prison && cfg.prison.mutation) || {};
+    var W = MF.classWeights || { A: 0.18, B: 0.20, C: 0.62 };
+    var order = ["A", "B", "C"], r = randNext(state), acc = 0, type = "C";
+    for (var i = 0; i < order.length; i++) {
+      acc += num(W[order[i]], 0);
+      if (r < acc) { type = order[i]; break; }
+    }
+    var pack = (MF.classes || {})[type] || {};
+    var traits = pack.traits || [];
+    var tr = traits.length ? traits[Math.min(traits.length - 1, Math.floor(randNext(state) * traits.length))] : {};
+    return {
+      type: type,
+      label: (MF.classLabels && MF.classLabels[type]) || pack.label || type,
+      trait: tr
+    };
+  }
+
+  /** 在押 B 类（古神耐受）囚徒提供的全船抵抗加成，直接接进成瘾/梦中侵蚀公式。 */
+  function resistBonus(state, cfg) {
+    var P = ensure(state, cfg);
+    var sum = 0;
+    P.roster.forEach(function (pr) {
+      if (pr.status === "held" && pr.mutType === "B") sum += num(pr.mutResist, 0);
+    });
+    var cap = num((cfg.prison && cfg.prison.mutation && cfg.prison.mutation.resistCap), 0.20);
+    return Math.min(cap, sum);
+  }
+
   function yearly(state, cfg) {
     var P = ensure(state, cfg);
     if (!P.enabled) return null;
@@ -265,39 +305,62 @@
       pr.will = clamp(num(pr.will, 100) + num(pen.willPerYear, 0)
         + (pr.served === 1 ? num(pen.willFirstYear, 0) : 0), 0, 100);
 
-      // 辐射刑：先按原死亡曲线结算，再对存活者判变异（冬季只累加剂量）
+      // 辐射刑：先累加剂量；死亡与变异的判定顺序保持「先死后续」
       if (pr.penalty === "rad") {
         pr.dose = clamp(num(pr.dose, 0) + num(MF.dosePerYear, 0.06), 0, 3);
       }
-      if (num(pen.deathRiskK, 0) > 0) {
-        var deathP = clamp((100 - num(pr.hp, 100)) / 100 * num(pen.deathRiskK, 0), 0, 0.95);
+
+      // 已变异者的长期代价：理智/意志慢性下滑、梦中侵蚀反噬、极乐下的清醒差异
+      if (pr.mutated) {
+        if (num(pr.mutMindPerYear)) pr.mind = clamp(num(pr.mind, 100) + num(pr.mutMindPerYear), 0, 100);
+        var meanC = num(state.society && state.society.infection && state.society.infection.meanC, 0);
+        if (num(pr.mutBacklash) > 0) {
+          pr.mind = clamp(num(pr.mind, 100) - meanC / 100 * num(pr.mutBacklash), 0, 100);
+        }
+        if (state.addict && num(state.addict.blissWeeks, 0) > 0 && !pr.mutBlissClear) {
+          pr.mind = clamp(num(pr.mind, 100) - num(MF.blissMindPerYear, 2), 0, 100);
+        }
+      }
+
+      var deathK = num(pen.deathRiskK, 0) + num(pr.mutDeathK, 0);
+      if (deathK > 0) {
+        var deathP = clamp((100 - num(pr.hp, 100)) / 100 * num(pen.deathRiskK, 0)
+          + num(pr.mutDeathK, 0), 0, 0.95);
         if (randNext(state) < deathP) pr.hp = 0;
       }
       if (pr.hp <= 0) {
         pr.status = "dead";
         pr.endYear = Math.round(absYear(state, cfg));
-        pr.note = "刑罚执行中死亡";
+        pr.note = pr.mutated ? "变异后器官衰竭" : "刑罚执行中死亡";
         P.stats.died++;
         died++;
         return;
       }
 
-      // 辐射变异：只触发一次，后果写进个体属性与名册
+      // 辐射变异：剂量只抬高发生率；A/B/C 比例由 classWeights 固定
       if (pr.penalty === "rad" && !pr.mutated) {
         var mutP = Math.min(num(MF.maxChance, 0.6), num(pr.dose, 0) * num(MF.chanceK, 0.55));
         pr.mutChance = Math.round(mutP * 1000) / 1000;
         if (randNext(state) < mutP) {
-          var traits = MF.traits || [];
-          var tr = traits.length ? traits[Math.floor(randNext(state) * traits.length) % traits.length] : {};
+          var pick = pickMutation(cfg, state);
+          var tr = pick.trait || {};
           pr.mutated = true;
+          pr.mutType = pick.type;
           pr.mutation = tr.name || "未分类变异";
+          pr.mutationText = tr.text || "";
           pr.mutYear = Math.round(absYear(state, cfg));
           pr.hp = clamp(num(pr.hp, 100) + num(tr.hp), 0, 100);
           pr.mind = clamp(num(pr.mind, 100) + num(tr.mind), 0, 100);
           pr.will = clamp(num(pr.will, 100) + num(tr.will), 0, 100);
           pr.mutationLabor = num(tr.labor);
+          pr.mutDeathK = num(tr.deathK);
+          pr.mutResist = num(tr.resist);
+          pr.mutBlissClear = !!tr.blissClear;
+          pr.mutBacklash = num(tr.dreamBacklash);
+          pr.mutMindPerYear = num(tr.mindPerYear);
+          P.stats["mut" + pick.type] = num(P.stats["mut" + pick.type]) + 1;
           P.stats.mutated++;
-          mutations.push(pr.name + "（" + pr.mutation + "）");
+          mutations.push(pr.name + "（" + pick.label + "·" + pr.mutation + "）");
           if (pr.hp <= 0) {
             pr.status = "dead";
             pr.endYear = Math.round(absYear(state, cfg));
@@ -572,13 +635,19 @@
           hp: Math.round(x.hp), mind: Math.round(x.mind), will: Math.round(x.will),
           dose: Math.round(num(x.dose, 0) * 100) / 100,
           mutated: !!x.mutated, mutation: x.mutation || "", mutYear: x.mutYear || null,
+          mutType: x.mutType || "",
+          mutClass: (cfg.prison && cfg.prison.mutation && cfg.prison.mutation.classLabels
+            && cfg.prison.mutation.classLabels[x.mutType]) || "",
+          mutationText: x.mutationText || "",
+          mutationLabor: Math.round(num(x.mutationLabor, 0) * 100) / 100,
           note: x.note || ""
         };
       }),
       stats: {
         convicted: P.stats.convicted, executed: P.stats.executed,
         died: P.stats.died, released: P.stats.released, sacrificed: P.stats.sacrificed,
-        mutated: num(P.stats.mutated)
+        mutated: num(P.stats.mutated),
+        mutA: num(P.stats.mutA), mutB: num(P.stats.mutB), mutC: num(P.stats.mutC)
       },
       history: P.history.slice(-10)
     };
@@ -598,6 +667,7 @@
     sacrifice: sacrifice,
     list: list,
     brief: brief,
+    resistBonus: resistBonus,
     avgLayerWeight: avgLayerWeight
   };
 

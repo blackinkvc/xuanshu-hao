@@ -1389,19 +1389,50 @@
         public: { name: "公开处刑", termMul: 0, immediate: true, orderShift: 0.02, spreadMul: 1.00,
                   witnessMul: 1.6, desc: "立即死亡，全船短期服从 +2%，不服 +1.5" }
       },
-      /* 辐射变异：囚徒累计剂量越高，变异概率越高；变异只发生一次，后果写进个体与名册。
+      /* 辐射变异：累计剂量只决定「变异发生率」，三类比例由 classWeights 固定（C ≥ 60%）。
+         A 增益型：加劳动，不带致命副作用；B 古神耐受型：抵抗/低语/极乐挂钩；C 劣变型：纯副作用。
          辐射刑本身的健康衰减与死亡曲线不参与此表（保持原样）。 */
       mutation: {
-        dosePerYear: 0.06,     // 每年累计剂量（0..1）
+        dosePerYear: 0.06,     // 每年累计剂量（0..1+）
         chanceK: 0.55,         // 年变异概率 = 累计剂量 × 0.55
         maxChance: 0.60,
-        traits: [
-          { id: "skin",      name: "角质化皮肤", hp: -8, mind: -2, will: 2, labor: 0.05 },
-          { id: "neural",    name: "神经加速",   hp: -4, mind: -6, will: 4, labor: 0.10 },
-          { id: "metabolic", name: "代谢畸变",   hp: -6, mind: -3, will: 1, labor: 0.15 },
-          { id: "photo",     name: "感光退化",   hp: -3, mind: -8, will: 0, labor: 0.05 },
-          { id: "muscle",    name: "肌肉增生",   hp: -5, mind: -1, will: 3, labor: 0.20 }
-        ]
+        resistCap: 0.35,       // 在押 B 类变异提供的全船抵抗加成上限
+        blissMindPerYear: 2.0, // 化学极乐期间普通变异囚徒每年额外掉理智
+        classWeights: { A: 0.18, B: 0.20, C: 0.62 },
+        classLabels: { A: "增益", B: "古神耐受", C: "劣变" },
+        classes: {
+          A: {
+            label: "增益型",
+            traits: [
+              { id: "a_keratin", name: "角质化皮肤", text: "耐受力提高，劳动 +0.18/年，理智 −1", labor: 0.18, hp: 0, mind: -1, will: 1 },
+              { id: "a_metabolic", name: "代谢增效", text: "代谢效率提高，劳动 +0.30/年，健康 −2", labor: 0.30, hp: -2, mind: 0, will: 0 },
+              { id: "a_muscle", name: "肌肉增生", text: "肌纤维增生，劳动 +0.26/年，健康 +2", labor: 0.26, hp: 2, mind: -2, will: 2 },
+              { id: "a_neural", name: "神经加速", text: "操作更稳，劳动 +0.22/年，理智 −4", labor: 0.22, hp: 0, mind: -4, will: 2 },
+              { id: "a_radtissue", name: "耐辐射组织", text: "损伤修复加快，劳动 +0.12/年，健康 +6", labor: 0.12, hp: 6, mind: -1, will: 0 }
+            ]
+          },
+          B: {
+            label: "古神耐受型",
+            traits: [
+              { id: "b_barrier", name: "低语屏障", text: "低语受阻，抵抗 +0.12，理智 −1.0/年", resist: 0.12, mind: -8, will: 0, mindPerYear: -1.0 },
+              { id: "b_scent", name: "古神嗅觉", text: "提前感知侵蚀，抵抗 +0.08，梦中侵蚀反噬 +1.5", resist: 0.08, mind: -6, will: -2, dreamBacklash: 1.5 },
+              { id: "b_bliss", name: "极乐清醒", text: "化学极乐下仍清醒，抵抗 +0.06，理智 −10", resist: 0.06, mind: -10, will: -4, blissClear: true },
+              { id: "b_inverse", name: "逆梦体质", text: "梦中侵蚀反向增强 +2.0，抵抗 +0.10，意志 −3", resist: 0.10, mind: -6, will: -3, dreamBacklash: 2.0 },
+              { id: "b_grey", name: "灰质耐受", text: "神经侵蚀变慢，抵抗 +0.14，理智 −1.2/年", resist: 0.14, mind: -5, will: -1, mindPerYear: -1.2 }
+            ]
+          },
+          C: {
+            label: "劣变型",
+            traits: [
+              { id: "c_organ", name: "器官衰竭", text: "内脏持续衰退，健康 −10，劳动 −0.10/年，年死亡 +12%", labor: -0.10, hp: -10, mind: 0, will: 0, deathK: 0.12 },
+              { id: "c_photo", name: "感光退化", text: "视网膜脱落，理智 −8，劳动 −0.12/年", labor: -0.12, hp: 0, mind: -8, will: 0 },
+              { id: "c_metabolic", name: "代谢畸变", text: "代谢紊乱，健康 −6，劳动 −0.20/年", labor: -0.20, hp: -6, mind: 0, will: 0 },
+              { id: "c_neural", name: "神经退化", text: "反应迟钝，理智 −6、意志 −6，劳动 −0.18/年", labor: -0.18, hp: 0, mind: -6, will: -6 },
+              { id: "c_bone", name: "骨质脆化", text: "易骨折，健康 −8，劳动 −0.15/年，年死亡 +8%", labor: -0.15, hp: -8, mind: 0, will: 0, deathK: 0.08 },
+              { id: "c_immune", name: "免疫崩溃", text: "伤口不愈，健康 −12，劳动 −0.08/年，年死亡 +15%", labor: -0.08, hp: -12, mind: 0, will: 0, deathK: 0.15 }
+            ]
+          }
+        }
       }
     },
 
