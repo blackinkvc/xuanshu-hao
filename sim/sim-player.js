@@ -49,8 +49,17 @@
       ? global.XuanShuSim.cleanDeltas(deltas) : null;
     if (D) entry.deltas = D;
     if (note) entry.note = note;
-    state.events.push(entry);
-    if (state.events.length > cfg.time.eventCap) state.events.shift();
+    var key = global.XuanShuSim && global.XuanShuSim.eventIsKey
+      ? global.XuanShuSim.eventIsKey(cfg, entry.type, entry.level) : true;
+    if (key) {
+      state.events.push(entry);
+      if (cfg.events.keyCap && state.events.length > cfg.events.keyCap) state.events.shift();
+    } else {
+      if (!state.logRing) state.logRing = [];
+      state.logRing.push(entry);
+      var ring = cfg.events.routineRing || 40;
+      while (state.logRing.length > ring) state.logRing.shift();
+    }
   }
 
   function qlist(state) {

@@ -208,7 +208,41 @@
       cooldownWeeks: monthsToWeeks(24),   // 原 24 个月 → 104 周
       bingeWeeks: monthsToWeeks(3),       // 原 连续 3 个月 → 13 周
       atrocityWeeks: monthsToWeeks(2),    // 原 连续 2 个月 → 9 周
-      strikeWeeks: monthsToWeeks(6)       // 原 停工 6 个月 → 26 周
+      strikeWeeks: monthsToWeeks(6),      // 原 停工 6 个月 → 26 周
+
+      /* ---------- 日志分级白名单（唯一判定处，新增事件类型请登记在此） ----------
+         关键（长期保留，进「全部历程」与结局页，永不滚动清掉）：
+           身份/生死：player_start, player_death, player_birth, player_pregnant
+           人口结构：structure, pop_floor, revive_fail
+           粮食/水/燃料触底：phase, run（断粮与终局、千年节点都走 run）
+           奇遇与抉择：encounter, player_action, action
+           法令与身份变故：run, loop, player_start
+           叛乱与冲突：mutiny, strike, machine, binge, atrocity, summon
+           科技与设备里程碑：build_hydro, build_pods, build_clone
+           感染中的关键转折：infection + level「眷属」
+         例行（不写入历程，只留最近 routineRing 条排障）：
+           maint_done, maint_fault, maint_cycle, shift, supply, quarantine,
+           food_low / water_low / fuel_low（触底预警，真正的断粮由 phase 记录）,
+           infection（普通加重，只有「眷属」升级算关键）, garrison（金属不够/机器损坏）,
+           education（「奴隶里出了读书人」这类反复出现的社会小事）
+         未登记的新类型默认按「关键」保留，宁可多留也不丢历史。 */
+      keyTypes: [
+        "player_start", "player_death", "player_birth", "player_pregnant",
+        "structure", "pop_floor", "revive_fail",
+        "phase", "run", "loop",
+        "encounter", "player_action", "action",
+        "mutiny", "strike", "machine", "binge", "atrocity", "summon", "gods",
+        "build_hydro", "build_pods", "build_clone"
+      ],
+      keyLevels: { infection: ["眷属"] },
+      routineTypes: [
+        "maint_done", "maint_fault", "maint_cycle", "shift", "supply",
+        "quarantine", "infection", "garrison",
+        "food_low", "water_low", "fuel_low", "energy_low",
+        "education", "prod", "labor"
+      ],
+      routineRing: 40,     // 例行流水只留最近 40 条，供排障，不进历程页
+      keyCap: 0            // 0 = 关键节点不封顶，保证长局从第 1 年可回看
     },
 
     /* ---------------- 输入默认值 ---------------- */

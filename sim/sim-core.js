@@ -197,9 +197,26 @@
     var D = cleanDeltas(deltas);
     if (D) entry.deltas = D;
     if (note) entry.note = note;
-    state.events.push(entry);
-    if (state.events.length > cfg.time.eventCap) state.events.shift();
+    // 日志分级：关键节点长期保留；例行流水只进排障环形缓冲，不进历程页
+    if (eventIsKey(cfg, type, entry.level)) {
+      state.events.push(entry);
+      if (cfg.events.keyCap && state.events.length > cfg.events.keyCap) state.events.shift();
+    } else {
+      if (!state.logRing) state.logRing = [];
+      state.logRing.push(entry);
+      var ring = cfg.events.routineRing || 40;
+      while (state.logRing.length > ring) state.logRing.shift();
+    }
     return true;
+  }
+
+  function eventIsKey(cfg, type, level) {
+    var e = (cfg && cfg.events) || {};
+    var lv = e.keyLevels && e.keyLevels[type];
+    if (lv && lv.indexOf(level) >= 0) return true;
+    if (e.keyTypes && e.keyTypes.indexOf(type) >= 0) return true;
+    if (e.routineTypes && e.routineTypes.indexOf(type) >= 0) return false;
+    return true; // 未登记的新类型默认按关键保留，宁可多留也不丢历史
   }
 
   function killProportional(state, cfg, fraction) {
@@ -281,6 +298,7 @@
       projects: { hydro: [], pods: [], clonePods: [] },
       cooldown: {},
       events: [],
+      logRing: [],
       series: [],
       flags: { atrocity: false },
       latches: {},
@@ -1543,7 +1561,8 @@
     normalizedShares: normalizedShares,
     metrics: metrics,
     diffMetrics: diffMetrics,
-    cleanDeltas: cleanDeltas
+    cleanDeltas: cleanDeltas,
+    eventIsKey: eventIsKey
   };
 
   if (typeof module !== "undefined" && module.exports) module.exports = global.XuanShuSim;
