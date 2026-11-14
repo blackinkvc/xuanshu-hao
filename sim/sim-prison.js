@@ -69,7 +69,7 @@
       captives: 0,
       history: [],
       seq: 0,
-      stats: { convicted: 0, executed: 0, died: 0, released: 0, sacrificed: 0 },
+      stats: { convicted: 0, executed: 0, died: 0, released: 0, sacrificed: 0, mutated: 0 },
       lastCrimeWeek: -999
     };
   }
@@ -79,7 +79,8 @@
     var p = state.prison;
     if (!Array.isArray(p.roster)) p.roster = [];
     if (!Array.isArray(p.history)) p.history = [];
-    if (!p.stats) p.stats = { convicted: 0, executed: 0, died: 0, released: 0, sacrificed: 0 };
+    if (!p.stats) p.stats = { convicted: 0, executed: 0, died: 0, released: 0, sacrificed: 0, mutated: 0 };
+    if (typeof p.stats.mutated !== "number") p.stats.mutated = 0;
     if (typeof p.captives !== "number") p.captives = 0;
     if (typeof p.seq !== "number") p.seq = p.roster.length;
     if (typeof p.lastCrimeWeek !== "number") p.lastCrimeWeek = -999;
@@ -213,7 +214,12 @@
         status: "held",
         startYear: Math.round(absYear(state, cfg)),
         endYear: null,
-        note: ""
+        note: "",
+        dose: 0,
+        mutated: false,
+        mutation: "",
+        mutYear: null,
+        mutationLabor: 0
       };
       P.roster.push(pr);
       entries.push(pr);
@@ -245,7 +251,8 @@
     if (!P.enabled) return null;
     if (state.weeks % cfg.time.weeksPerYear !== 0) return null;
 
-    var labor = 0, died = 0, released = 0;
+    var labor = 0, died = 0, released = 0, mutations = [], orderGain = 0;
+    var MF = (cfg.prison && cfg.prison.mutation) || {};
     P.roster.forEach(function (pr) {
       if (pr.status !== "held") return;
       var pen = penalty(cfg, pr.penalty);
@@ -258,6 +265,10 @@
       pr.will = clamp(num(pr.will, 100) + num(pen.willPerYear, 0)
         + (pr.served === 1 ? num(pen.willFirstYear, 0) : 0), 0, 100);
 
+      // 辐射刑：先按原死亡曲线结算，再对存活者判变异（冬季只累加剂量）
+      if (pr.penalty === "rad") {
+        pr.dose = clamp(num(pr.dose, 0) + num(MF.dosePerYear, 0.06), 0, 3);
+      }
       if (num(pen.deathRiskK, 0) > 0) {
         var deathP = clamp((100 - num(pr.hp, 100)) / 100 * num(pen.deathRiskK, 0), 0, 0.95);
         if (randNext(state) < deathP) pr.hp = 0;
@@ -271,10 +282,40 @@
         return;
       }
 
-      if (pr.served === 1 && num(pen.orderShift, 0)) {
-        state.order = clamp(num(state.order) + num(pen.orderShift, 0), 0.05, 1);
+      // 辐射变异：只触发一次，后果写进个体属性与名册
+      if (pr.penalty === "rad" && !pr.mutated) {
+        var mutP = Math.min(num(MF.maxChance, 0.6), num(pr.dose, 0) * num(MF.chanceK, 0.55));
+        pr.mutChance = Math.round(mutP * 1000) / 1000;
+        if (randNext(state) < mutP) {
+          var traits = MF.traits || [];
+          var tr = traits.length ? traits[Math.floor(randNext(state) * traits.length) % traits.length] : {};
+          pr.mutated = true;
+          pr.mutation = tr.name || "未分类变异";
+          pr.mutYear = Math.round(absYear(state, cfg));
+          pr.hp = clamp(num(pr.hp, 100) + num(tr.hp), 0, 100);
+          pr.mind = clamp(num(pr.mind, 100) + num(tr.mind), 0, 100);
+          pr.will = clamp(num(pr.will, 100) + num(tr.will), 0, 100);
+          pr.mutationLabor = num(tr.labor);
+          P.stats.mutated++;
+          mutations.push(pr.name + "（" + pr.mutation + "）");
+          if (pr.hp <= 0) {
+            pr.status = "dead";
+            pr.endYear = Math.round(absYear(state, cfg));
+            pr.note = "变异后器官衰竭";
+            P.stats.died++;
+            died++;
+            return;
+          }
+        }
       }
-      if (num(pen.laborMetalPerYear, 0) > 0) labor += num(pen.laborMetalPerYear, 0);
+
+      if (pr.served === 1 && num(pen.orderShift, 0)) {
+        orderGain += num(pen.orderShift, 0);
+      } else if (pr.served > 1 && pr.served <= num(pen.orderYearsMax, 0) && num(pen.orderYearly, 0)) {
+        orderGain += num(pen.orderYearly, 0);
+      }
+      var laborPer = num(pen.laborMetalPerYear, 0) + num(pr.mutationLabor, 0);
+      if (laborPer > 0) labor += laborPer;
 
       if (pr.served >= pr.termYears) {
         pr.status = "released";
@@ -286,15 +327,20 @@
       }
     });
 
+    if (orderGain > 0) {
+      var capOrder = num(cfg.prison.orderShiftCap, 0.06);
+      state.order = clamp(num(state.order) + Math.min(orderGain, capOrder), 0.05, 1);
+    }
     if (labor > 0) {
       var cap = num(cfg.metal && cfg.metal.cap, 0);
       state.stocks.metal = clamp(num(state.stocks.metal) + labor, 0, cap > 0 ? cap : 1e9);
     }
-    if (died || released) {
+    if (died || released || mutations.length) {
       pushEvent(state, cfg, "监狱年度结算",
         "在押 " + P.roster.filter(function (x) { return x.status === "held"; }).length +
-        " 人 · 本年死亡 " + died + " · 释放 " + released + " · 劳动产出 " + Math.round(labor) + " 吨金属",
-        "刑期按年递减；健康归零即死亡",
+        " 人 · 本年死亡 " + died + " · 释放 " + released + " · 劳动产出 " + Math.round(labor) + " 吨金属" +
+        (mutations.length ? " · 辐射变异 " + mutations.length + " 例：" + mutations.join("、") : ""),
+        "刑期按年递减；健康归零即死亡；辐射刑按累计剂量结算变异概率",
         { "人口": released, "金属": Math.round(labor) }, "名册与人口同步");
     }
 
@@ -361,12 +407,7 @@
         noble: !!s.noble,
         count: n,
         available: n > 0,
-        reason: n > 0 ? "" : "没有可用的" + noteFor(id),
-        favor: num(s.favor),
-        order: num(s.order),
-        witness: num(s.witness),
-        baseDrop: num(s.baseDrop),
-        baseUnrest: num(s.baseUnrest)
+        reason: n > 0 ? "" : "没有可用的" + noteFor(id)
       };
     });
   }
@@ -529,12 +570,15 @@
           crimeName: x.crimeName, penaltyName: x.penaltyName,
           sentenceYears: x.sentenceYears, termYears: x.termYears, served: x.served,
           hp: Math.round(x.hp), mind: Math.round(x.mind), will: Math.round(x.will),
+          dose: Math.round(num(x.dose, 0) * 100) / 100,
+          mutated: !!x.mutated, mutation: x.mutation || "", mutYear: x.mutYear || null,
           note: x.note || ""
         };
       }),
       stats: {
         convicted: P.stats.convicted, executed: P.stats.executed,
-        died: P.stats.died, released: P.stats.released, sacrificed: P.stats.sacrificed
+        died: P.stats.died, released: P.stats.released, sacrificed: P.stats.sacrificed,
+        mutated: num(P.stats.mutated)
       },
       history: P.history.slice(-10)
     };

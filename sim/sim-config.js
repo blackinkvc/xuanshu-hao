@@ -1340,6 +1340,7 @@
       enabled: true,
       maxPerCrime: 8,           // 单次判罚上限，沿用「小队规模」约束
       rosterCap: 60,
+      orderShiftCap: 0.06,      // 单年全船由刑罚获得的秩序加成封顶（避免一批人同时判罚抬爆秩序）
       historyCap: 200,
       autoRiotCoolWeeks: 26,    // 哗变 L2+ 自动抓捕冷却
       captureRate: { 1: 0.25, 2: 0.40, 3: 0.55 },
@@ -1369,9 +1370,10 @@
         jail:   { name: "监禁", termMul: 1.00, hpPerYear: -0.6, mindPerYear: -0.8, willPerYear: -0.4,
                   orderShift: 0, laborMetalPerYear: 0, spreadMul: 1.00,
                   desc: "基准刑，知情传播最低" },
-        strip:  { name: "剥除意识", termMul: 1.30, hpPerYear: -1.6, mindPerYear: -3.0, nobleMindMul: 0.40,
-                  willFirstYear: -6, willPerYear: -0.5, orderShift: 0.008, laborMetalPerYear: 0.55, spreadMul: 1.00,
-                  desc: "贵族保留意识但减速 60%，身体去做义务劳动" },
+        strip:  { name: "剥除意识", termMul: 1.30, hpPerYear: -1.6, mindPerYear: -5.0, nobleMindMul: 0.40,
+                  willFirstYear: -10, willPerYear: -1.0, orderShift: 0.05, orderYearly: 0.01, orderYearsMax: 5,
+                  laborMetalPerYear: 0.55, spreadMul: 1.00,
+                  desc: "贵族保留意识但减速 60%，身体去做义务劳动；首年服从 +5%，随后 4 年每年 +1%" },
         tattoo: { name: "纹身刑", termMul: 1.00, hpPerYear: -0.3, mindPerYear: -1.2, willPerYear: -1.0,
                   orderShift: -0.002, laborMetalPerYear: 0.45, spreadMul: 1.10,
                   desc: "公开标记身份，旁观者也会不服" },
@@ -1386,6 +1388,20 @@
                   desc: "一次性重创理智与意志，换取短期服从" },
         public: { name: "公开处刑", termMul: 0, immediate: true, orderShift: 0.02, spreadMul: 1.00,
                   witnessMul: 1.6, desc: "立即死亡，全船短期服从 +2%，不服 +1.5" }
+      },
+      /* 辐射变异：囚徒累计剂量越高，变异概率越高；变异只发生一次，后果写进个体与名册。
+         辐射刑本身的健康衰减与死亡曲线不参与此表（保持原样）。 */
+      mutation: {
+        dosePerYear: 0.06,     // 每年累计剂量（0..1）
+        chanceK: 0.55,         // 年变异概率 = 累计剂量 × 0.55
+        maxChance: 0.60,
+        traits: [
+          { id: "skin",      name: "角质化皮肤", hp: -8, mind: -2, will: 2, labor: 0.05 },
+          { id: "neural",    name: "神经加速",   hp: -4, mind: -6, will: 4, labor: 0.10 },
+          { id: "metabolic", name: "代谢畸变",   hp: -6, mind: -3, will: 1, labor: 0.15 },
+          { id: "photo",     name: "感光退化",   hp: -3, mind: -8, will: 0, labor: 0.05 },
+          { id: "muscle",    name: "肌肉增生",   hp: -5, mind: -1, will: 3, labor: 0.20 }
+        ]
       }
     },
 
