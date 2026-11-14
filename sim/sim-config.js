@@ -705,7 +705,10 @@
           { id: "ex_metal_asteroid", name: "富金属小行星", rarity: "common", need: { techMin: 0.30 }, ops: [{ t: "stock", k: "metal", v: 90 }, { t: "wear", v: 0.03 }], follow: [{ key: "encounter.crisis", v: 0.10, weeks: 520 }], effectText: "金属 +90 吨", costText: "磨损 +0.03，占用 8 周", followText: "10 年内危机权重 +0.10" },
           { id: "ex_ice_asteroid", name: "冰质小行星", rarity: "common", need: { techMin: 0.25 }, ops: [{ t: "stock", k: "water", v: 400 }, { t: "stock", k: "metal", v: -10 }], effectText: "水 +400 吨", costText: "金属 −10 吨，占用 6 周", followText: "—" },
           { id: "ex_derelict", name: "废弃殖民舰", rarity: "rare", need: { techMin: 0.40 }, ops: [{ t: "pop", group: "undecided", v: 18 }, { t: "stock", k: "metal", v: 40 }, { t: "stock", k: "drug", v: -30 }, { t: "infect", v: 3 }], effectText: "人口 +18（未定）、金属 +40 吨", costText: "药剂 −30", followText: "全船感染 +3" },
-          { id: "ex_ruins", name: "远古遗迹", rarity: "epic", need: { techMin: 0.55 }, ops: [{ t: "tech", v: 0.06 }, { t: "stock", k: "metal", v: 60 }, { t: "infect", v: 6 }, { t: "thralls", v: 1 }], follow: [{ key: "encounter.oldgod", v: 0.30, weeks: 5200 }], effectText: "科技 +0.06、金属 +60 吨", costText: "感染 +6、眷属 +1", followText: "100 年内古神权重 ×1.3" },
+          { id: "ex_ruins", name: "远古遗迹", rarity: "epic", gap: "ruins", ops: [{ t: "gapReward", type: "ruins" }], follow: [{ key: "encounter.oldgod", v: 0.30, weeks: 5200 }], effectText: "按科技差结算", costText: "探索失败：全船感染 +6", followText: "100 年内古神权重 ×1.3" },
+          { id: "ex_colony", name: "前人类殖民地", rarity: "rare", gap: "colony", ops: [{ t: "gapReward", type: "colony" }], effectText: "按科技差结算", costText: "探索失败：全船感染 +3", followText: "—" },
+          { id: "ex_wreck", name: "遗弃船", rarity: "rare", gap: "wreck", ops: [{ t: "gapReward", type: "wreck" }], effectText: "按科技差结算", costText: "探索失败：磨损 +0.04", followText: "—" },
+          { id: "ex_alien", name: "外星文明", rarity: "legendary", gap: "alien", ops: [{ t: "gapReward", type: "alien" }], effectText: "按科技差结算", costText: "探索失败：全船感染 +8", followText: "—" },
           { id: "ex_ring_sample", name: "行星环采样", rarity: "common", need: { techMin: 0.30 }, ops: [{ t: "tech", v: 0.02 }, { t: "stock", k: "metal", v: 30 }, { t: "wear", v: 0.02 }], effectText: "科技 +0.02、金属 +30 吨", costText: "磨损 +0.02", followText: "—" },
           { id: "ex_beacon", name: "深空信标", rarity: "rare", need: { techMin: 0.45 }, ops: [{ t: "stock", k: "metal", v: -25 }, { t: "intel", level: "high", weeks: 200 }, { t: "mod", key: "encounter.explore", v: 0.20, weeks: 2600 }], effectText: "情报 +1 档 200 周", costText: "金属 −25 吨", followText: "50 年探索权重 +0.20" },
           { id: "ex_pod_drift", name: "漂流休眠舱", rarity: "rare", need: { techMin: 0.35 }, ops: [{ t: "dormant", v: 24 }, { t: "stock", k: "drug", v: 40 }, { t: "stock", k: "metal", v: -15 }, { t: "randomInfect", p: 0.30, v: 5 }], effectText: "舱里 +24 人、药剂 +40", costText: "金属 −15 吨", followText: "30% 概率舱内感染 +5" },
@@ -715,7 +718,7 @@
         ],
         tech: [
           { id: "te_hydro_gene", name: "水培基因改良", rarity: "common", need: { techMin: 0.20 }, ops: [{ t: "infra", k: "hydro", v: 12 }, { t: "stock", k: "drug", v: -15 }], effectText: "水培 +12 单元", costText: "药剂 −15", followText: "—" },
-          { id: "te_recycle", name: "闭环回收突破", rarity: "rare", need: { techMin: 0.35 }, ops: [{ t: "stock", k: "water", v: 300 }, { t: "wear", v: -0.02 }, { t: "stock", k: "metal", v: -30 }], effectText: "水 +300 吨、磨损 −0.02", costText: "金属 −30 吨", followText: "—" },
+          { id: "te_recycle", name: "闭环回收突破", rarity: "rare", need: { techMin: 0.35 }, ops: [{ t: "mod", key: "waterRecycle", v: 0.0008, weeks: 99999 }, { t: "mod", key: "waterRecover", v: 0.00035, weeks: 99999 }, { t: "wear", v: -0.02 }, { t: "stock", k: "metal", v: -30 }], effectText: "水回收率 99.2%→99.28%、可回收比例 +0.035%，磨损 −0.02", costText: "金属 −30 吨", followText: "长期生效：年补损约 −30 吨，十年累计少补水约 300 吨" },
           { id: "te_maint_bot", name: "维修机器人", rarity: "common", need: { techMin: 0.25 }, ops: [{ t: "garrison", k: "durability", v: 10 }, { t: "wear", v: -0.04 }, { t: "stock", k: "metal", v: -20 }], effectText: "警备耐久 +10、磨损 −0.04", costText: "金属 −20 吨", followText: "—" },
           { id: "te_clone_stabilizer", name: "克隆稳定剂", rarity: "rare", need: { techMin: 0.40 }, ops: [{ t: "mod", key: "cloneMul", v: 1.10, weeks: 10400 }, { t: "stock", k: "drug", v: -60 }, { t: "stock", k: "food", v: -15 }], effectText: "克隆产量 ×1.10（200 年）", costText: "药剂 −60、粮 −15 吨", followText: "—" },
           { id: "te_neural_suppress", name: "神经抑制协议", rarity: "rare", need: { techMin: 0.45 }, ops: [{ t: "queue", k: "W", v: -4, scope: "all" }, { t: "queue", k: "O", v: 3, scope: "all" }, { t: "stock", k: "drug", v: -40 }, { t: "player", k: "will", v: 2 }], effectText: "全船不服 −4、服从 +3（52 周）", costText: "药剂 −40、不服永久 +2", followText: "—" },
@@ -785,6 +788,21 @@
           { id: "tr_supply_contract", name: "长期补给合约", rarity: "epic", need: { orderMin: 0.40 }, ops: [{ t: "mod", key: "foodPerYear", v: 10, weeks: 10400 }, { t: "mod", key: "metalPerYear", v: 6, weeks: 10400 }, { t: "stock", k: "metal", v: -30 }, { t: "order", v: -0.02 }], effectText: "粮 +10 t/年、金属 +6 t/年（200 年）", costText: "金属 −30 t 定金", followText: "—" },
           { id: "tr_star_chart", name: "星图交换", rarity: "legendary", need: { techMin: 0.50 }, ops: [{ t: "peek", v: 3 }, { t: "tech", v: 0.03 }, { t: "stock", k: "metal", v: -40 }, { t: "mod", key: "encounter.oldgod", v: 0.10, weeks: 2600 }], effectText: "预览未来 3 次奇遇类别、科技 +0.03", costText: "金属 −40 吨", followText: "古神权重 +0.10" }
         ]
+      }
+    },
+
+    /* ---------------- 遗迹 / 殖民地 / 遗弃船 / 外星文明：差距 → 产出 ----------------
+       d = T_r − t（目标科技 − 玩家科技），Δ = 科技增量，保证 t + Δ ≤ T_r。
+       A 远低于你：Δ=0，物资 ×1.2 起、d 每再低 0.10 加 5%，封顶 ×1.4；
+       B 相当/略低：0 ≤ d ≤ low，Δ=min(0.03, d)，物资 ×1.0；
+       C 略高可探：low < d ≤ high，Δ=min(0.03+0.30(d−low), d)，物资 ×0.85；
+       D 高出 high：不可探，文案「科技相差甚远，无法探索」。 */
+    exploreGap: {
+      types: {
+        ruins:  { label: "遗迹",     targetTech: 0.55, low: 0.08, high: 0.22, matBase: 60, fail: { infect: 6 }, success: { A: 0.90, B: 0.80, C: 0.45 } },
+        colony: { label: "殖民地",   targetTech: 0.45, low: 0.10, high: 0.20, matBase: 70, fail: { infect: 3 }, success: { A: 0.90, B: 0.80, C: 0.45 } },
+        wreck:  { label: "遗弃船",   targetTech: 0.40, low: 0.10, high: 0.28, matBase: 80, fail: { wear: 0.04 }, success: { A: 0.90, B: 0.80, C: 0.45 } },
+        alien:  { label: "外星文明", targetTech: 0.65, low: 0.06, high: 0.16, matBase: 60, fail: { infect: 8 }, success: { A: 0.85, B: 0.75, C: 0.35 } }
       }
     },
 

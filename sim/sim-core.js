@@ -659,7 +659,9 @@
     // 水
     var throughput = t0.awake * cfg.water.perCapitaAwake +
       t0.dormant * cfg.water.perCapitaDormant;
-    var recycle = cfg.water.recycle * clamp(lifeMW / cfg.energy.lifeMW, 0.60, 1);
+    // 水：闭环回收率 + 可回收比例（「闭环回收突破」这类长期修正）
+    var recycle = clamp(cfg.water.recycle + mAdd("waterRecycle", 0) + mAdd("waterRecover", 0), 0, 0.9995) *
+      clamp(lifeMW / cfg.energy.lifeMW, 0.60, 1);
     var loss = throughput * (1 - recycle);
     state.stocks.water = clamp(state.stocks.water + (cfg.water.supplyTpy - loss) * dt, 0, cfg.water.cap);
 

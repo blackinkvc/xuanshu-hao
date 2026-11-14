@@ -417,7 +417,7 @@
       case "dept":
         return "你只管" + p.pc.dept + "，" + need + "不归你调";
       case "intel":
-        return "情报不够，你现在只知道" + intelText(p.intel) + "（要到" + intelText(need) + "）";
+        return "情报不够，你现在只知道" + intelText(p.intel);
       case "cooldown":
         left = Math.max(0, (p.actionCd[a.id] || 0) - stateOf(p).weeks);
         return "距离上次「" + a.label + "」还要 " + left + " 周";

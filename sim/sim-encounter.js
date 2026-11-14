@@ -369,6 +369,84 @@
 
   /* ---------------- 前置 ---------------- */
 
+  // 只报「差多少」的定性档，不把阈值和现值报成两个精确数
+  function shortTone(cur, need) {
+    var d = need - cur;
+    var rel = need > 0 ? d / need : d;
+    if (rel <= 0.12) return "还差一点";
+    if (rel <= 0.35) return "还差一截";
+    return "差得远";
+  }
+
+  // 遗迹 / 殖民地 / 遗弃船 / 外星文明：按科技差 d = T_r − t 分四档结算
+  function gapOutcome(state, cfg, type) {
+    var G = cfg.exploreGap && cfg.exploreGap.types && cfg.exploreGap.types[type];
+    if (!G) return null;
+    var soc = state.society || {};
+    var tech = clamp(num(soc.machine && soc.machine.tech, 0), 0, 1);
+    var target = num(G.targetTech, 0);
+    var d = target - tech;
+    var tier, delta = 0, matMul = 1, success = 0;
+    if (d > num(G.high, 0) + 1e-9) {
+      return {
+        type: type, label: G.label, tier: "D", tierLabel: "高出太多",
+        available: false, reason: "科技相差甚远，无法探索",
+        d: d, tech: tech, target: target, deltaTech: 0, matBase: 0,
+        matMul: 0, metal: 0, success: 0
+      };
+    }
+    if (d < -1e-9) {
+      tier = "A";
+      delta = 0;
+      // 每再低 0.10，物资 +5%，从 ×1.2 起，封顶 ×1.4
+      matMul = Math.min(1.4, 1.2 + 0.05 * Math.floor((-d + 1e-9) / 0.10));
+      success = num(G.success && G.success.A, 0.9);
+    } else if (d <= num(G.low, 0) + 1e-9) {
+      tier = "B";
+      delta = Math.min(0.03, d);
+      matMul = 1;
+      success = num(G.success && G.success.B, 0.8);
+    } else {
+      tier = "C";
+      delta = Math.min(0.03 + 0.30 * (d - num(G.low, 0)), d);
+      matMul = 0.85;
+      success = num(G.success && G.success.C, 0.45);
+    }
+    // 保证不会因为四舍五入越过目标科技（d 为负时科技增量必须为 0）
+    delta = Math.min(delta, Math.max(0, d));
+    var metal = Math.round(num(G.matBase, 0) * matMul);
+    return {
+      type: type, label: G.label, tier: tier,
+      tierLabel: { A: "远低于你", B: "与你相当", C: "略高于你" }[tier],
+      available: true, reason: "",
+      d: d, tech: tech, target: target,
+      deltaTech: Math.round(delta * 10000) / 10000,
+      matBase: num(G.matBase, 0), matMul: matMul, metal: metal, success: success
+    };
+  }
+
+  function gapFailText(cfg, type) {
+    var F = (cfg.exploreGap.types[type] || {}).fail || {};
+    var a = [];
+    if (F.infect) a.push("全船感染 +" + F.infect);
+    if (F.wear) a.push("磨损 +" + F.wear);
+    if (F.pop) a.push("人口 " + F.pop);
+    return a.join("、");
+  }
+
+  function gapView(state, cfg, type) {
+    var g = gapOutcome(state, cfg, type);
+    if (!g) return null;
+    if (!g.available) {
+      return { effectText: g.reason, costText: "", followText: "科技差距太大", info: g };
+    }
+    var eff = (g.deltaTech > 0 ? "科技 +" + g.deltaTech.toFixed(3) : "科技无增量（对方低于你）") +
+      "、金属 +" + g.metal + " 吨";
+    var fail = gapFailText(cfg, type);
+    var cost = "成功率 " + Math.round(g.success * 100) + "%" + (fail ? "；失败：" + fail : "");
+    return { effectText: eff, costText: cost, followText: "科技差：对方" + g.tierLabel, info: g };
+  }
+
   function checkNeed(state, cfg, card) {
     var nd = card.need || {};
     var soc = state.society || {};
@@ -388,26 +466,31 @@
         return { ruler: "最高贵族", mid: "中层贵族", slave: "奴隶", creator: "创造模式" }[m] || "这个身份";
       }).join("」「") + "」身份" };
     }
+    if (card.gap) {
+      var gvNeed = gapOutcome(state, cfg, card.gap);
+      if (gvNeed && !gvNeed.available) return { ok: false, reason: gvNeed.reason };
+      return { ok: true, reason: "" };
+    }
     if (typeof nd.techMin === "number" && tech < nd.techMin) {
-      return { ok: false, reason: "科技要到 " + nd.techMin.toFixed(2) + "，现在只有 " + tech.toFixed(2) };
+      return { ok: false, reason: "科技" + shortTone(tech, nd.techMin) + "，还够不到这块" };
     }
     if (typeof nd.orderMin === "number" && order < nd.orderMin) {
-      return { ok: false, reason: "秩序要到 " + Math.round(nd.orderMin * 100) + "%，现在只有 " + Math.round(order * 100) + "%" };
+      return { ok: false, reason: "秩序" + shortTone(order, nd.orderMin) + "，现在压不住" };
     }
     if (typeof nd.infectionMin === "number" && share * 100 < nd.infectionMin) {
-      return { ok: false, reason: "感染要到 " + nd.infectionMin + "%，现在只有 " + Math.round(share * 100) + "%" };
+      return { ok: false, reason: "感染面" + shortTone(share * 100, nd.infectionMin) + "，还没到那个程度" };
     }
     if (typeof nd.thrallsMin === "number" && thralls < nd.thrallsMin) {
-      return { ok: false, reason: "眷属要到 " + nd.thrallsMin + " 个，现在只有 " + rnd(thralls) + " 个" };
+      return { ok: false, reason: "眷属" + shortTone(thralls, nd.thrallsMin) + "，人手不够" };
     }
     if (typeof nd.popMin === "number" && total < nd.popMin) {
-      return { ok: false, reason: "船上至少要有 " + nd.popMin + " 人，现在只有 " + rnd(total) + " 人" };
+      return { ok: false, reason: "船上的人" + shortTone(total, nd.popMin) + "，凑不齐" };
     }
     if (typeof nd.dormantMin === "number" && dormant < nd.dormantMin) {
-      return { ok: false, reason: "舱里至少要有 " + nd.dormantMin + " 人，现在只有 " + rnd(dormant) + " 人" };
+      return { ok: false, reason: "舱里的人" + shortTone(dormant, nd.dormantMin) + "，不够" };
     }
     if (typeof nd.healthMin === "number" && health < nd.healthMin) {
-      return { ok: false, reason: "健康要到 " + nd.healthMin + "，现在只有 " + rnd(health) };
+      return { ok: false, reason: "你的身体" + shortTone(health, nd.healthMin) + "，撑不住" };
     }
     if (nd.godPact && !(state.gods && hasPact(state))) {
       return { ok: false, reason: "得先跟古神立约" };
@@ -423,6 +506,7 @@
 
   function cardView(state, cfg, cat, c) {
     var n = checkNeed(state, cfg, c);
+    var gview = c.gap ? gapView(state, cfg, c.gap) : null;
     return {
       id: c.id,
       cat: cat,
@@ -430,9 +514,11 @@
       rarity: c.rarity,
       available: n.ok,
       reason: n.reason,
-      effectText: c.effectText || "",
-      costText: c.costText || "",
-      followText: c.followText || "",
+      effectText: gview ? gview.effectText : (c.effectText || ""),
+      costText: gview ? gview.costText : (c.costText || ""),
+      followText: gview ? gview.followText : (c.followText || ""),
+      gap: c.gap || "",
+      gapInfo: gview ? gview.info : null,
       choices: (c.choices || []).slice(),
       need: c.need || {},
       ops: c.ops || [],
@@ -608,6 +694,29 @@
       } else if (k === "godFavor" || k === "god" || k === "devour" || k === "summon") {
         if (godOp(state, cfg, op)) notes.push("古神的态度变了");
         else notes.push("古神没有回应");
+      } else if (k === "gapReward") {
+        var gOut = gapOutcome(state, cfg, op.type);
+        if (!gOut || !gOut.available) {
+          notes.push(gOut ? gOut.reason : "这里探不了");
+        } else if (randNext(state) < gOut.success) {
+          if (gOut.deltaTech > 0 && soc.machine) {
+            soc.machine.tech = clamp(num(soc.machine.tech) + gOut.deltaTech, 0, 1);
+            notes.push("科技 +" + gOut.deltaTech.toFixed(3));
+          } else {
+            notes.push("科技没有长进");
+          }
+          state.stocks.metal = clamp(num(state.stocks.metal) + gOut.metal, 0, caps.metal);
+          notes.push("金属 +" + gOut.metal + " 吨");
+        } else {
+          var gFail = (cfg.exploreGap.types[op.type] || {}).fail || {};
+          if (gFail.infect) { addC(state, num(gFail.infect)); notes.push("感染 +" + gFail.infect); }
+          if (gFail.wear) {
+            state.wear = clamp(num(state.wear) + num(gFail.wear), 0, 1);
+            notes.push("磨损 +" + gFail.wear);
+          }
+          if (gFail.pop) { popAdjust(state, cfg, "undecided", num(gFail.pop)); notes.push("人口 " + gFail.pop); }
+          notes.push("探索失败");
+        }
       } else if (k === "mod") {
         addMod(state, cfg, op.key, op.v, op.weeks, !!op.mul, card.id);
         if (op.key === "prodMul" && soc.effects) {
@@ -921,6 +1030,7 @@
     pickCategory: pickCategory,
     drawThree: drawThree,
     checkNeed: checkNeed,
+    gapOutcome: gapOutcome,
     choose: choose,
     chooseCard: choose,
     autoPick: autoPick,
