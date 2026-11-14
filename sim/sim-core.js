@@ -46,6 +46,24 @@
 
   /* ---------------- 派生量 ---------------- */
 
+  function num(v, d) { return isNum(v) ? v : (isNum(d) ? d : 0); }
+
+  // v6.37：机器接管的部门产出——接管后 procWeeks 内停摆（按 prodLoss 折算），之后固定 procMul
+  function machineFactor(state, cfg, soc) {
+    var M = cfg.society.machine, d = (soc.machine && soc.machine.depts) || [];
+    if (!d.length) return 1;
+    var f = 1;
+    d.forEach(function (dept) {
+      var cap = soc.machine.capturedAt && soc.machine.capturedAt[dept];
+      if (cap != null && state.weeks - cap < num(M.procWeeks, 13)) {
+        f *= (1 - num(M.prodLoss, 0.15));
+      } else {
+        f *= num(M.procMul, 0.6);
+      }
+    });
+    return f;
+  }
+
   function totals(state, cfg) {
     var awake = 0, dormant = 0, working = 0;
     cfg.population.groups.forEach(function (g) {
@@ -924,7 +942,7 @@
     if (state.buildAcc.clonePods >= 6) {
       pushEvent(state, cfg, "build_clone", "建设", "克隆槽造好了",
         "新增 " + state.buildAcc.clonePods + " 个培育筒，总数 " + state.infra.clonePods,
-        "工期 " + cfg.clone.podLeadWeeks + " 周", true, null,
+        "工期 " + num(cfg.metal && cfg.metal.clonePodLeadWeeks, cfg.clone.podLeadWeeks) + " 周", true, null,
         "克隆产能多了一截");
       state.buildAcc.clonePods = 0;
     }
@@ -945,6 +963,11 @@
       (1 + ((cfg.ship && cfg.ship.energyK) || 0) * (speedRatio - 1));
     var lifeMW = Math.min(cfg.energy.lifeMW, energy);
     var rest = Math.max(0, energy - lifeMW);
+    // v6.37：机器覆写期间额外占用 overrideMW，从可用电力里扣
+    var machMW = (state.society && state.society.machine &&
+      state.weeks < num(state.society.machine.overrideUntil, -1))
+      ? num(state.society.machine.overrideMW) : 0;
+    if (machMW > 0) rest = Math.max(0, rest - Math.min(machMW, rest));
     // 休眠维持：舱位电耗先扣，剩余才给农业/工业
     var dormantMW = Math.min(t0.dormant * ((cfg.hibernation && cfg.hibernation.mWPerDormant) || 0), rest);
     rest = Math.max(0, rest - dormantMW);
@@ -1009,7 +1032,7 @@
       var pmEff = 1 - (1 - pm) * clamp(soc.mutiny.coverage || 0, 0, 1);
       production *= pmEff *
         (1 - 0.25 * clamp(soc.infection.share || 0, 0, 1)) *
-        (1 - cfg.society.machine.prodLoss * Math.min(3, soc.machine.depts.length)) *
+        machineFactor(state, cfg, soc) *
         (soc.effects.prodMul || 1) * gMul("prodMul", 1);
     }
     // 废弃宜居星「采集种源」：限时粮食产出加成（v6.31）
@@ -1306,7 +1329,8 @@
       state.budget.clone -= cfg.clone.podMetal;
       availableMetal -= cfg.clone.podMetal;
       constructionSpend += cfg.clone.podMetal;
-      state.projects.clonePods.push(state.weeks + cfg.clone.podLeadWeeks);
+      state.projects.clonePods.push(state.weeks +
+        num(cfg.metal && cfg.metal.clonePodLeadWeeks, cfg.clone.podLeadWeeks));
     }
 
     // 只开采本周配额（维修 + 已开工建设）；配额不足的部分由库存结算

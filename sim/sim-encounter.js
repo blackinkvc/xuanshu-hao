@@ -1413,14 +1413,16 @@
         Math.max(0, free - takeN));
     }
 
-    // 留下基因
+    // 留下基因（v6.37：科技入账按 encounter.derelict.geneTech 折算）
     if (sel.gene) {
-      addTech(state, num(d.gene.tech));
+      var geneMul = num((cfg.encounter.derelict || {}).geneTech, 1);
+      var geneTech = num(d.gene.tech) * geneMul;
+      addTech(state, geneTech);
       state.stocks.drug = Math.min(num(cfg.hibernation.drugCap, 1e9), num(state.stocks.drug) + num(d.gene.drug));
       d.geneTaken = true;
-      techGain += num(d.gene.tech);
+      techGain += geneTech;
       drAdd += num(d.gene.drug);
-      lines.push("留下基因：科技 +" + (num(d.gene.tech) * 100).toFixed(2) + "%、药剂 +" + num(d.gene.drug) +
+      lines.push("留下基因：科技 +" + (geneTech * 100).toFixed(2) + "%、药剂 +" + num(d.gene.drug) +
         "；休眠者留在原位");
     }
 

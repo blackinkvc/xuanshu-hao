@@ -158,7 +158,7 @@
     }
     if (old && old !== id) {
       g.pacts[old].primary = false;
-      g.pacts[old].favor = clamp(num(g.pacts[old].favor) - 20, -100, 100);
+      g.pacts[old].favor = clamp(num(g.pacts[old].favor) - 20, -num(cfg.gods.favorCap, 100), num(cfg.gods.favorCap, 100));
     }
     var first = !rec.pact;
     rec.pact = true;
@@ -193,7 +193,9 @@
     }
     var rec = g.pacts[tid];
     var before = num(rec.favor);
-    rec.favor = clamp(before + num(v), -100, 100);
+    // v6.37：神恩上下限读 gods.favorCap
+    var cap = Math.max(1, num(cfg.gods.favorCap, 100));
+    rec.favor = clamp(before + num(v), -cap, cap);
     if (rec.favor !== before) {
       g.history.push({ year: Math.round(absYear(state, cfg)), id: tid, type: "favor",
         text: "神恩 " + (v >= 0 ? "+" : "") + v + " → " + Math.round(rec.favor) });
@@ -289,15 +291,17 @@
       if (id === "maw") {
         var total = 0;
         Object.keys(state.groups || {}).forEach(function (k) { total += num(state.groups[k].awake); });
-        var lost = removePop(state, Math.max(1, Math.round(total * 0.01)));
+        var share = num(((it.curse) || {}).popSharePerDecade, 0.01);
+        var lost = removePop(state, Math.max(1, Math.round(total * share)));
         if (lost) pushEvent(state, cfg, "缄默之喉 · 人口流失", "古神饿了，吞掉 " + lost + " 人。", "诅咒",
           { "人口": -lost }, "每十年少一批人");
       }
       if (id === "weaver") {
         var dep = randomDept(state, cfg);
         if (dep) {
+          var dS = num(((it.curse) || {}).deptSPerDecade, 0.10);
           ((soc.queues) || []).forEach(function (q) {
-            if (q.dept === dep && (q.layer === "L2" || q.layer === "L3")) q.S = clamp(num(q.S) + 0.10, 0, 1);
+            if (q.dept === dep && (q.layer === "L2" || q.layer === "L3")) q.S = clamp(num(q.S) + dS, 0, 1);
           });
           pushEvent(state, cfg, "赤织母 · 部门失序", dep + "的人更不服管了。", "诅咒",
             { "秩序": -3 }, "一个部门开始顶牛");
@@ -305,9 +309,10 @@
       }
     }
     if (rec.cursed && id === "fecund") {
-      if (randNext(state) < 0.10) {
+      var FC = it.curse || {};
+      if (randNext(state) < num(FC.cloneMutant, 0.10)) {
         ((soc.queues) || []).forEach(function (q) { q.C = clamp(num(q.C) + 2, 0, 100); });
-        var d2 = removePop(state, 5);
+        var d2 = removePop(state, Math.max(1, Math.round(5 * num(FC.cloneDeathMul, 1.2))));
         pushEvent(state, cfg, "丰穰之腹 · 畸变", "克隆体畸变，感染加重，死了 " + d2 + " 人。", "诅咒",
           { "人口": -d2, "感染": 2 }, "克隆槽里出了怪胎");
       }
@@ -319,7 +324,9 @@
   function mawTithe(state, cfg, now) {
     var total = 0;
     Object.keys(state.groups || {}).forEach(function (k) { total += num(state.groups[k].awake); });
-    var need = Math.max(8, Math.round(total * 0.008));
+    // v6.37：什一税按 gods.items.maw.tithe 的 popShare / minPop 结算
+    var T = (item(cfg, "maw") || {}).tithe || {};
+    var need = Math.max(num(T.minPop, 8), Math.round(total * num(T.popShare, 0.008)));
     var lost = removePop(state, need);
     pushEvent(state, cfg, "缄默之喉 · 吞食", "古神又饿了，吞下 " + lost + " 人。", "周期索取",
       { "人口": -lost }, "这条船定期要交人");
@@ -428,7 +435,8 @@
       }
 
       if (id === "star" && rec.cursed && soc.machine) {
-        soc.machine.A = clamp(num(soc.machine.A) + 0.02, 0, 1);
+        // v6.37：机器自主年增量读 curse.machineAutonomyPerYear
+        soc.machine.A = clamp(num(soc.machine.A) + num((it.curse || {}).machineAutonomyPerYear, 0.02), 0, 1);
       }
       applyAnnualBlessCurse(state, cfg, id, now);
     });
@@ -459,7 +467,9 @@
       var side = rec.primary ? 1 : 0.5;
       if (key === "birthMul" && id === "fecund") out *= 1 + (1.25 - 1) * side;
       if (key === "cloneMul" && id === "fecund") out *= 1 + (1.15 - 1) * side;
-      if (key === "foodUse" && id === "fecund") out *= 1.08;
+      if (key === "foodUse" && id === "fecund") {
+        out *= num((item(cfg, "fecund").passive || {}).foodUseMul, 1.08);
+      }
       if (key === "prodMul" && id === "maw" && rec.blessed) out *= 1 + 0.03 * side;
       if (key === "exploreMul" && id === "star") out *= (prim === "star" ? 1.5 : 1.2);
     });
@@ -471,15 +481,30 @@
     if (!g || !g.enabled || g.legacy) return 1;
     var rec = g.pacts.fecund;
     if (!rec || !rec.pact || !rec.blessed) return 1;
-    return 1 + (rec.primary ? 0.5 : 0.25);
+    // v6.37：怀孕倍率读 bless.pregnancy，副约只取一半增幅
+    var base = num((item(cfg, "fecund").bless || {}).pregnancy, 1.5);
+    return 1 + (base - 1) * (rec.primary ? 1 : 0.5);
   }
 
   function rarityBoost(state, cfg, cat) {
     var g = state.gods;
     if (!g || !g.enabled || g.legacy) return 0;
     var rec = g.pacts.star;
-    if (cat === "tech" && rec && rec.pact && rec.blessed) return 1;
+    if (cat === "tech" && rec && rec.pact && rec.blessed) {
+      // v6.37：稀有度提升档数读 bless.techRarity，副约向下取整
+      var n = num((item(cfg, "star").bless || {}).techRarity, 1);
+      return rec.primary ? n : Math.floor(n * 0.5);
+    }
     return 0;
+  }
+
+  // v6.37：星启者诅咒对机器哗变概率的放大（接进 machine_takeover 判定）
+  function machineMutinyMul(state, cfg) {
+    var g = state.gods;
+    if (!g || !g.enabled || g.legacy || !g.pacts) return 1;
+    var rec = g.pacts.star;
+    if (!rec || !rec.pact || !rec.cursed) return 1;
+    return num((item(cfg, "star").curse || {}).machineMutinyMul, 1.4);
   }
 
   function brief(state, cfg) {
@@ -534,6 +559,7 @@
     gMul: gMul,
     pregnancyMul: pregnancyMul,
     rarityBoost: rarityBoost,
+    machineMutinyMul: machineMutinyMul,
     names: NAMES,
     ids: IDS
   };

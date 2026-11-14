@@ -123,9 +123,12 @@
                 l1: 0, l3: 0, l4: 0, l5: 0, holdUntil: -1, l1dead: false },
       infection: { meanC: 0, maxC: 0, thralls: 0, share: 0,
                    summonSince: 0, perm: 0, lockUntil: 0, bonus: 0 },
-      machine: { level: 0, depts: [], since: -1, A: 0, tech: 0, counter: 0, maxChain: 1 },
+      machine: { level: 0, depts: [], since: -1, A: 0, tech: 0, counter: 0, maxChain: 1,
+                 capturedAt: {}, overrideUntil: -1, overrideMW: 0 },
       garrison: {
-        strength: cfg.society.garrison.initStrength,
+        // v6.37：驻军人数从战斗编制的借调量来，不再固定 initStrength
+        strength: (cfg.society.garrison.secondedFromCombat != null
+          ? cfg.society.garrison.secondedFromCombat : cfg.society.garrison.initStrength),
         durability: cfg.society.garrison.initDurability,
         metal: cfg.society.garrison.initMetal,
         suppressors: cfg.society.garrison.suppressors,
@@ -134,7 +137,7 @@
         lastExpose: 0,
         losses: 0
       },
-      effects: { oShift: 0, wShift: 0, prodMul: 1, prodWeeks: 0,
+      effects: { oShift: 0, wShift: 0, oPools: [], prodMul: 1, prodWeeks: 0,
                  isoBoost: 0, isoWeeks: 0, infSpread: 1, infWeeks: 0,
                  popLoss: 0, popWeeks: 0, laborMul: 1 },
       actions: { cd: {}, uses: {} },
@@ -241,6 +244,13 @@
 
   /* ---------------- 属性更新 ---------------- */
 
+  // v6.37：镇压 / 处决注入的服从池，各自按 oDecay（点/年）衰减
+  function oPoolSum(soc) {
+    var e = soc && soc.effects;
+    if (!e || !Array.isArray(e.oPools)) return 0;
+    return e.oPools.reduce(function (a, p) { return a + (p && p.v > 0 ? p.v : 0); }, 0);
+  }
+
   function updateQueues(state, cfg, env) {
     var soc = state.society;
     var c = comfortOf(state, cfg, env);
@@ -264,8 +274,8 @@
       var wInf = q.stage === 1 ? 6 : (q.stage === 2 ? 12 : 0);
       if (q.thrallFrac > 0.5) wInf = 0;
 
-      var O = baseOOf(q, cfg) + oPhys - 0.45 * q.C + oTrauma + q.oPerm + soc.effects.oShift
-        - q.mig * cfg.society.eduMigration.oLoss;
+      var O = baseOOf(q, cfg) + oPhys - 0.45 * q.C + oTrauma + q.oPerm + soc.effects.oShift +
+        oPoolSum(soc) - q.mig * cfg.society.eduMigration.oLoss;
       var W = baseWOf(q, cfg) +
         cfg.society.will.expK * Math.log(1 + q.exp) +
         cfg.society.will.comfortGain * clamp((c - cfg.society.will.comfortStart) / cfg.society.will.comfortSpan, 0, 1) +
@@ -784,15 +794,21 @@
       if (take && soc.machine.depts.indexOf(take) < 0) {
         // 夺取部门同样掷骰：A / 科技 / 服从度缺口构成倾向分；
         // 科技等级首次判定后冻结，失败只累积压力、不夺权。
+        // v6.37：星启者诅咒 machineMutinyMul 放大机器自主性（等价于放大哗变概率）
+        var mm = (global.XuanShuGods && state.gods && state.gods.enabled)
+          ? global.XuanShuGods.machineMutinyMul(state, cfg) : 1;
         var rm = judgeCall(state, cfg, "machine_takeover", {
-          autonomy: A, tech: tech,
+          autonomy: A * (mm > 0 ? mm : 1), tech: tech,
           weakO: 1 - clamp((soc.meanO || 0) / 100, 0, 1)
         }, { note: "目标部门 " + take });
         if (rm.allow) {
           soc.machine.depts.push(take);
+          if (!soc.machine.capturedAt) soc.machine.capturedAt = {};
+          soc.machine.capturedAt[take] = state.weeks;
           soc.machine.counter = 0;
           pushEvent(state, cfg, "machine", "机器哗变", "机器接管了「" + take + "」",
-            "这个部门停摆 " + M.procWeeks + " 周，之后只按 60% 干活，也不听人的了",
+            "这个部门停摆 " + M.procWeeks + " 周，之后只按 " + Math.round(num(M.procMul, 0.6) * 100) +
+            "% 干活，也不听人的了",
             "自主性 A=" + A.toFixed(2) + " ≥ " + (soc.machine.depts.length === 1 ? M.at :
               (soc.machine.depts.length === 2 ? M.secondAt : M.thirdAt)) +
             "，人类平均服从度 " + (soc.meanO || 0).toFixed(0) + " < " + M.oLow +
@@ -820,7 +836,27 @@
     return yearly / cfg.time.weeksPerYear;
   }
 
+  /* v6.37：机器路线覆写——按 procWeeks 的工期、overrideMW / overrideMetal 的代价，
+     把被机器接管的一个部门强行夺回人工指挥。 */
+  function machineOverride(state, cfg) {
+    var soc = state.society, M = cfg.society.machine;
+    if (!soc.machine.depts.length) return { ok: false, msg: "没有被机器接管的部门" };
+    var MW = num(M.overrideMW, 5), MET = num(M.overrideMetal, 30);
+    if (num(state.stocks.metal) < MET) return { ok: false, msg: "金属不足，覆写需要 " + MET + " 吨" };
+    state.stocks.metal = num(state.stocks.metal) - MET;
+    var dept = soc.machine.depts.pop();
+    if (soc.machine.capturedAt) delete soc.machine.capturedAt[dept];
+    soc.machine.counter = 0;
+    soc.machine.overrideMW = MW;
+    soc.machine.overrideUntil = state.weeks + num(M.procWeeks, 13);
+    pushEvent(state, cfg, "machine", "机器覆写", "你强行把「" + dept + "」从机器手里夺了回来",
+      "部门恢复人工指挥，产出回到满值；覆写期间多占 " + MW + " MW、金属 −" + MET + " 吨",
+      "覆写 " + num(M.procWeeks, 13) + " 周，期满后机器自主性重新累积", { "秩序": 2 }, "机器暂时沉默了");
+    return { ok: true, msg: "覆写了「" + dept + "」：金属 −" + MET + " 吨，多占 " + MW + " MW" };
+  }
+
   function act(state, cfg, name, opts) {
+    if (name === "machine_override") return machineOverride(state, cfg, opts);
     var a = cfg.society.actions[name];
     if (!a) return { ok: false, msg: "未知手段" };
     var soc = state.society;
@@ -842,12 +878,16 @@
       var avail = garrisonAvail(state, cfg);
       var eff = a.o * mul * clamp(G.effectMin + (1 - G.effectMin) * clamp(avail, 0, 1), G.effectMin, 1.15);
       g.durability = clamp(g.durability - a.durCost * mul, 0, 100);
-      g.metal = Math.max(0, g.metal - a.metal * mul);
-      g.suppressorWear += a.wear * mul;
-      soc.effects.oShift += eff;
+      // v6.37：金属与磨损读 garrison.suppressMetal / suppressWear（配置里原有的驻军参数）
+      g.metal = Math.max(0, g.metal - (G.suppressMetal != null ? G.suppressMetal : a.metal) * mul);
+      g.suppressorWear += (G.suppressWear != null ? G.suppressWear : a.wear) * mul;
+      if (!Array.isArray(soc.effects.oPools)) soc.effects.oPools = [];
+      soc.effects.oPools.push({ v: eff, k: num(a.oDecay, 6) });
       // 自由意志是「持续 26 周的抬升」，剂量按 26 周 = 6 个月折算，
       // 不能直接乘 26：那会把台阶抬高 4.33 倍（旧版乘的是 6 个月）。
-      soc.effects.wShift += a.w * a.wWeeks * cfg.time.monthsPerYear / cfg.time.weeksPerYear;
+      // fanatic：狂热人群越镇压越不服，按系数放大长期不服增量
+      soc.effects.wShift += a.w * a.wWeeks * cfg.time.monthsPerYear / cfg.time.weeksPerYear *
+        num(a.fanatic, 1);
       // 真实死亡：冲突中的连带伤亡（不是警备编制减员）
       cfg.population.groups.forEach(function (gr) {
         var s = state.groups[gr.id];
@@ -875,7 +915,8 @@
         killed += cut;
         s.awake = Math.max(0, s.awake - cut);
       });
-      soc.effects.oShift += a.o * mul;
+      if (!Array.isArray(soc.effects.oPools)) soc.effects.oPools = [];
+      soc.effects.oPools.push({ v: a.o * mul, k: num(a.oDecay, 3) });
       soc.effects.wShift += a.w * mul;
       var worst = soc.queues.filter(function (q) { return q.layer === "L2" && q.dept === targetDept; })[0] ||
         soc.queues.filter(function (q) { return q.layer === "L2"; })[0];
@@ -892,7 +933,11 @@
       soc.effects.oShift += a.o * mul;
       extra = "换了「" + targetDept + "」的人：统御 −8，同部门其他节点压力 +0.12";
     } else if (name === "interrogate") {
-      if (soc.garrison.infiltrators <= 0) return { ok: false, msg: "没有可用的潜伏机" };
+      // v6.37：是否需要潜伏机由 interrogate.needInfiltrator 决定（默认需要）
+      var IQ = cfg.society.interrogate || {};
+      if (IQ.needInfiltrator !== false && soc.garrison.infiltrators <= 0) {
+        return { ok: false, msg: "没有可用的潜伏机" };
+      }
       soc.garrison.metal = Math.max(0, soc.garrison.metal - a.metal * mul);
       soc.garrison.durability = clamp(soc.garrison.durability - a.durCost * mul, 0, 100);
       soc.effects.oShift += a.o * mul;
@@ -1053,6 +1098,12 @@
     // 半衰期仍是约 6.6 个月，效果的积分面积不变。
     soc.effects.oShift *= SHIFT_DECAY;
     soc.effects.wShift *= SHIFT_DECAY;
+    // v6.37：镇压/处决的服从提升按各自 oDecay（点/年）线性衰减，不再吃统一半衰期
+    if (Array.isArray(soc.effects.oPools) && soc.effects.oPools.length) {
+      var wpy = cfg.time.weeksPerYear || 52;
+      soc.effects.oPools.forEach(function (p) { p.v -= p.k / wpy; });
+      soc.effects.oPools = soc.effects.oPools.filter(function (p) { return p.v > 0.05; });
+    }
     if (Math.abs(soc.effects.oShift) < 0.05) soc.effects.oShift = 0;
     if (Math.abs(soc.effects.wShift) < 0.05) soc.effects.wShift = 0;
   }

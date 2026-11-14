@@ -622,6 +622,13 @@
           society: "suppress",
           desc: "消耗警备耐久与金属，短期抬高服从"
         },
+        machine_override: {
+          label: "覆写机器", cat: "治理", mode: ["ruler", "mid"], cdWeeks: 4,
+          gate: { dominionMin: 35, healthMin: 25, orderMin: 0.15, confined: false },
+          gateMid: { orderMin: 0.20, authorityMin: 35 },
+          society: "machine_override",
+          desc: "付出金属与额外电力，把被机器接管的一个部门夺回人工指挥"
+        },
         concede: {
           label: "让步加配额", cat: "治理", mode: ["ruler", "mid"], cdWeeks: 52,
           gate: { complianceMin: 30, orderMin: 0.20, confined: false },
@@ -1243,9 +1250,9 @@
       // 所有时长/冷却由「月」换成「周」；食品成本按周消费量折算
       actions: {
         suppress: { label: "武力镇压", o: 12, oDecay: 6, w: 1.2, wWeeks: monthsToWeeks(6),
-                    durCost: 8, metal: 6, wear: 0.05, death: 0.004, order: -0.02,
+                    durCost: 8, death: 0.004, order: -0.02,
                     cdWeeks: monthsToWeeks(6), uses: [1, 0.60, 0.35], fanatic: 1,
-                    note: "消耗警备耐久 8 点、金属 6 吨，镇压机磨损；长期镇压会让人更不服" },
+                    note: "消耗警备耐久与金属（garrison.suppressMetal / suppressWear），短期抬高服从；长期镇压会让人更不服" },
         concede:  { label: "让步加配额", o: 8, w: -2, foodShare: 0.04, foodWeeks: monthsToWeeks(6),
                     order: 0.02, cdWeeks: monthsToWeeks(12), uses: [1, 0.50, 0.30],
                     note: "补发 4% 口粮配额 6 个月量，直接吃粮食储备" },
