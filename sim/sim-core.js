@@ -219,6 +219,63 @@
     return true; // 未登记的新类型默认按关键保留，宁可多留也不丢历史
   }
 
+  /**
+   * 梦中侵染：眷属越多、古神低语越强，休眠者被拖出梦境的压力越大。
+   * 压力是累积量，满 1 即转化 1 人并清零余数；成瘾抵抗若已接入则减半。
+   */
+  function stepDream(state, cfg, soc, medCoverage) {
+    var h = cfg.hibernation || {};
+    if (!h.dreamK) return 0;
+    if (!state.dream) state.dream = { pressure: 0, infected: 0, lastLog: -99 };
+    var dormant = totals(state, cfg).dormant;
+    if (dormant <= 0 || !soc) return 0;
+    var nv = function (v) { return isNum(v) ? v : 0; };
+    var inf = soc.infection || {};
+    var thralls = nv(inf.thralls);
+    var corr = clamp(nv(inf.meanC) / 100, 0, 1);
+    var resist = 0;
+    var ad = state.addict;
+    if (ad) {
+      var tot = nv(ad.light) + nv(ad.mid) + nv(ad.heavy);
+      if (tot > 0) {
+        resist = (0.30 * nv(ad.light) + 0.60 * nv(ad.mid) + 0.90 * nv(ad.heavy)) / tot;
+      }
+    }
+    var rate = h.dreamK * (1 + thralls * h.dreamThrallK) *
+      (1 + corr * h.dreamWhisperK) *
+      (1 - h.dreamDrugShield * clamp(medCoverage, 0, 1)) *
+      (1 - resist * 0.5);
+    state.dream.pressure += rate * dormant;
+    if (state.dream.pressure < 1) return 0;
+    var n = Math.min(Math.floor(state.dream.pressure), Math.floor(dormant));
+    state.dream.pressure -= n;
+    var need = n;
+    cfg.population.groups.forEach(function (g) {
+      if (need <= 0) return;
+      var st = state.groups[g.id];
+      if (!st || st.dormant <= 0) return;
+      var take = Math.min(st.dormant, need);
+      st.dormant -= take;
+      st.awake += take;
+      need -= take;
+    });
+    var moved = n - need;
+    state.dream.infected += moved;
+    // 写回常驻的 bonus：thralls 每周由部门重算，只有 bonus 会跨周累积
+    inf.bonus = nv(inf.bonus) + moved;
+    inf.thralls = nv(inf.thralls) + moved;
+    if (moved > 0 && state.weeks - state.dream.lastLog >= (h.dreamLogWeeks || 8)) {
+      state.dream.lastLog = state.weeks;
+      pushEvent(state, cfg, "dream_infection", "感染", "休眠舱里的低语",
+        "本周 " + moved + " 名休眠者被拖出梦境，成为眷属；眷属累计 " + inf.thralls,
+        "梦中压力 " + (rate * 100).toFixed(3) + "%/位·周 · 低语 " + corr.toFixed(2) +
+          " · 医疗压制 " + Math.round(h.dreamDrugShield * medCoverage * 100) + "%",
+        true, { "眷属": moved },
+        "被侵染者转为清醒眷属，仍计入人口；成瘾抵抗可减半压力");
+    }
+    return moved;
+  }
+
   function killProportional(state, cfg, fraction) {
     var n = 0;
     cfg.population.groups.forEach(function (g) {
@@ -313,6 +370,9 @@
                faults: 0, lastCycle: 0, lastShift: 0, lastSupply: 0, lastQuarantine: 0 },
       last: {}
     };
+    state.dream = { pressure: 0, infected: 0, lastLog: -99 };
+    state.wellbeing = null;
+    state.maintFund = { week: 0, need: 0, budget: 0, fromStock: 0, spend: 0 };
     state.last = {
       rationActual: 1,
       energy: cfg.energy.baseMW,
@@ -599,6 +659,9 @@
       (1 + ((cfg.ship && cfg.ship.energyK) || 0) * (speedRatio - 1));
     var lifeMW = Math.min(cfg.energy.lifeMW, energy);
     var rest = Math.max(0, energy - lifeMW);
+    // 休眠维持：舱位电耗先扣，剩余才给农业/工业
+    var dormantMW = Math.min(t0.dormant * ((cfg.hibernation && cfg.hibernation.mWPerDormant) || 0), rest);
+    rest = Math.max(0, rest - dormantMW);
     var agriMW = rest * I.agriShare;
     var indMW = rest * (1 - I.agriShare);
     var metalSupplyY = (cfg.metal.supplyTpy * clamp(indMW / cfg.energy.industryFullMW, 0, 1)) +
@@ -629,6 +692,9 @@
     // 周期事件（周级）：设备故障 / 维修、轮班、补给、隔离检疫
     var maintYield = stepMaintenance(state, cfg);
     var soc = state.society;
+
+    // 梦中侵染：眷属与低语把休眠者拖出梦境；医疗覆盖取上一周值
+    stepDream(state, cfg, soc, state.last ? state.last.medCoverage : 0.5);
 
     // 粮食产出
     // 水培高度自动化：在岗人口只影响边际人力，避免「冻 400 人就把粮食冻没」
@@ -838,10 +904,21 @@
       cfg.clone.podMetal * 2);
 
     var maintNeedM = cfg.metal.maintNeedTpy * dt;
-    var maintSpend = Math.min(maintNeedM, capM * share.maint / 100);
+    var maintBudget = capM * share.maint / 100;
+    var maintSpend = Math.min(maintNeedM, maintBudget);
+    var maintFromStock = 0;
     if (maintSpend < maintNeedM) {
-      maintSpend += Math.min(state.stocks.metal, maintNeedM - maintSpend);
+      maintFromStock = Math.min(state.stocks.metal, maintNeedM - maintSpend);
+      maintSpend += maintFromStock;
     }
+    // 维修资金口径：配额优先，不足部分吃金属库存；两项都记进状态供首页读数
+    state.maintFund = {
+      week: state.weeks,
+      need: Math.round(maintNeedM * 10) / 10,
+      budget: Math.round(maintBudget * 10) / 10,
+      fromStock: Math.round(maintFromStock * 10) / 10,
+      spend: Math.round(maintSpend * 10) / 10
+    };
     var maintGap = maintNeedM > 0 ? (maintNeedM - maintSpend) / maintNeedM : 0;
     // 失序与感染会拖垮维修效率：金属花了，活没干完
     if (soc) {
@@ -901,9 +978,8 @@
       state.projects.clonePods.push(state.weeks + cfg.clone.podLeadWeeks);
     }
 
-    // 只开采实际需要的金属；缺口才吃库存，避免库存无意义地涨到上限
-    var needM = maintSpend + constructionSpend;
-    var actualSupplyM = Math.min(capM, needM);
+    // 只开采本周配额（维修 + 已开工建设）；配额不足的部分由库存结算
+    var actualSupplyM = Math.min(capM, maintBudget + constructionSpend);
     state.stocks.metal = clamp(
       state.stocks.metal + actualSupplyM - maintSpend - constructionSpend,
       0, cfg.metal.cap
@@ -1064,13 +1140,19 @@
       deaths: weekDeaths / dt,
       targetDorm: targetDorm,
       metalSupply: metalSupplyY,
-      maintGap: maintGap
+      maintGap: maintGap,
+      dormantMW: dormantMW,
+      drugMaint: drugMaint
     };
 
     state.weeks++;
     // 个体层名册跟随人口变化（只在人数变化时增删，不逐人保存位置）
     if (global.XuanShuPeople && cfg.people && cfg.people.enabled !== false) {
       global.XuanShuPeople.sync(state, cfg);
+    }
+    // 群体健康 / 理智 / 意志：清醒与休眠分开聚合，随周结算刷新
+    if (global.XuanShuPeople && cfg.people && cfg.people.enabled !== false) {
+      state.wellbeing = global.XuanShuPeople.wellbeing(state, cfg);
     }
     if (global.XuanShuPlayer) {
       global.XuanShuPlayer.sync(state, cfg);
@@ -1080,6 +1162,16 @@
         global.XuanShuPlayer.yearly(state, cfg);
         // 古神：神恩回归、周期索取、祝福/诅咒年度结算
         if (global.XuanShuGods) global.XuanShuGods.yearly(state, cfg);
+        // 休眠维系年账：冻着多少人、电与药各耗多少，一眼可查
+        var dormNow = totals(state, cfg).dormant;
+        if (dormNow > 0) {
+          pushEvent(state, cfg, "hibernation", "维系", "休眠维系",
+            "冻着 " + Math.round(dormNow) + " 人 · 舱位电耗 " + (dormantMW || 0).toFixed(2) + " MW · 药剂维持 " +
+              (drugMaint || 0).toFixed(1) + " 份",
+            "梦中压力累计 " + (state.dream ? state.dream.pressure.toFixed(2) : "0") +
+              " · 累计眷属 " + (state.dream ? state.dream.infected : 0),
+            false, { "人口": 0 }, "维持成本先扣电再扣药；梦中侵染另计");
+        }
       }
     }
     if (state.weeks % cfg.time.weeksPerYear === 0) pushSeries(state, cfg);
@@ -1312,6 +1404,16 @@
           targetDorm: state.last.targetDorm,
           metalSupply: state.last.metalSupply,
           maintGap: state.last.maintGap,
+          // 维修资金：本周需求 / 配额 / 库存补足 / 实际支出
+          maintFund: state.maintFund ? clone(state.maintFund) : null,
+          // 休眠维系：舱位电耗 MW、药剂维持份数
+          dormantMW: state.last.dormantMW,
+          drugMaint: state.last.drugMaint,
+          // 群体状态：清醒 / 休眠两套个体聚合（加权平均 + 分位）
+          wellbeing: state.wellbeing || ((global.XuanShuPeople && state.people)
+            ? global.XuanShuPeople.wellbeing(state, cfg) : null),
+          // 梦里侵染：压力、累计感染、最近日志周
+          dream: state.dream ? clone(state.dream) : null,
           births: state.last.births,
           deaths: state.last.deaths,
           cloneOut: state.last.cloneOut,

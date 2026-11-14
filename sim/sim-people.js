@@ -167,10 +167,12 @@
         });
         z.total++;
         if (opts.detail === false) return;
+        var ps = pStats(p, state, cfg);
         persons.push({
           pid: p.id, group: gid, layer: p.layer, dept: p.dept,
           zone: pos.zone, zoneName: pos.zoneName, room: pos.room, post: pos.post,
-          dormant: !!p.dormant, implanted: !!p.implanted
+          dormant: !!p.dormant, implanted: !!p.implanted,
+          hp: ps.hp, mind: ps.mind, will: ps.will
         });
       });
     });
@@ -265,6 +267,7 @@
         if (source === "implant") { z.known++; totals.known++; }
         else { z.approx++; totals.approx++; }
 
+        var ps = pStats(p, state, cfg);
         persons.push({
           pid: p.id,
           label: "编号 " + p.id.slice(1),
@@ -275,6 +278,10 @@
           zoneName: pos.zoneName,
           room: precise ? pos.room : null,
           post: precise ? pos.post : null,
+          dormant: !!p.dormant,
+          hp: ps.hp,
+          mind: ps.mind,
+          will: ps.will,
           source: source,
           confidence: Math.round(pVis * 100),
           errorRadiusM: precise ? Math.max(10, Math.round(errM * 0.3)) : errM,
@@ -321,36 +328,104 @@
     };
   }
 
-  /** 个体 hp / mind 聚合：均值 + 分位数。字段暂由后续模型写入，缺失时返回 null 不编造。 */
-  function agg(arr) {
-    if (!arr.length) return null;
-    arr.sort(function (a, b) { return a - b; });
-    function pick(q) { return arr[Math.min(arr.length - 1, Math.max(0, Math.round((arr.length - 1) * q)))]; }
-    var sum = 0;
-    for (var i = 0; i < arr.length; i++) sum += arr[i];
-    var r1 = function (v) { return Math.round(v * 10) / 10; };
-    return { mean: r1(sum / arr.length), p25: r1(pick(0.25)), p50: r1(pick(0.5)), p75: r1(pick(0.75)) };
+  /** 个体健康 / 理智 / 意志：由群体状态 + 个体稳定噪声推导，不落盘，按需重算。 */
+  function pStats(p, state, cfg) {
+    var soc = state.society || {};
+    var inf = soc.infection || {};
+    var s = clamp(num(inf.share), 0, 1);
+    var med = clamp(num(state.last && state.last.medCoverage, 0.5), 0, 1);
+    var order = clamp(num(state.order, 0.5), 0, 1);
+    var meanW = clamp(num(soc.meanW, 60), 0, 100);
+    var corr = clamp(num(inf.meanC) / 100, 0, 1);
+    var infected = h01(p.seq, 41) < s;
+    var ration = clamp(num(state.last && state.last.rationActual, 1), 0, 1);
+    var hp, mind, will;
+    if (p.dormant) {
+      // 休眠：低代谢，健康随感染与医疗走；意识压低，古神感染（meanC）直接啃理智
+      hp = 48 + 16 * (1 - s) + 10 * med + 8 * ration - 8 * corr + (h01(p.seq, 43) - 0.5) * 8;
+      mind = 34 - 14 * corr - 8 * s + (h01(p.seq, 47) - 0.5) * 10;
+      will = 28 + (h01(p.seq, 53) - 0.5) * 10;
+    } else {
+      hp = 38 + 16 * (1 - s) + 14 * med + 12 * ration - (infected ? 16 : 0) + (h01(p.seq, 43) - 0.5) * 8;
+      mind = 30 + 0.40 * meanW + 12 * order - (infected ? 12 : 0) - 10 * s + (h01(p.seq, 47) - 0.5) * 12;
+      will = meanW + (h01(p.seq, 53) - 0.5) * 18;
+    }
+    return {
+      hp: Math.round(clamp(hp, 5, 100) * 10) / 10,
+      mind: Math.round(clamp(mind, 0, 100) * 10) / 10,
+      will: Math.round(clamp(will, 0, 100) * 10) / 10,
+      infected: infected
+    };
   }
 
+  /** 加权权重：层级越高权重越大；休眠者按 0.15 计（低代谢，但不计 0）。 */
+  function weightOf(p) {
+    var LW = { L1: 1.30, L2: 1.20, L3: 1.10, L4n: 1.00, L4clone: 0.90 };
+    var lw = num(LW[p.layer], 1);
+    return (p.dormant ? 0.15 : 1) * lw;
+  }
+
+  function aggRows(rows, key) {
+    if (!rows.length) return null;
+    var sw = 0, sv = 0, vals = [];
+    rows.forEach(function (r) {
+      sw += r.w;
+      sv += r.w * r[key];
+      vals.push(r[key]);
+    });
+    vals.sort(function (a, b) { return a - b; });
+    function pick(q) { return vals[Math.min(vals.length - 1, Math.max(0, Math.round((vals.length - 1) * q)))]; }
+    var r1 = function (v) { return Math.round(v * 10) / 10; };
+    return {
+      mean: r1(sv / Math.max(0.0001, sw)),
+      p25: r1(pick(0.25)), p50: r1(pick(0.5)), p75: r1(pick(0.75))
+    };
+  }
+
+  /**
+   * 群体指标：清醒 / 休眠两套独立聚合，互不混算。
+   * 加权平均按「层级权重 × 醒/休眠系数」；分位数按个体值未加权，仅作分布参考。
+   */
   function wellbeing(state, cfg) {
     if (!cfg.people || cfg.people.enabled === false) return null;
     if (!state.people) sync(state, cfg);
-    if (!state.people) return { coverage: 0, hp: null, mind: null };
-    var hp = [], mind = [], total = 0;
+    if (!state.people) return null;
+    var wk = state.weeks | 0;
+    if (state.people.cache && state.people.cache.wbWeek === wk && state.people.cache.wb) {
+      return state.people.cache.wb;
+    }
+    var awake = [], dorm = [];
     Object.keys(state.people.groups).forEach(function (gid) {
       state.people.groups[gid].forEach(function (p) {
-        total++;
-        if (typeof p.hp === "number" && isFinite(p.hp)) hp.push(p.hp);
-        if (typeof p.mind === "number" && isFinite(p.mind)) mind.push(p.mind);
+        var st = pStats(p, state, cfg);
+        var row = { w: weightOf(p), hp: st.hp, mind: st.mind, will: st.will };
+        (p.dormant ? dorm : awake).push(row);
       });
     });
-    return {
-      coverage: total ? Math.round((hp.length / total) * 1000) / 1000 : 0,
-      hp: agg(hp),
-      mind: agg(mind),
-      note: "个体 hp / mind 聚合；字段未接入前为 null，不做估算"
+    var pack = function (rows) {
+      return {
+        n: rows.length,
+        hp: aggRows(rows, "hp"),
+        mind: aggRows(rows, "mind"),
+        will: aggRows(rows, "will")
+      };
     };
+    var out = {
+      week: wk,
+      awake: pack(awake),
+      dormant: pack(dorm),
+      weights: {
+        awake: "层级 L1 1.30 / L2 1.20 / L3 1.10 / L4 1.00 / 克隆 0.90",
+        dormant: "同上 × 0.15（低代谢，不计 0）",
+        mean: "加权平均；p25/p50/p75 为个体值未加权分位"
+      }
+    };
+    state.people.cache = state.people.cache || { week: -1, brief: null };
+    state.people.cache.wb = out;
+    state.people.cache.wbWeek = wk;
+    return out;
   }
+
 
   /** 快照里的真值聚合（不含 4,000 条明细，避免每步序列化）。 */
   function brief(state, cfg) {
@@ -383,7 +458,7 @@
       wellbeing: wellbeing(state, cfg),
       note: "真值聚合；个人明细用 snapshot({view:'truth'})，玩家视图用 snapshot({view:'player',intel})"
     };
-    ppl.cache = { week: week, brief: b };
+    ppl.cache = { week: week, brief: b, wb: b.wellbeing, wbWeek: week };
     return b;
   }
 

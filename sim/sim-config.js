@@ -129,7 +129,15 @@
       dormantMortality: 0.002,  // 【推定】年速率
       podMetal: 5,              // 【推定】t/位
       podLeadWeeks: monthsToWeeks(9),    // 原 9 个月 → 39 周
-      maxPodStartPerWeek: perWeek(12)    // 原 12 位/月 → 2.77 位/周
+      maxPodStartPerWeek: perWeek(12),    // 原 12 位/月 → 2.77 位/周
+      // 休眠维持：每人 4 kW 舱位电耗，从农业/工业可用电力中先扣
+      mWPerDormant: 0.004,
+      // 梦中侵染：基础压力/位·周；眷属与低语放大，医疗覆盖压制
+      dreamK: 0.00006,
+      dreamThrallK: 0.02,       // 每 1 名眷属 +2%
+      dreamWhisperK: 0.15,      // 每 1 点 meanC +15%
+      dreamDrugShield: 0.40,    // 医疗覆盖最多压制 40%
+      dreamLogWeeks: 8          // 同一类梦中侵染日志至少间隔 8 周
     },
 
     /* ---------------- 克隆 ---------------- */
