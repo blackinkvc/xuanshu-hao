@@ -858,6 +858,43 @@
             gene: { tech: 0.004, drug: 15 }, note: "舱门外焊着铁条，里面的人睡得很沉",
             crew: ["典狱 雷戈", "押运 刀疤", "记录 许默", "医官 何棠"] }
         ]
+      },
+
+      /* ---------------- 五类行星 · 接触判定 ----------------
+         行星类占探索奇遇的 chanceExplore；抽中后按 weights 决定类型，
+         unique 类出现一次后移出池子。接触概率 P = 1 − e^(−scanK×dwell×f(tech))，
+         f(tech)=0.5+tech；低于 minTech 只给「轨道级」结果。停留按周扣粮与工质。 */
+      planets: {
+        enabled: true,
+        chanceExplore: 0.15,
+        weights: { colony: 30, alien: 22, hostile: 20, abandoned: 18, ruins: 10 },
+        unique: { ruins: 1 },
+        dwellWeeks: { colony: 3, alien: 4, hostile: 2, abandoned: 3, ruins: 5 },
+        minTech: { colony: 0.25, alien: 0.35, hostile: 0.30, abandoned: 0.20, ruins: 0.40 },
+        scanK: 0.06,
+        dwellFood: 6,               // 吨/周
+        dwellProp: 1.5,             // 吨/周
+        popRange: { colony: [20, 80], alien: [40, 160], hostile: [120, 420] },
+        loot: { metal: [30, 80], food: [40, 120] },
+        archiveTech: [0.02, 0.05],
+        alienTech: 0.03,
+        alienMetal: [60, 120],
+        hostile: {
+          forceBase: 80, forceTier: 40, forceAggr: 30,
+          lossBad: [20, 60], lossMid: [5, 15], wearBad: 0.03,
+          popValueSmall: 3.0, popValueMid: 4.2, popValueBig: 5.5
+        },
+        abandoned: {
+          hydroUnits: [2, 6], hydroMetal: 20,
+          seedPct: [0.01, 0.03], seedWeeks: 26,
+          scrapMetal: [80, 160], scrapWeeks: 2
+        },
+        ruins: {
+          whisperBase: 0.8, whisperTier: 0.4,
+          gifts: { tech: 30, pop: 30, res: 25, gene: 15 },
+          techGain: 0.05, infectTech: 3,
+          popRange: [40, 100], metal: 150, drug: 20, geneCreditK: 0.02
+        }
       }
     },
 

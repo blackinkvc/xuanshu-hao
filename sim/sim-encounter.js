@@ -139,6 +139,8 @@
     if (typeof e.gapYears !== "number") e.gapYears = 0;
     if (typeof e.luck !== "number") e.luck = 1;
     if (!e.pending) e.pending = null;
+    if (!e.planetsDone || typeof e.planetsDone !== "object") e.planetsDone = {};
+    if (typeof e.planetCount !== "number") e.planetCount = 0;
     return e;
   }
 
@@ -892,6 +894,39 @@
 
     state.player.debugForceEncounter = false;
     var cat = pickCategory(state, cfg);
+    // 行星接触：探索类奇遇有 chanceExplore 概率转成五类行星之一
+    var planet = null;
+    if (cat === "explore" && randNext(state) < num(planetCfg(cfg).chanceExplore, 0.15)) {
+      planet = rollPlanet(state, cfg);
+    }
+    if (planet) {
+      e.pending = {
+        id: "enc_" + state.loop + "_" + state.weeks,
+        cat: cat, catLabel: "探索 · 行星接触",
+        year: Math.floor(absYear(state, cfg)), week: state.weeks,
+        cards: [planet.card], createdWeek: state.weeks, auto: false,
+        planet: planet
+      };
+      e.gapYears = 0;
+      e.lastWeek = state.weeks;
+      e.lastYear = Math.floor(absYear(state, cfg));
+      e.last = { week: state.weeks, year: e.lastYear, cat: cat,
+        probability: Math.round(num(jr.probability) * 1000) / 1000, fired: true };
+      e.counts.total = num(e.counts.total) + 1;
+      e.counts.byCat[cat] = num(e.counts.byCat[cat]) + 1;
+      if (state.run && state.run.auto) {
+        var popt = planetOptions(state, cfg, e.pending.planet);
+        var pick = null;
+        for (var qi = 0; qi < popt.length; qi++) {
+          if (popt[qi].key === "retreat" && popt[qi].ok) { pick = popt[qi]; break; }
+        }
+        if (!pick) for (var qj = 0; qj < popt.length; qj++) if (popt[qj].ok) { pick = popt[qj]; break; }
+        if (pick) planetResolve(state, cfg, { opt: pick.key });
+        planetClose(state, cfg, { auto: true });
+        return null;
+      }
+      return e.pending;
+    }
     var drawn = drawThree(state, cfg, cat);
     var id = "enc_" + state.loop + "_" + state.weeks;
     e.pending = {
@@ -943,6 +978,16 @@
       }
       return derelictClose(state, cfg, { auto: true });
     }
+    if (e.pending.planet) {
+      var popt2 = planetOptions(state, cfg, e.pending.planet);
+      var pick2 = null;
+      for (var pk = 0; pk < popt2.length; pk++) {
+        if (popt2[pk].key === "retreat" && popt2[pk].ok) { pick2 = popt2[pk]; break; }
+      }
+      if (!pick2) for (var pm = 0; pm < popt2.length; pm++) if (popt2[pm].ok) { pick2 = popt2[pm]; break; }
+      if (pick2) planetResolve(state, cfg, { opt: pick2.key });
+      return planetClose(state, cfg, { auto: true });
+    }
     var i = autoPick(state, cfg);
     if (i < 0) return null;
     var card = e.pending.cards[i];
@@ -974,6 +1019,10 @@
     if (card.id === "ex_derelict" && !opts.derelictDone) {
       return { ok: true, needDerelict: true, derelict: derelictView(state, cfg),
         card: card, msg: "废弃殖民舰要在卡片里逐项勾选" };
+    }
+    if (card.id.indexOf("pl_") === 0 && e.pending.planet && !opts.planetDone) {
+      return { ok: true, needPlanet: true, planet: planetView(state, cfg),
+        card: card, msg: "先在面板里选接触方式" };
     }
     if (card.id === "tr_negotiator" && !opts.tradeDone) {
       ensureTrade(state, cfg);
@@ -1775,6 +1824,403 @@
     return { ok: true, msg: "", encounter: brief(state, cfg) };
   }
 
+  /* ---------------- 五类行星 · 接触判定 ---------------- */
+
+  var PLANET_LABEL = {
+    colony: "前人类殖民地", alien: "外星文明", hostile: "敌对星球",
+    abandoned: "废弃宜居星", ruins: "古神遗迹"
+  };
+  var PLANET_RARITY = { colony: "common", alien: "epic", hostile: "rare", abandoned: "common", ruins: "legendary" };
+
+  function planetCfg(cfg) { return ((cfg.encounter || {}).planets) || {}; }
+
+  function ensurePlanets(state, cfg) {
+    var e = ensure(state, cfg);
+    if (!e.planetsDone || typeof e.planetsDone !== "object") e.planetsDone = {};
+    if (typeof e.planetCount !== "number") e.planetCount = 0;
+    return e;
+  }
+
+  function pickPlanetType(state, cfg) {
+    var P = planetCfg(cfg), W = P.weights || {}, e = ensurePlanets(state, cfg);
+    var keys = Object.keys(W).filter(function (k) {
+      if (k === "derelict") return false;
+      var cap = num((P.unique || {})[k], 0);
+      return !(cap > 0 && num(e.planetsDone[k]) >= cap);
+    });
+    var total = 0;
+    keys.forEach(function (k) { total += Math.max(0, num(W[k])); });
+    if (!keys.length || total <= 0) return null;
+    var r = randNext(state) * total;
+    for (var i = 0; i < keys.length; i++) {
+      r -= Math.max(0, num(W[keys[i]]));
+      if (r <= 0) return keys[i];
+    }
+    return keys[keys.length - 1];
+  }
+
+  function planetForce(state, cfg) {
+    var soc = state.society || {};
+    var tech = clamp(num((soc.machine || {}).tech, 0.3), 0, 1);
+    var combat = state.groups && state.groups.combat ? num(state.groups.combat.awake) : 0;
+    var avail = 1;
+    if (global.XuanShuSociety && global.XuanShuSociety.garrisonAvail) {
+      avail = clamp(num(global.XuanShuSociety.garrisonAvail(state, cfg), 1), 0.2, 1);
+    }
+    return Math.round(combat * (0.6 + 0.4 * tech) * avail);
+  }
+
+  function addStock(state, cfg, key, add) {
+    var cap = key === "metal" ? num(cfg.metal.cap, 0)
+      : key === "food" ? num(cfg.food.cap, 0)
+        : key === "water" ? num(cfg.water.cap, 0)
+          : num(cfg.hibernation.drugCap, 0);
+    if (!(cap > 0)) cap = Infinity;
+    state.stocks[key] = Math.min(cap, num(state.stocks[key]) + add);
+  }
+
+  function addTech(state, d) {
+    var m = state.society && state.society.machine;
+    if (m) m.tech = clamp(num(m.tech) + d, 0, 1);
+  }
+
+  function rollPlanet(state, cfg) {
+    var P = planetCfg(cfg), e = ensurePlanets(state, cfg);
+    if (!P.enabled) return null;
+    var type = pickPlanetType(state, cfg);
+    if (!type) return null;
+    var tech = techOf(state);
+    var dwell = Math.max(1, rnd((P.dwellWeeks || {})[type] || 3));
+    var minTech = num((P.minTech || {})[type], 0);
+    var techOk = tech >= minTech;
+    var contactP = 1 - Math.exp(-num(P.scanK, 0.06) * dwell * (0.5 + tech));
+    var contacted = randNext(state) < contactP;
+    var hp = P.hostile || {};
+    var tier = 1 + Math.floor(randNext(state) * 3);
+    var aggr = randNext(state);
+    var F = contacted && type === "hostile"
+      ? Math.round(num(hp.forceBase, 80) + num(hp.forceTier, 40) * tier + num(hp.forceAggr, 30) * aggr)
+      : 0;
+    var M = type === "hostile" ? planetForce(state, cfg) : 0;
+    var ratio = F > 0 ? M / F : 0;
+    var pop = 0;
+    var rg = (P.popRange || {})[type];
+    if (rg) pop = Math.round(num(rg[0]) + randNext(state) * Math.max(1, num(rg[1]) - num(rg[0])));
+
+    var dwellFood = 0, dwellProp = 0;
+    var fWant = dwell * num(P.dwellFood, 6);
+    dwellFood = Math.round(Math.min(num(state.stocks.food), fWant));
+    if (dwellFood > 0) addStock(state, cfg, "food", -dwellFood);
+    var pWant = dwell * num(P.dwellProp, 1.5);
+    var pHave = num(state.ship && state.ship.propellant);
+    dwellProp = Math.round(Math.min(pHave, pWant) * 10) / 10;
+    if (dwellProp > 0 && state.ship) state.ship.propellant = Math.max(0, pHave - dwellProp);
+
+    var p = {
+      id: "pl-" + state.weeks + "-" + type, type: type, week: state.weeks,
+      year: Math.floor(state.weeks / 52), tier: tier, dwell: dwell,
+      minTech: minTech, techOk: techOk, contactP: Math.round(contactP * 1000) / 1000,
+      contacted: contacted, pop: pop, F: F, M: M, ratio: Math.round(ratio * 100) / 100,
+      dwellFood: dwellFood, dwellProp: dwellProp, forced: null, result: null
+    };
+
+    // 敌对星球：接触即判定，<0.5 当场吃亏，只保留撤退
+    if (type === "hostile" && contacted && ratio < 0.5) {
+      var loss = Math.round(num((hp.lossBad || [20, 60])[0]) +
+        randNext(state) * (num((hp.lossBad || [20, 60])[1]) - num((hp.lossBad || [20, 60])[0])));
+      var t = global.XuanShuSim && global.XuanShuSim.totals ? global.XuanShuSim.totals(state, cfg) : null;
+      var totalPop = t ? Math.max(1, num(t.awake) + num(t.dormant)) : 4000;
+      if (global.XuanShuSim && global.XuanShuSim.killProportional) {
+        global.XuanShuSim.killProportional(state, cfg, loss / totalPop);
+      }
+      state.wear = clamp(num(state.wear) + num(hp.wearBad, 0.03), 0, 1);
+      p.forced = loss;
+      p.result = {
+        kind: "forced",
+        lines: [
+          "接触：对方先开火，我方 M " + M + " 对 F " + F + "（比值 " + p.ratio + "）",
+          "损失：人口 −" + loss + " 人、舰体磨损 +" + Math.round(num(hp.wearBad, 0.03) * 100) + "%",
+          "关系：只能撤回轨道，本星球不能再谈"
+        ]
+      };
+      pushEvent(state, cfg, "planet", "行星接触", "敌对星球 · 被迫撤离",
+        "M " + M + " / F " + F + " < 0.5，接触即遭伏击；人口 −" + loss,
+        "战力比 " + p.ratio, true,
+        { "人口": -loss, "磨损": Math.round(num(hp.wearBad, 0.03) * 1000) / 10 }, "同类星球下次可先侦察再接近");
+    }
+
+    e.planetCount += 1;
+    e.planetsDone[type] = num(e.planetsDone[type]) + (type === "ruins" ? 1 : 0);
+    p.card = {
+      id: "pl_" + type, name: PLANET_LABEL[type] || "未知行星",
+      rarity: PLANET_RARITY[type] || "rare", cat: "explore", available: true,
+      effectText: "接触" + (PLANET_LABEL[type] || "行星") + "（停留 " + dwell + " 周）",
+      costText: "粮 −" + dwellFood + " 吨 / 工质 −" + dwellProp + " 吨",
+      followText: contacted ? "已建立接触" : "未建立接触"
+    };
+    return p;
+  }
+
+  function planetOptions(state, cfg, p) {
+    var P = planetCfg(cfg), opts = [];
+    function opt(key, label, ok, reason) { opts.push({ key: key, label: label, ok: ok !== false, reason: reason || "" }); }
+    var pro = num(state.ship && state.ship.propellant);
+    if (p.forced) { opt("retreat", "撤回航线", true, ""); return opts; }
+    if (!p.contacted) {
+      opt("retreat", "返回航线（未接触）", pro >= 2, pro >= 2 ? "" : "工质不足 2 吨");
+      return opts;
+    }
+    if (p.type === "colony") {
+      if (!p.techOk) {
+        opt("orbit", "轨道级测绘（科技不足）", true);
+        opt("retreat", "返回航线", true);
+        return opts;
+      }
+      opt("archive", "取走殖民地档案（科技 +2~5%）", true);
+      opt("loot", "搜刮仓储（金属 +30~80 / 粮 +40~120）", true);
+      opt("survivors", "带走幸存者（人口，需舱位）", freePods(state, cfg) > 0, "没有空舱位");
+      opt("retreat", "不接触，返回航线", true);
+    } else if (p.type === "alien") {
+      opt("negotiate", "按心理价交易（付资源，换科技与人口）", true);
+      opt("techswap", "技术交换（金属 −60~120，科技 +3%）", num(state.stocks.metal) >= 60, "金属不足 60 吨");
+      opt("refuse", "婉拒并离开", true);
+    } else if (p.type === "hostile") {
+      var hp = P.hostile || {};
+      var pv = p.ratio >= 1 ? num(hp.popValueSmall, 3) : (p.ratio >= 0.5 ? num(hp.popValueMid, 4.2) : num(hp.popValueBig, 5.5));
+      p.paid = Math.round(p.pop * pv * (p.ratio < 1 ? 1.3 : 1));
+      opt("negotiate", "按心理价买平安（" + p.paid + " 当量）", availableValue(state, cfg) >= p.paid, "可动用资源不足");
+      opt("plunder", "武力夺取（需 M ≥ F）", p.M >= p.F, "战力不足");
+      opt("retreat", "退出轨道（秩序 −1%）", true);
+    } else if (p.type === "abandoned") {
+      if (!p.techOk) {
+        opt("orbit", "轨道级测绘（科技不足）", true);
+        opt("retreat", "返回航线", true);
+        return opts;
+      }
+      opt("eco", "接管生态舱（水培 +2~6，金属 −20）", num(state.stocks.metal) >= 20, "金属不足 20 吨");
+      opt("seeds", "采集种源（粮产 +1~3%，26 周）", true);
+      opt("scrap", "拆解残骸（金属 +80~160，耗时 +2 周）", true);
+      opt("retreat", "不接触，返回航线", true);
+    } else if (p.type === "ruins") {
+      if (!p.techOk) {
+        opt("observe", "在轨观测（低语减半）", true);
+        opt("retreat", "返回航线", true);
+        return opts;
+      }
+      opt("gift_tech", "带走技术残片（科技 +5%）", true);
+      opt("gift_pop", "带走沉睡信众（人口）", freePods(state, cfg) > 0, "没有空舱位");
+      opt("gift_res", "带走物资（金属 +150 / 药剂 +20）", true);
+      opt("gift_gene", "带走基因样本（金属 +20 / 科技 +1%）", true);
+      opt("retreat", "不取，返回航线", true);
+    }
+    return opts;
+  }
+
+  function planetView(state, cfg) {
+    var e = ensurePlanets(state, cfg);
+    var p = e.pending && e.pending.planet;
+    if (!p) return null;
+    var opts = p.result ? [] : planetOptions(state, cfg, p);
+    return {
+      id: p.id, type: p.type, label: PLANET_LABEL[p.type] || "未知行星",
+      tier: p.tier, dwell: p.dwell, contacted: !!p.contacted, contactP: p.contactP,
+      techOk: !!p.techOk, minTech: p.minTech, pop: p.pop,
+      M: p.M, F: p.F, ratio: p.ratio, forced: p.forced || 0,
+      dwellFood: p.dwellFood, dwellProp: p.dwellProp,
+      paid: p.paid || 0, result: p.result, opts: opts,
+      hint: p.type === "hostile"
+        ? "敌对星球的接触概率与战力比决定选项：<0.5 当场吃亏；0.5–1 谈判加价 30%；>1 可抢。"
+        : "接触概率由停留周数与科技决定；低于最低科技只能拿轨道级结果。"
+    };
+  }
+
+  function planetResolve(state, cfg, sel) {
+    var e = ensurePlanets(state, cfg);
+    var p = e.pending && e.pending.planet;
+    if (!p) return { ok: false, msg: "当前没有行星接触" };
+    if (p.result) return { ok: false, msg: "这一颗已经结算" };
+    var key = (sel && sel.opt) || "";
+    var opts = planetOptions(state, cfg, p);
+    var found = null;
+    for (var i = 0; i < opts.length; i++) if (opts[i].key === key) found = opts[i];
+    if (!found) return { ok: false, msg: "没有这个选项" };
+    if (!found.ok) return { ok: false, msg: found.reason || "现在做不了" };
+
+    var P = planetCfg(cfg), lines = [], kind = key;
+    var hp = P.hostile || {}, AB = P.abandoned || {}, RU = P.ruins || {};
+
+    if (key === "retreat") {
+      if (p.type === "hostile") state.order = clamp(num(state.order) - 0.01, 0.05, 1);
+      lines.push("选择：退回航线，不再接触");
+      lines.push("消耗：粮 −" + p.dwellFood + " 吨、工质 −" + p.dwellProp + " 吨（停留 " + p.dwell + " 周）");
+      lines.push("关系：无变化" + (p.type === "hostile" ? "；秩序 −1%" : ""));
+    } else if (key === "orbit" || key === "observe") {
+      var orderLoss = key === "observe" ? 0.01 * (1 + 0.5 * p.tier) : 0;
+      if (orderLoss) {
+        state.order = clamp(num(state.order) - orderLoss, 0.05, 1);
+        addC(state, p.tier);
+        lines.push("选择：在轨观测，不落地");
+        lines.push("损失：秩序 −" + (orderLoss * 100).toFixed(1) + "%、感染 +" + p.tier);
+        lines.push("得到：一段无法解读的信号记录（无实装收益）");
+      } else {
+        lines.push("选择：轨道级测绘，科技低于 " + Math.round(p.minTech * 100) + "%，无法落地");
+        lines.push("得到：星表数据（无实装收益）");
+        lines.push("关系：无变化");
+      }
+    } else if (key === "archive") {
+      var tg = num((P.archiveTech || [0.02, 0.05])[0]) +
+        randNext(state) * (num((P.archiveTech || [0.02, 0.05])[1]) - num((P.archiveTech || [0.02, 0.05])[0]));
+      tg = Math.round(tg * 10000) / 10000;
+      addTech(state, tg);
+      lines.push("选择：进入殖民地档案库");
+      lines.push("得到：科技 +" + (tg * 100).toFixed(2) + "%");
+      lines.push("关系：无变化；停留消耗已扣");
+      kind = "archive";
+    } else if (key === "loot") {
+      var mL = Math.round(num((P.loot || {}).metal[0]) + randNext(state) * (num((P.loot || {}).metal[1]) - num((P.loot || {}).metal[0])));
+      var fL = Math.round(num((P.loot || {}).food[0]) + randNext(state) * (num((P.loot || {}).food[1]) - num((P.loot || {}).food[0])));
+      addStock(state, cfg, "metal", mL); addStock(state, cfg, "food", fL);
+      lines.push("选择：搜刮殖民地仓储");
+      lines.push("得到：金属 +" + mL + " 吨、粮 +" + fL + " 吨");
+      lines.push("关系：无变化");
+    } else if (key === "survivors") {
+      var pods = freePods(state, cfg);
+      var want = Math.max(1, Math.round(p.pop * 0.25));
+      var got = Math.min(want, pods);
+      state.groups.derelict.awake += got;
+      addC(state, 1);
+      lines.push("选择：带走殖民地幸存者");
+      lines.push("得到：遗民 +" + got + " 人（编入遗民组，清醒）；感染 +1");
+      lines.push("关系：舱位剩 " + Math.max(0, pods - got) + "；" + (got < want ? "其余人留在原地" : "全部带走"));
+    } else if (key === "negotiate" && p.type === "alien") {
+      var payA = Math.round(p.pop * 20);
+      var pa = payValue(state, cfg, payA);
+      if (!pa.ok) return { ok: false, msg: "资源不足，差 " + pa.short };
+      var techA = num(P.alienTech, 0.03);
+      addTech(state, techA);
+      var podsA = freePods(state, cfg);
+      var popA = Math.min(Math.max(1, Math.round(p.pop * 0.1)), podsA);
+      if (popA > 0) state.groups.derelict.awake += popA;
+      lines.push("付出：" + Object.keys(pa.spent).map(function (k) {
+        return ({ metal: "金属", food: "粮", drug: "药剂", water: "水" }[k] || k) + " −" + pa.spent[k];
+      }).join("、"));
+      lines.push("得到：科技 +" + (techA * 100).toFixed(1) + "%、外来人口 +" + popA + " 人");
+      lines.push("关系：建立了第一次接触；停留消耗已扣");
+    } else if (key === "negotiate" && p.type === "hostile") {
+      var payH = payValue(state, cfg, p.paid);
+      if (!payH.ok) return { ok: false, msg: "资源不足，差 " + payH.short };
+      addTech(state, 0.01);
+      state.order = clamp(num(state.order) + 0.01, 0, 1);
+      lines.push("付出：" + Object.keys(payH.spent).map(function (k) {
+        return ({ metal: "金属", food: "粮", drug: "药剂", water: "水" }[k] || k) + " −" + payH.spent[k];
+      }).join("、") + "（心理价 " + p.paid + "）");
+      lines.push("得到：航线情报，科技 +1%、秩序 +1%");
+      lines.push("关系：对方收钱放行，不结仇；停留消耗已扣");
+    } else if (key === "techswap") {
+      var costA = Math.round(num((P.alienMetal || [60, 120])[0]) +
+        randNext(state) * (num((P.alienMetal || [60, 120])[1]) - num((P.alienMetal || [60, 120])[0])));
+      if (num(state.stocks.metal) < costA) return { ok: false, msg: "金属不足 " + costA + " 吨" };
+      addStock(state, cfg, "metal", -costA);
+      addTech(state, 0.03);
+      lines.push("付出：金属 −" + costA + " 吨");
+      lines.push("得到：科技 +3%");
+      lines.push("关系：等价交换，无附加");
+    } else if (key === "refuse") {
+      state.order = clamp(num(state.order) + 0.01, 0, 1);
+      lines.push("选择：婉拒接触，保持距离");
+      lines.push("得到：无；秩序 +1%");
+      lines.push("关系：对方没有强留");
+    } else if (key === "plunder") {
+      if (p.M < p.F) return { ok: false, msg: "战力不足" };
+      var mt = Math.round(p.pop * num(hp.popValueSmall, 3) * 2);
+      var dm = Math.round(mt * 0.4), df = Math.round(mt * 0.2), dd = Math.round(mt * 0.2);
+      var dp = Math.min(Math.round(mt * 0.1 / 3), freePods(state, cfg));
+      addStock(state, cfg, "metal", dm); addStock(state, cfg, "food", df); addStock(state, cfg, "drug", dd);
+      if (dp > 0) state.groups.derelict.dormant += dp;
+      addTech(state, 0.01);
+      state.order = clamp(num(state.order) - 0.03, 0.05, 1);
+      addC(state, 2);
+      lines.push("选择：武力夺取（M " + p.M + " ≥ F " + p.F + "）");
+      lines.push("得到：金属 +" + dm + " 吨、粮 +" + df + " 吨、药剂 +" + dd + " 份、休眠俘获 +" + dp + " 人、科技 +1%");
+      lines.push("关系：秩序 −3%、感染 +2");
+    } else if (key === "eco") {
+      var units = Math.round(num((AB.hydroUnits || [2, 6])[0]) +
+        randNext(state) * (num((AB.hydroUnits || [2, 6])[1]) - num((AB.hydroUnits || [2, 6])[0])));
+      addStock(state, cfg, "metal", -num(AB.hydroMetal, 20));
+      state.infra.hydro = num(state.infra.hydro) + units;
+      lines.push("付出：金属 −" + num(AB.hydroMetal, 20) + " 吨");
+      lines.push("得到：水培单元 +" + units);
+      lines.push("关系：生态舱并入本舰");
+    } else if (key === "seeds") {
+      var pct = num((AB.seedPct || [0.01, 0.03])[0]) +
+        randNext(state) * (num((AB.seedPct || [0.01, 0.03])[1]) - num((AB.seedPct || [0.01, 0.03])[0]));
+      pct = Math.round(pct * 1000) / 1000;
+      if (!state.encounter.foodBonus) state.encounter.foodBonus = null;
+      state.encounter.foodBonus = { mul: 1 + pct, until: state.weeks + num(AB.seedWeeks, 26) };
+      lines.push("选择：采集原生种源");
+      lines.push("得到：粮食产出 +" + (pct * 100).toFixed(1) + "%，持续 " + num(AB.seedWeeks, 26) + " 周");
+      lines.push("关系：无变化");
+    } else if (key === "scrap") {
+      var sm = Math.round(num((AB.scrapMetal || [80, 160])[0]) +
+        randNext(state) * (num((AB.scrapMetal || [80, 160])[1]) - num((AB.scrapMetal || [80, 160])[0])));
+      addStock(state, cfg, "metal", sm);
+      state.weeks += num(AB.scrapWeeks, 2);
+      lines.push("选择：拆解废弃星残骸");
+      lines.push("得到：金属 +" + sm + " 吨");
+      lines.push("代价：拆解耗时 " + num(AB.scrapWeeks, 2) + " 周（航行周已前移）");
+    } else if (key.indexOf("gift_") === 0) {
+      var whisper = (num(RU.whisperBase, 0.8) + num(RU.whisperTier, 0.4) * p.tier) * p.dwell;
+      var mind = Math.round(whisper * 10) / 10;
+      var ord = Math.round(whisper * 0.01 * 1000) / 1000;
+      state.order = clamp(num(state.order) - ord, 0.05, 1);
+      addC(state, 1 + p.tier);
+      if (key === "gift_tech") {
+        addTech(state, num(RU.techGain, 0.05));
+        lines.push("得到：科技 +" + (num(RU.techGain, 0.05) * 100).toFixed(1) + "%");
+      } else if (key === "gift_pop") {
+        var rg2 = RU.popRange || [40, 100];
+        var n2 = Math.round(num(rg2[0]) + randNext(state) * (num(rg2[1]) - num(rg2[0])));
+        n2 = Math.min(n2, freePods(state, cfg));
+        state.groups.derelict.dormant += n2;
+        lines.push("得到：沉睡信众 +" + n2 + " 人（休眠）");
+      } else if (key === "gift_res") {
+        addStock(state, cfg, "metal", num(RU.metal, 150));
+        addStock(state, cfg, "drug", num(RU.drug, 20));
+        lines.push("得到：金属 +" + num(RU.metal, 150) + " 吨、药剂 +" + num(RU.drug, 20) + " 份");
+      } else {
+        addStock(state, cfg, "metal", 20);
+        addTech(state, 0.01);
+        lines.push("得到：基因样本（金属 +20 吨、科技 +1%）");
+      }
+      lines.push("代价：低语 " + mind + "，秩序 −" + (ord * 100).toFixed(1) + "%、感染 +" + (1 + p.tier));
+      lines.unshift("选择：进入遗迹取走一件");
+    }
+
+    p.result = { kind: kind, lines: lines };
+    pushEvent(state, cfg, "planet", "行星接触", PLANET_LABEL[p.type] + " · " + lines[0],
+      lines[1] || "", "接触概率 " + Math.round(p.contactP * 100) + "% / 停留 " + p.dwell + " 周",
+      true, null, "同类行星的接触判定沿用同一套公式");
+    return { ok: true, msg: lines.join("；"), result: p.result, planet: planetView(state, cfg) };
+  }
+
+  function planetClose(state, cfg, opts) {
+    opts = opts || {};
+    var e = ensurePlanets(state, cfg);
+    if (!e.pending) return { ok: false, msg: "当前没有待结算的奇遇" };
+    var p = e.pending.planet;
+    e.history.push({
+      year: e.pending.year, cat: e.pending.cat,
+      cardId: p ? "pl_" + p.type : "planet", cardName: p ? (PLANET_LABEL[p.type] || "行星") : "行星",
+      rarity: p ? (PLANET_RARITY[p.type] || "rare") : "rare", choice: 0,
+      sub: p && p.result ? p.result.kind : "passed",
+      week: state.weeks, auto: !!opts.auto
+    });
+    var cap = num((cfg.encounter || {}).historyCap, 200);
+    if (e.history.length > cap) e.history.shift();
+    e.pending = null;
+    return { ok: true, msg: "", encounter: brief(state, cfg) };
+  }
+
   /* ---------------- 摘要 ---------------- */
 
   function brief(state, cfg) {
@@ -1805,6 +2251,7 @@
         cards: e.pending.cards,
         auto: !!e.pending.auto,
         derelict: e.pending.derelict ? derelictView(state, cfg) : null,
+        planet: e.pending.planet ? planetView(state, cfg) : null,
         negotiation: state.negotiation && state.negotiation.cp ? negotiationView(state, cfg) : null,
         mortgage: e.pending.cards && e.pending.cards.some(function (c) { return c.id === "tr_gene_mortgage"; })
           ? mortgageView(state, cfg) : null
@@ -1847,6 +2294,12 @@
     derelictResolve: derelictResolve,
     derelictClose: derelictClose,
     derelictView: derelictView,
+    // 五类行星（v6.31）
+    ensurePlanets: ensurePlanets,
+    rollPlanet: rollPlanet,
+    planetView: planetView,
+    planetResolve: planetResolve,
+    planetClose: planetClose,
     // 谈判 / 基因抵押（v6.30）
     negotiationView: negotiationView,
     negotiationResolve: negotiationResolve,

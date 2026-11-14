@@ -1002,6 +1002,10 @@
         (1 - cfg.society.machine.prodLoss * Math.min(3, soc.machine.depts.length)) *
         (soc.effects.prodMul || 1) * gMul("prodMul", 1);
     }
+    // 废弃宜居星「采集种源」：限时粮食产出加成（v6.31）
+    if (state.encounter && state.encounter.foodBonus && state.weeks < state.encounter.foodBonus.until) {
+      production *= clamp(num(state.encounter.foodBonus.mul, 1), 1, 1.2);
+    }
     production *= maintYield;
     // 营养（体能 fit、神经损伤）与成瘾（三档体能惩罚、化学极乐）对出力的折损
     if (state.nutrition) {
@@ -1924,6 +1928,23 @@
           : { ok: false, msg: "encounter 层未加载" };
       },
 
+      /** 五类行星：面板选项 / 结算 / 收队（v6.31） */
+      planetView: function () {
+        return global.XuanShuEncounter && global.XuanShuEncounter.planetView
+          ? global.XuanShuEncounter.planetView(state, cfg)
+          : null;
+      },
+      planetResolve: function (sel) {
+        return global.XuanShuEncounter
+          ? global.XuanShuEncounter.planetResolve(state, cfg, sel || {})
+          : { ok: false, msg: "encounter 层未加载" };
+      },
+      planetClose: function () {
+        return global.XuanShuEncounter
+          ? global.XuanShuEncounter.planetClose(state, cfg, {})
+          : { ok: false, msg: "encounter 层未加载" };
+      },
+
       /** 谈判：出价 / 掠夺；收场后清 pending（v6.30） */
       negotiationView: function (debug) {
         return global.XuanShuEncounter && global.XuanShuEncounter.negotiationView
@@ -2046,6 +2067,7 @@
     normalizedShares: normalizedShares,
     metrics: metrics,
     diffMetrics: diffMetrics,
+    killProportional: killProportional,
     cleanDeltas: cleanDeltas,
     eventIsKey: eventIsKey
   };

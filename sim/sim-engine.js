@@ -28,7 +28,7 @@
 (function (global) {
   "use strict";
 
-  var VERSION = "2.4.0";
+  var VERSION = "2.5.0";
 
   // 一周为 1：单位 → 周数。month 不是整数周，按 52/12 折算后再取整。
   var UNITS = {
@@ -326,6 +326,24 @@
       derelictClose: function () {
         if (typeof sim.derelictClose !== "function") return { ok: false, msg: "引擎未提供废弃殖民舰结算" };
         var r = sim.derelictClose();
+        emit("encounter", r, {});
+        return r;
+      },
+
+      // —— 五类行星（v6.31） ——
+      planetView: function () {
+        if (typeof sim.planetView !== "function") return null;
+        return sim.planetView();
+      },
+      planetResolve: function (sel) {
+        if (typeof sim.planetResolve !== "function") return { ok: false, msg: "引擎未提供行星结算" };
+        var r = sim.planetResolve(sel || {});
+        emit("encounter", r, {});
+        return r;
+      },
+      planetClose: function () {
+        if (typeof sim.planetClose !== "function") return { ok: false, msg: "引擎未提供行星收队" };
+        var r = sim.planetClose();
         emit("encounter", r, {});
         return r;
       },
