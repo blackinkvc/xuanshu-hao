@@ -341,6 +341,11 @@
     var p = ensure(state, cfg);
     return {
       health: rnd(p.pc.health),
+      // 理智：眷属侵染越深，精神状态越差（个体口径，不是群体聚合）
+      mind: clamp(Math.round(100 - num(p.pc.stage) * 18 - num(p.pc.infectionC) * 0.35), 0, 100),
+      // 活跃精神：意志 + 场上加成
+      spirit: clamp(Math.round(num(p.pc.will) + num(p.pc.willBonus) + num(p.pc.complianceBonus) * 0.5), 0, 100),
+      addiction: 0,
       compliance: rnd(p.pc.compliance),
       will: rnd(p.pc.will),
       dominion: rnd(p.pc.dominion),
@@ -828,6 +833,30 @@
     return { ok: true, msg: msg, action: id, critical: critical, deltas: global.XuanShuSim.cleanDeltas(D), player: brief(state, cfg) };
   }
 
+  /* 身份块：阶级 / 职务 / 权柄位置 / 派系 / 贵族身份 / 休眠资格 */
+  function identity(state, cfg) {
+    var p = ensure(state, cfg);
+    var q = findQueue(state, p.pc.queueId);
+    var layer = p.mode === "creator" ? "creator" : (q ? q.layer
+      : (p.mode === "ruler" ? "L1" : p.mode === "mid" ? "L2" : p.mode === "slave" ? "L4" : "L1"));
+    var layerName = layer === "creator" ? "创造者"
+      : (cfg.society && cfg.society.layerNames && cfg.society.layerNames[layer]) || layer;
+    var noble = p.mode === "creator" || layer === "L1" || layer === "L2";
+    var dept = p.pc.dept || (q && q.dept) || (p.mode === "creator" ? "全船" : "");
+    return {
+      layer: layer,
+      layerName: layerName,
+      noble: noble,
+      sleepEligible: noble,
+      title: layer === "creator" ? "创造者" : modeLabel(p.mode),
+      dept: dept,
+      zone: p.pc.zone,
+      zoneName: zoneName(cfg, p.pc.zone),
+      allegiance: p.pc.stage >= 1 ? "眷属" : (noble ? "贵族" : "平民"),
+      faction: dept || "无派系"
+    };
+  }
+
   function brief(state, cfg) {
     var p = ensure(state, cfg);
     var at = attrs(state, cfg);
@@ -842,6 +871,18 @@
       alive: p.pc.alive,
       age: rnd(p.pc.age),
       attrs: at,
+      identity: identity(state, cfg),
+      personal: {
+        influence: rnd(p.pc.dominion),
+        compliance: rnd(p.pc.compliance),
+        deterrence: rnd(p.pc.authority),
+        ration: num(state.inputs && state.inputs.ration, 1),
+        bonds: p.pc.pregnant ? "怀孕 " + rnd(p.pc.pregnantWeeks) + " 周" : "无",
+        thralls: num(state.society && state.society.infection && state.society.infection.thralls, 0),
+        status: state.weeks < p.pc.confinedUntil ? "在押"
+          : state.weeks < p.pc.interrogatedUntil ? "受审"
+            : state.weeks < p.pc.hiddenUntil ? "潜藏" : "在岗"
+      },
       scope: p.scope,
       lockdown: state.weeks < p.lockdownUntil,
       actionCount: Object.keys(cfg.player.actions).length,

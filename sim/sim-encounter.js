@@ -315,6 +315,58 @@
     return "common";
   }
 
+  function drawOne(state, cfg, cat, picked, d) {
+    if (!d.filled || d.remaining.length === 0) refill(state, cfg, cat);
+    var want = pickRarity(state, cfg);
+    // 星启者祝福：科技卡稀有度 +1 档
+    if (cat === "tech" && global.XuanShuGods) {
+      var boost = global.XuanShuGods.rarityBoost(state, cfg, cat);
+      var rk = ["common", "rare", "epic", "legendary"];
+      want = rk[Math.min(rk.length - 1, rk.indexOf(want) + (boost || 0))];
+    }
+    function poolOf(rar) {
+      return cardsOf(cfg, cat).filter(function (c) {
+        return (!rar || c.rarity === rar) && d.remaining.indexOf(c.id) >= 0 &&
+          !picked.some(function (p) { return p.id === c.id; });
+      });
+    }
+    var pool = poolOf(want);
+    if (!pool.length) pool = poolOf("");
+    if (!pool.length) {
+      // 牌库这一轮抽空了：洗一轮再试，仍无才返回空
+      refill(state, cfg, cat);
+      pool = poolOf(want);
+      if (!pool.length) pool = poolOf("");
+    }
+    if (!pool.length) return null;
+    var c2 = pool[Math.floor(randNext(state) * pool.length)];
+    var at = d.remaining.indexOf(c2.id);
+    if (at >= 0) d.remaining.splice(at, 1);
+    d.drawn.push(c2.id);
+    return c2;
+  }
+
+  // 兜底：本类别当下能执行的一张，先普通档后任意档；
+  // 本类别确实没有可执行的（如早期科技类全锁），跨类别取一张可执行的，保证不卡住。
+  function pickFallback(state, cfg, cat, picked) {
+    function availIn(c) {
+      return cardsOf(cfg, c).filter(function (x) {
+        return !picked.some(function (p) { return p.id === x.id; }) &&
+          checkNeed(state, cfg, x).ok;
+      });
+    }
+    var avail = availIn(cat);
+    if (!avail.length) {
+      ((cfg.deck && cfg.deck.categories) || []).forEach(function (c) {
+        if (c !== cat) avail = avail.concat(availIn(c));
+      });
+    }
+    if (!avail.length) return null;
+    var commons = avail.filter(function (c) { return c.rarity === "common"; });
+    var pool = commons.length ? commons : avail;
+    return pool[Math.floor(randNext(state) * pool.length)];
+  }
+
   function drawThree(state, cfg, cat) {
     var e = ensure(state, cfg);
     var d = e.deck[cat];
@@ -323,29 +375,8 @@
 
     var picked = [];
     while (picked.length < count) {
-      if (d.remaining.length === 0) refill(state, cfg, cat);
-      var want = pickRarity(state, cfg);
-      // 星启者祝福：科技卡稀有度 +1 档
-      if (cat === "tech" && global.XuanShuGods) {
-        var boost = global.XuanShuGods.rarityBoost(state, cfg, cat);
-        var rk = ["common", "rare", "epic", "legendary"];
-        want = rk[Math.min(rk.length - 1, rk.indexOf(want) + (boost || 0))];
-      }
-      var pool = cardsOf(cfg, cat).filter(function (c) {
-        return c.rarity === want && d.remaining.indexOf(c.id) >= 0 &&
-          picked.every(function (p) { return p.id !== c.id; });
-      });
-      if (!pool.length) {
-        pool = cardsOf(cfg, cat).filter(function (c) {
-          return d.remaining.indexOf(c.id) >= 0 &&
-            picked.every(function (p) { return p.id !== c.id; });
-        });
-      }
-      if (!pool.length) break;
-      var c2 = pool[Math.floor(randNext(state) * pool.length)];
-      var at = d.remaining.indexOf(c2.id);
-      if (at >= 0) d.remaining.splice(at, 1);
-      d.drawn.push(c2.id);
+      var c2 = drawOne(state, cfg, cat, picked, d);
+      if (!c2) break;
       picked.push(c2);
     }
 
@@ -360,22 +391,9 @@
       state.player.pendingGrant = "";
     }
 
-    // 至少 1 张可用：全锁时用同类别一张满足前置的 common 替换
     var views = picked.map(function (c) { return cardView(state, cfg, cat, c); });
-    if (views.length && !views.some(function (v) { return v.available; })) {
-      var repl = cardsOf(cfg, cat).filter(function (c) {
-        return c.rarity === "common" && checkNeed(state, cfg, c).ok &&
-          !picked.some(function (p) { return p.id === c.id; });
-      })[0];
-      if (repl) {
-        views[views.length - 1] = cardView(state, cfg, cat, repl);
-        var ri = d.remaining.indexOf(repl.id);
-        if (ri >= 0) d.remaining.splice(ri, 1);
-        d.drawn.push(repl.id);
-        picked[views.length - 1] = repl;
-      }
-    }
-    // 三张稀有度全相同（含可用性替换后）时换掉最后一张，保证至少两种稀有度。
+
+    // 三张稀有度全相同时换掉最后一张，保证至少两种稀有度。
     if (picked.length >= 2) {
       var rar0 = picked[0].rarity;
       var allSame = picked.every(function (c) { return c.rarity === rar0; });
@@ -393,10 +411,49 @@
           d.drawn.push(swap.id);
           var ri2 = d.remaining.indexOf(swap.id);
           if (ri2 >= 0) d.remaining.splice(ri2, 1);
-          d.remaining.push(lastCard.id);
+          if (d.remaining.indexOf(lastCard.id) < 0) d.remaining.push(lastCard.id);
         }
       }
     }
+
+    // 一组最多允许一张不可执行：多余的按原稀有度权重重抽，有次数上限
+    var maxRedraw = Math.max(0, rnd(cfg.deck.redrawMax == null ? 9 : cfg.deck.redrawMax));
+    for (var t = 0; t < maxRedraw; t++) {
+      var locked = [];
+      views.forEach(function (v, i) { if (!v.available) locked.push(i); });
+      if (locked.length <= 1) break;
+      var at = locked[1];
+      var old = picked[at];
+      var offer = drawOne(state, cfg, cat, picked, d);
+      if (!offer) break;
+      var di3 = d.drawn.lastIndexOf(old.id);
+      if (di3 >= 0) d.drawn.splice(di3, 1);
+      if (d.remaining.indexOf(old.id) < 0) d.remaining.push(old.id);
+      picked[at] = offer;
+      views[at] = cardView(state, cfg, cat, offer);
+    }
+
+    // 兜底：重抽用尽仍有 ≥2 张不可执行时，用可执行项补齐（优先普通档；本类没有则跨类）
+    for (var guard = 0; guard < views.length - 1; guard++) {
+      var locked2 = [];
+      views.forEach(function (v, i) { if (!v.available) locked2.push(i); });
+      if (locked2.length <= 1) break;
+      var i2 = locked2[1];
+      var old2 = picked[i2];
+      var fb = pickFallback(state, cfg, cat, picked);
+      if (!fb) break;
+      var di4 = d.drawn.lastIndexOf(old2.id);
+      if (di4 >= 0) d.drawn.splice(di4, 1);
+      if (d.remaining.indexOf(old2.id) < 0) d.remaining.push(old2.id);
+      picked[i2] = fb;
+      views[i2] = cardView(state, cfg, cat, fb);
+      var fcard = findCard(cfg, fb.id);
+      var fdeck = e.deck[(fcard && fcard.cat) || cat] || d;
+      var ri3 = fdeck.remaining.indexOf(fb.id);
+      if (ri3 >= 0) fdeck.remaining.splice(ri3, 1);
+      if (d.drawn.indexOf(fb.id) < 0) d.drawn.push(fb.id);
+    }
+
     return { cat: cat, cards: views, raw: picked };
   }
 
@@ -2029,8 +2086,8 @@
       dwellFood: p.dwellFood, dwellProp: p.dwellProp,
       paid: p.paid || 0, result: p.result, opts: opts,
       hint: p.type === "hostile"
-        ? "敌对星球的接触概率与战力比决定选项：<0.5 当场吃亏；0.5–1 谈判加价 30%；>1 可抢。"
-        : "接触概率由停留周数与科技决定；低于最低科技只能拿轨道级结果。"
+        ? "敌对星球看战力对比：压不住只能吃暗亏，势均力敌能谈条件，压得住才能硬抢。"
+        : "停留越久、科技越高越容易接触；科技不够只能拿到轨道级结果。"
     };
   }
 

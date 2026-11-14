@@ -950,6 +950,7 @@
 
     deck: {
       drawCount: 3,
+      redrawMax: 9,
       refillWhenBelow: 3,
       rarityWeights: { common: 0.58, rare: 0.28, epic: 0.11, legendary: 0.03 },
       categories: ["explore", "tech", "resource", "society", "oldgod", "crisis", "trade"],
