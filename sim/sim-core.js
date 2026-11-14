@@ -269,7 +269,9 @@
     var rate = h.dreamK * (1 + thralls * h.dreamThrallK) *
       (1 + corr * h.dreamWhisperK) *
       (1 - h.dreamDrugShield * clamp(medCoverage, 0, 1)) *
-      (1 - resist * 0.5) * (wTot > 0 ? 1.5 : 1);
+      (1 - resist * 0.5) * (wTot > 0 ? 1.5 : 1) *
+      (global.XuanShuGods && state.gods && state.gods.enabled
+        ? global.XuanShuGods.dreamTolerance(state, cfg) : 1);
     state.dream.pressure += rate * dormant;
     if (state.dream.pressure < 1) return 0;
     var n = Math.min(Math.floor(state.dream.pressure), Math.floor(dormant));
@@ -1563,6 +1565,9 @@
 
     // 奇遇检查：按 encounter.checkEveryYears 折算成周（默认每年一次），maxPerYear 封顶
     if (global.XuanShuEncounter) global.XuanShuEncounter.weekly(state, cfg);
+
+    // 古神教会：每周算一次成形/解散分数（神恩可见性由它决定）
+    if (global.XuanShuGods) global.XuanShuGods.weekly(state, cfg);
 
     // 失败检查（每周一次，优先级 0–6）：命中即终局，时间冻结
     if (global.XuanShuRun) global.XuanShuRun.weekly(state, cfg);

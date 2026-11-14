@@ -8,7 +8,7 @@
 (function (global) {
   "use strict";
 
-  var VERSION = "1.0.0";
+  var VERSION = "1.1.0";
   var IDS = ["maw", "weaver", "star", "fecund"];
   var NAMES = { maw: "缄默之喉", weaver: "赤织母", star: "星启者", fecund: "丰穰之腹" };
 
@@ -72,7 +72,12 @@
       devour: 0,
       pendingTithe: null,
       history: [],
-      mods: []
+      mods: [],
+      // 教会：眷属规模长出的组织；成形后神恩才在界面可见
+      church: { formed: false, since: 0, formedYear: 0, dissolvedYear: 0,
+        score: 0, weeksUp: 0, weeksDown: 0, thralls: 0, ratio: 0, leader: null },
+      // 神直接收人：同神 15 年、全局 8 年冷却（年为单位）
+      rapture: {}
     };
   }
 
@@ -93,6 +98,12 @@
     if (!g.history) g.history = [];
     if (!Array.isArray(g.mods)) g.mods = [];
     if (g.pendingTithe === undefined) g.pendingTithe = null;
+    if (!g.church || typeof g.church !== "object") {
+      g.church = { formed: false, since: 0, formedYear: 0, dissolvedYear: 0,
+        score: 0, weeksUp: 0, weeksDown: 0, thralls: 0, ratio: 0, leader: null };
+    }
+    if (!g.church.formed) { g.church.weeksUp = num(g.church.weeksUp); g.church.weeksDown = num(g.church.weeksDown); }
+    if (!g.rapture || typeof g.rapture !== "object") g.rapture = {};
     return g;
   }
 
@@ -216,6 +227,264 @@
     return g.devour;
   }
 
+  /* ---------------- 教会（神恩的可见开关） ---------------- */
+
+  function churchCfg(cfg) {
+    return (cfg.gods && cfg.gods.church) || {};
+  }
+
+  function totalAwake(state) {
+    var t = 0;
+    Object.keys(state.groups || {}).forEach(function (k) { t += num(state.groups[k].awake); });
+    return t;
+  }
+
+  // 每周算一次：眷属占比 45% + 感染压力 20% + 医疗缺口 15% + 统治缺口 20%
+  function churchMetrics(state, cfg) {
+    var C = churchCfg(cfg);
+    var soc = state.society || {};
+    var inf = soc.infection || {};
+    var awake = totalAwake(state);
+    var thralls = num(inf.thralls);
+    var r = thralls / Math.max(1, awake);
+    var rN = clamp(r / Math.max(0.001, num(C.ratioK, 0.12)), 0, 1);
+    var p = clamp(num(inf.meanC) / 100, 0, 1);
+    var m = clamp(num(state.last && state.last.medCoverage, 0.8), 0, 1);
+    var c = 0.55 * clamp(num(state.order), 0, 1) + 0.45 * clamp(num(soc.meanO) / 100, 0, 1);
+    var S = num(C.wRatio, 0.45) * rN + num(C.wPressure, 0.20) * p +
+      num(C.wMedGap, 0.15) * (1 - m) + num(C.wControlGap, 0.20) * (1 - c);
+    var gateThralls = Math.max(num(C.minThralls, 8), num(C.minThrallFrac, 0.02) * awake);
+    var leaderMin = num(C.leaderMinThrallFrac, 0.02);
+    var leader = null;
+    ((soc.queues) || []).forEach(function (q) {
+      if (q.layer !== "L2" && q.layer !== "L3") return;
+      var f = num(q.thrallFrac);
+      if (f < leaderMin) return;
+      if (!leader || f > leader.thrallFrac) {
+        leader = { id: q.id, name: q.name, dept: q.dept, thrallFrac: f };
+      }
+    });
+    return { awake: awake, thralls: thralls, r: r, rN: rN, p: p, m: m, c: c,
+      S: S, gate: thralls >= gateThralls, gateThralls: gateThralls,
+      leader: leader, leaderMin: leaderMin };
+  }
+
+  function dissolveChurch(state, cfg, now, why) {
+    var g = ensure(state, cfg);
+    var ch = g.church;
+    ch.formed = false;
+    ch.since = 0;
+    ch.dissolvedYear = Math.round(now);
+    ch.weeksUp = 0;
+    ch.weeksDown = 0;
+    g.history.push({ year: Math.round(now), type: "churchEnd", text: "教会解散 · " + why });
+    if (g.history.length > 200) g.history.shift();
+    pushEvent(state, cfg, "古神教会 · 解散",
+      "教会散了，神恩重新隐去。原因：" + why + "。",
+      "眷属 " + Math.round(num(ch.thralls)) + " 人 · 占比 " +
+        (num(ch.ratio) * 100).toFixed(1) + "% · S=" + num(ch.score).toFixed(2),
+      null, "神恩不再显示，但古神并未离开");
+  }
+
+  function updateChurch(state, cfg) {
+    var g = ensure(state, cfg);
+    if (!g.enabled || g.legacy) return null;
+    var C = churchCfg(cfg);
+    if (C.enabled === false) return null;
+    var now = absYear(state, cfg);
+    var mt = churchMetrics(state, cfg);
+    var ch = g.church;
+    ch.score = Math.round(mt.S * 1000) / 1000;
+    ch.thralls = Math.round(mt.thralls);
+    ch.ratio = Math.round(mt.r * 1000) / 1000;
+    ch.leader = mt.leader;
+
+    if (!ch.formed) {
+      if (mt.gate && mt.S >= num(C.formScore, 0.55)) ch.weeksUp = num(ch.weeksUp) + 1;
+      else ch.weeksUp = 0;
+      if (num(ch.weeksUp) >= num(C.formWeeks, 4)) {
+        ch.formed = true;
+        ch.since = now;
+        ch.formedYear = Math.round(now);
+        ch.weeksDown = 0;
+        g.history.push({ year: Math.round(now), type: "church", text: "教会成形" });
+        if (g.history.length > 200) g.history.shift();
+        pushEvent(state, cfg, "古神教会 · 成形",
+          "眷属规模够了，船上出现了自己的教会。神恩第一次显形。",
+          "S=" + mt.S.toFixed(2) + " ≥ " + num(C.formScore, 0.55) + " 连续 " +
+            num(C.formWeeks, 4) + " 周；眷属 " + Math.round(mt.thralls) + " 人（" +
+            (mt.r * 100).toFixed(1) + "%）" +
+            (mt.leader ? "；会长 " + mt.leader.name + "（" + mt.leader.dept + "）" : ""),
+          null, "神恩现在可以在古神卡里看到");
+      }
+    } else {
+      // 立刻解散的硬条件：眷属占比过低 / 会长被清洗（含会长眷属率跌破门槛）
+      if (mt.r < num(C.dissolveRatio, 0.015)) {
+        dissolveChurch(state, cfg, now, "眷属占比跌破 " + (num(C.dissolveRatio, 0.015) * 100).toFixed(1) + "%");
+      } else if (!mt.gate) {
+        dissolveChurch(state, cfg, now, "眷属人数跌破门槛");
+      } else if (!mt.leader || mt.leader.thrallFrac < mt.leaderMin) {
+        dissolveChurch(state, cfg, now, "会长被清洗");
+      } else if (mt.S < num(C.dissolveScore, 0.42)) {
+        ch.weeksDown = num(ch.weeksDown) + 1;
+        if (num(ch.weeksDown) >= num(C.dissolveWeeks, 12)) {
+          dissolveChurch(state, cfg, now, "S 连续 " + num(C.dissolveWeeks, 12) + " 周低于 " + num(C.dissolveScore, 0.42));
+        }
+      } else {
+        ch.weeksDown = 0;
+      }
+    }
+    return ch;
+  }
+
+  /* ---------------- 耐受 / 索取曲线 ---------------- */
+
+  // 已立约诸神中取最高神恩，作为全船耐受的来源
+  function favorFrac(state, cfg) {
+    var g = ensure(state, cfg);
+    var best = 0;
+    IDS.forEach(function (id) {
+      if (g.pacts[id].pact) best = Math.max(best, num(g.pacts[id].favor));
+    });
+    var cap = Math.max(1, num(cfg.gods.favorCap, 100));
+    return clamp(best / cap, 0, 1);
+  }
+
+  function toleranceOf(state, cfg) {
+    var T = (cfg.gods && cfg.gods.tolerance) || {};
+    var f = favorFrac(state, cfg);
+    var max = num(T.max, 0.45);
+    return max * (1 - Math.exp(-f / Math.max(0.01, num(T.tau, 0.45))));
+  }
+
+  // 感染公式乘子（1 = 无减免）
+  function infectionTolerance(state, cfg) {
+    var g = state.gods;
+    if (!g || !g.enabled || g.legacy) return 1;
+    return 1 - toleranceOf(state, cfg);
+  }
+
+  // 梦中侵蚀乘子（1 = 无减免）
+  function dreamTolerance(state, cfg) {
+    var g = state.gods;
+    if (!g || !g.enabled || g.legacy) return 1;
+    var T = (cfg.gods && cfg.gods.tolerance) || {};
+    return 1 - num(T.dreamMul, 0.6) * toleranceOf(state, cfg);
+  }
+
+  function godFrac(state, cfg, id) {
+    var rec = ensure(state, cfg).pacts[id];
+    var cap = Math.max(1, num(cfg.gods.favorCap, 100));
+    return clamp(num(rec && rec.favor) / cap, 0, 1);
+  }
+
+  // 什一税额度倍率（1–2.2）
+  function demandAmountMul(state, cfg, id) {
+    var D = (cfg.gods && cfg.gods.demand) || {};
+    var f = godFrac(state, cfg, id);
+    return Math.min(num(D.amountCap, 2.2),
+      1 + num(D.amountK, 1.2) * (1 - Math.exp(-f / Math.max(0.01, num(D.amountTau, 0.55)))));
+  }
+
+  // 索取频率倍率（1–1.8）
+  function demandFreqMul(state, cfg, id) {
+    var D = (cfg.gods && cfg.gods.demand) || {};
+    var f = godFrac(state, cfg, id);
+    return Math.min(num(D.freqCap, 1.8),
+      1 + num(D.freqK, 0.8) * (1 - Math.exp(-f / Math.max(0.01, num(D.freqTau, 0.55)))));
+  }
+
+  function titheInterval(state, cfg, id, every) {
+    if (!(every > 0)) return 0;
+    return Math.max(5, Math.round(every / demandFreqMul(state, cfg, id)));
+  }
+
+  /* ---------------- 神直接收人 ---------------- */
+
+  function raptureCheck(state, cfg, now) {
+    var g = ensure(state, cfg);
+    if (!g.enabled || g.legacy) return null;
+    var R = (cfg.gods && cfg.gods.rapture) || {};
+    var cap = Math.max(1, num(cfg.gods.favorCap, 100));
+    var cdGlobal = num(R.cooldownGlobal, 8);
+    if (now - num(g.rapture.global, -999) < cdGlobal) return null;
+    var hit = null;
+    IDS.forEach(function (id) {
+      if (hit) return;
+      var rec = g.pacts[id];
+      if (!rec.pact) return;
+      if (num(rec.favor) < num(R.minFavor, 60)) return;
+      var cdSame = num(R.cooldownSameGod, 15);
+      if (now - num(g.rapture[id], -999) < cdSame) return;
+      var f = clamp(num(rec.favor) / cap, 0, 1);
+      var tier = null;
+      (R.tiers || []).forEach(function (t) { if (f >= num(t.min)) tier = t; });
+      if (!tier) return;
+      var p = num(tier.p) * (rec.primary ? 1 : num(R.sidePactMul, 0.5));
+      if (randNext(state) >= p) return;
+
+      var awake = totalAwake(state);
+      var mul = num((R.godPopMul || {})[id], 1);
+      var raw = Math.round(awake * num(tier.pop) * mul);
+      var maxTake = Math.floor(awake * num(R.maxShare, 0.12));
+      var take = Math.min(awake, Math.max(num(R.minTake, 5), raw));
+      take = Math.min(take, Math.max(1, maxTake));
+      var lost = removePop(state, take);
+      if (lost <= 0) return;
+
+      // 回赠：四位神各自不同
+      var rew = (R.rewards || {})[id] || {};
+      var soc = state.society || {};
+      var deltas = { "人口": -lost };
+      var gift = [];
+      if (id === "maw") {
+        if (!state.stocks) state.stocks = {};
+        state.stocks.metal = num(state.stocks.metal) + num(rew.metal);
+        state.stocks.food = num(state.stocks.food) + num(rew.food);
+        deltas["金属"] = num(rew.metal); deltas["粮"] = num(rew.food);
+        gift.push("金属 +" + num(rew.metal) + " 吨、粮 +" + num(rew.food) + " 吨");
+      } else if (id === "weaver") {
+        state.order = clamp(num(state.order) + num(rew.order), 0.05, 1);
+        if (soc.garrison) soc.garrison.durability = clamp(num(soc.garrison.durability) + num(rew.durability), 0, 100);
+        deltas["秩序"] = Math.round(num(rew.order) * 100);
+        gift.push("秩序 +" + Math.round(num(rew.order) * 100) + "%、驻军耐久 +" + num(rew.durability));
+      } else if (id === "star") {
+        if (soc.machine) soc.machine.tech = clamp(num(soc.machine.tech) + num(rew.tech), 0, 1);
+        if (state.player) state.player.intelBuff = { level: rew.intel || "high", until: state.weeks + num(rew.intelWeeks, 52) };
+        gift.push("科技 +" + num(rew.tech) + "、情报「高层」" + num(rew.intelWeeks, 52) + " 周");
+      } else if (id === "fecund") {
+        if (state.groups && state.groups.undecided) {
+          state.groups.undecided.awake = num(state.groups.undecided.awake) + num(rew.birth);
+        }
+        deltas["人口"] = -lost + num(rew.birth);
+        gift.push("新生 +" + num(rew.birth) + " 人");
+      }
+
+      // 可见后果：眷属暴增 + 秩序剧变
+      var inf = soc.infection || (soc.infection = {});
+      var gainThralls = Math.round(lost * num(R.thrallShare, 0.25));
+      inf.bonus = num(inf.bonus) + gainThralls;
+      inf.thralls = num(inf.thralls) + gainThralls;
+      state.order = clamp(num(state.order) - num(R.orderHit, 0.06), 0.05, 1);
+      adjustFavor(state, cfg, id, rec.primary ? num(R.favorGain, 5) : num(R.favorGainSide, 2));
+
+      g.rapture[id] = now;
+      g.rapture.global = now;
+      g.history.push({ year: Math.round(now), id: id, type: "rapture",
+        lost: lost, thralls: gainThralls, text: "神直接收人 " + lost + " 人" });
+      if (g.history.length > 200) g.history.shift();
+
+      pushEvent(state, cfg, "古神收人 · " + NAMES[id],
+        NAMES[id] + "亲自伸手，从船上取走 " + lost + " 人；回赠：" + gift.join("、") +
+        "。眷属 +" + gainThralls + "，秩序 −" + Math.round(num(R.orderHit, 0.06) * 100) + "%。",
+        "神恩 ≥ " + num(R.minFavor, 60) + " · 年度概率 " + (p * 100).toFixed(0) +
+          "%（旁约减半）· 取人 " + (num(tier.pop) * 100).toFixed(1) + "% × 神系数 " + mul,
+        deltas, "这是赐福，也是收人；同一局有冷却");
+      hit = { id: id, lost: lost, thralls: gainThralls };
+    });
+    return hit;
+  }
+
   /* ---------------- 人口与部门 ---------------- */
 
   function removePop(state, n) {
@@ -324,9 +593,10 @@
   function mawTithe(state, cfg, now) {
     var total = 0;
     Object.keys(state.groups || {}).forEach(function (k) { total += num(state.groups[k].awake); });
-    // v6.37：什一税按 gods.items.maw.tithe 的 popShare / minPop 结算
+    // v6.40：什一税额度随神恩上升（1–2.2 倍，指数边际递减）
     var T = (item(cfg, "maw") || {}).tithe || {};
-    var need = Math.max(num(T.minPop, 8), Math.round(total * num(T.popShare, 0.008)));
+    var need = Math.max(num(T.minPop, 8),
+      Math.round(total * num(T.popShare, 0.008) * demandAmountMul(state, cfg, "maw")));
     var lost = removePop(state, need);
     pushEvent(state, cfg, "缄默之喉 · 吞食", "古神又饿了，吞下 " + lost + " 人。", "周期索取",
       { "人口": -lost }, "这条船定期要交人");
@@ -334,13 +604,16 @@
   }
 
   function starTithe(state, cfg) {
+    var mul = demandAmountMul(state, cfg, "star");
     if (randNext(state) < 0.5) {
-      state.order = clamp(num(state.order) - 0.05, 0.05, 1);
-      pushEvent(state, cfg, "星启者 · 知识代价", "星启者带走一部分知识，秩序 −5%。", "周期索取",
-        { "秩序": -5 }, "知道得越多，越难管");
+      var loss = Math.round(5 * mul);
+      state.order = clamp(num(state.order) - 0.01 * loss, 0.05, 1);
+      pushEvent(state, cfg, "星启者 · 知识代价", "星启者带走一部分知识，秩序 −" + loss + "%。", "周期索取",
+        { "秩序": -loss }, "知道得越多，越难管");
     } else {
-      state.stocks.drug = Math.max(0, num(state.stocks.drug) - 40);
-      pushEvent(state, cfg, "星启者 · 知识代价", "星启者拿走了 40 份休眠药剂。", "周期索取",
+      var drug = Math.round(40 * mul);
+      state.stocks.drug = Math.max(0, num(state.stocks.drug) - drug);
+      pushEvent(state, cfg, "星启者 · 知识代价", "星启者拿走了 " + drug + " 份休眠药剂。", "周期索取",
         null, "药剂被抽走一批");
     }
   }
@@ -363,7 +636,8 @@
         msg = "献祭被接受了，古神满意，秩序 +3%。";
       } else {
         adjustFavor(state, cfg, "weaver", num(T.refuseFavor, -30));
-        ((soc.queues) || []).forEach(function (q) { q.C = clamp(num(q.C) + num(T.refuseC, 4), 0, 100); });
+        var refuseC = num(T.refuseC, 4) * demandAmountMul(state, cfg, "weaver");
+        ((soc.queues) || []).forEach(function (q) { q.C = clamp(num(q.C) + refuseC, 0, 100); });
         msg = "你拒绝了，古神发怒，所有人感染加重。";
       }
     } else {
@@ -415,8 +689,8 @@
         devourAdd(state, cfg, num(cfg.gods.mawDevourPerYear, 0.5));
       }
 
-      // 周期索取
-      var every = num(it.titheEveryYears, 0);
+      // 周期索取：间隔随神恩缩短（最快 5 年一次）
+      var every = titheInterval(state, cfg, id, num(it.titheEveryYears, 0));
       var dueYear = num(rec.lastTithe, now);
       if (every > 0 && now - dueYear >= every) {
         rec.lastTithe = now;
@@ -440,6 +714,9 @@
       }
       applyAnnualBlessCurse(state, cfg, id, now);
     });
+
+    // 神直接收人：每年一次，受同神 15 年 / 全局 8 年冷却约束
+    raptureCheck(state, cfg, now);
 
     return g.pendingTithe;
   }
@@ -510,24 +787,31 @@
   function brief(state, cfg) {
     var g = ensure(state, cfg);
     var now = absYear(state, cfg);
+    var ch = g.church || {};
+    var visible = !!ch.formed;   // 教会未成形时不下发神恩数值
     var list = IDS.map(function (id) {
       var it = item(cfg, id);
       var rec = g.pacts[id];
-      var every = num(it.titheEveryYears, 0);
+      var every = titheInterval(state, cfg, id, num(it.titheEveryYears, 0));
       return {
         id: id,
         name: it.name || NAMES[id],
         lean: it.lean || "",
         pact: !!rec.pact,
         primary: !!rec.primary,
-        favor: Math.round(num(rec.favor)),
+        favor: visible ? Math.round(num(rec.favor)) : null,
         blessed: !!rec.blessed,
         cursed: !!rec.cursed,
         since: Math.round(num(rec.since)),
+        demandMul: rec.pact ? Math.round(demandAmountMul(state, cfg, id) * 100) / 100 : 1,
+        freqMul: rec.pact ? Math.round(demandFreqMul(state, cfg, id) * 100) / 100 : 1,
         nextTitheIn: rec.pact && every > 0
           ? Math.max(0, Math.ceil(every - (now - num(rec.lastTithe, now)))) : null
       };
     });
+    var f = favorFrac(state, cfg);
+    var tol = toleranceOf(state, cfg);
+    var cm = churchMetrics(state, cfg);
     return {
       version: VERSION,
       enabled: !!g.enabled && !g.legacy,
@@ -537,7 +821,36 @@
       devourCap: num(cfg.gods.devourCap, 100),
       pacts: list,
       pendingTithe: g.pendingTithe,
-      history: (g.history || []).slice(-20)
+      church: {
+        formed: visible,
+        favorVisible: visible,
+        since: Math.round(num(ch.since)),
+        formedYear: num(ch.formedYear),
+        dissolvedYear: num(ch.dissolvedYear),
+        score: num(ch.score),
+        thralls: num(ch.thralls),
+        ratio: num(ch.ratio),
+        weeksUp: num(ch.weeksUp),
+        weeksDown: num(ch.weeksDown),
+        leader: ch.leader || null,
+        gateThralls: Math.round(cm.gateThralls),
+        gate: !!cm.gate,
+        formScore: num((cfg.gods.church || {}).formScore, 0.55),
+        formWeeks: num((cfg.gods.church || {}).formWeeks, 4),
+        dissolveScore: num((cfg.gods.church || {}).dissolveScore, 0.42),
+        dissolveWeeks: num((cfg.gods.church || {}).dissolveWeeks, 12)
+      },
+      tolerance: {
+        f: Math.round(f * 1000) / 1000,
+        tol: Math.round(tol * 1000) / 1000,
+        infectionMul: Math.round((1 - tol) * 1000) / 1000,
+        dreamMul: Math.round((1 - num(((cfg.gods || {}).tolerance || {}).dreamMul, 0.6) * tol) * 1000) / 1000
+      },
+      history: (g.history || []).slice(-20),
+      lastRapture: (function () {
+        var hs = (g.history || []).filter(function (h) { return h.type === "rapture"; });
+        return hs.length ? hs[hs.length - 1] : null;
+      })()
     };
   }
 
@@ -550,6 +863,15 @@
     pacted: pacted,
     adjustFavor: adjustFavor,
     devourAdd: devourAdd,
+    weekly: updateChurch,
+    churchMetrics: churchMetrics,
+    infectionTolerance: infectionTolerance,
+    dreamTolerance: dreamTolerance,
+    toleranceOf: toleranceOf,
+    favorFrac: favorFrac,
+    demandAmountMul: demandAmountMul,
+    demandFreqMul: demandFreqMul,
+    raptureCheck: raptureCheck,
     yearly: yearly,
     afterCard: afterCard,
     resolveTithe: resolveTithe,

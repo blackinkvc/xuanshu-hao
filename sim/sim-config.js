@@ -920,6 +920,58 @@
       devourCap: 100,
       mawDevourPerYear: 0.5,
       ids: ["maw", "weaver", "star", "fecund"],
+      /* 教会：眷属足够多时自然长出，成形后神恩才在界面可见。
+         权重理由：眷属占比＝人口基础 45%；感染压力＝教义土壤 20%；
+         医疗压制 15%、统治控制 20% 各自能掐断组织化。 */
+      church: {
+        enabled: true,
+        ratioK: 0.12,          // rN = clamp(r/0.12, 0, 1)
+        minThralls: 8,
+        minThrallFrac: 0.02,   // thralls >= max(8, 0.02*awake)
+        wRatio: 0.45,
+        wPressure: 0.20,
+        wMedGap: 0.15,
+        wControlGap: 0.20,
+        formScore: 0.55,
+        formWeeks: 4,
+        dissolveScore: 0.42,
+        dissolveWeeks: 12,
+        dissolveRatio: 0.015,
+        leaderMinThrallFrac: 0.02
+      },
+      /* 耐受：tol = max*(1-exp(-f/tau))，感染 d*=1-tol，梦中速率 *=1-dreamMul*tol */
+      tolerance: { max: 0.45, tau: 0.45, dreamMul: 0.6 },
+      /* 索取：额度与频率随神恩上升，指数边际递减并封顶 */
+      demand: {
+        amountK: 1.2, amountTau: 0.55, amountCap: 2.2,
+        freqK: 0.8, freqTau: 0.55, freqCap: 1.8
+      },
+      /* 神直接收人：仅已立约神、favor>=minFavor，每年一次；
+         tiers 按 f=favor/favorCap 分档，p 为年度概率，pop 为取人比例。 */
+      rapture: {
+        minFavor: 60,
+        tiers: [
+          { min: 0.60, p: 0.10, pop: 0.020 },
+          { min: 0.75, p: 0.18, pop: 0.040 },
+          { min: 0.90, p: 0.28, pop: 0.060 }
+        ],
+        sidePactMul: 0.5,
+        godPopMul: { maw: 1.5, weaver: 1.0, star: 0.9, fecund: 0.7 },
+        minTake: 5,
+        maxShare: 0.12,
+        cooldownSameGod: 15,
+        cooldownGlobal: 8,
+        thrallShare: 0.25,
+        orderHit: 0.06,
+        favorGain: 5,
+        favorGainSide: 2,
+        rewards: {
+          maw: { metal: 120, food: 60 },
+          weaver: { order: 0.08, durability: 30 },
+          star: { tech: 0.05, intel: "high", intelWeeks: 52 },
+          fecund: { birth: 60 }
+        }
+      },
       items: {
         maw: {
           name: "缄默之喉", lean: "索取人口",

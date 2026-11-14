@@ -635,6 +635,9 @@
       0.10 * clamp(soc.garrison.infiltrators / 6, 0, 1) + soc.effects.isoBoost, 0, 1);
     soc.env.iso = iso;
     var spread = soc.effects.infWeeks > 0 ? soc.effects.infSpread : 1;
+    // 神恩耐受：已立约诸神的最高神恩提供感染减免（1 = 无减免）
+    var godTol = (global.XuanShuGods && state.gods && state.gods.enabled)
+      ? global.XuanShuGods.infectionTolerance(state, cfg) : 1;
 
     soc.queues.forEach(function (q) {
       var ageTerm = F.ageK * Math.min(Math.max(0, q.age - 10), F.ageCap);
@@ -646,7 +649,7 @@
         F.medK * env.med -
         F.execK * cp + soc.infection.perm;
       d = clamp(d * (F.growthMul == null ? 1 : F.growthMul) *
-        resistOf(q, cfg) * spread, 0, F.cap);
+        resistOf(q, cfg) * spread * godTol, 0, F.cap);
       q.C = clamp(q.C + d, 0, 100);
 
       var stage = q.C >= F.thrall ? 3 : (q.C >= F.deform ? 2 : (q.C >= F.hearing ? 1 : 0));
