@@ -1169,6 +1169,20 @@
         popWeeks: s.effects.popWeeks
       },
       actions: { cd: Object.assign({}, s.actions.cd), uses: Object.assign({}, s.actions.uses) },
+      // v6.39：秩序卡用现有层数据——各层人数/支持度（O）/不服（W），各部门在岗人数
+      factions: ["L1", "L2", "L3", "L4", "L5"].map(function (layer) {
+        var n = 0, o = 0, w = 0;
+        s.queues.forEach(function (q) {
+          if (q.layer !== layer) return;
+          n += q.n; o += q.O * q.n; w += q.W * q.n;
+        });
+        return { layer: layer, n: n, support: n > 0 ? o / n / 100 : 0, unrest: n > 0 ? w / n : 0 };
+      }).filter(function (f) { return f.n > 0; }),
+      posts: cfg.society.depts.map(function (d) {
+        var n = 0;
+        s.queues.forEach(function (q) { if (q.dept === d) n += q.n; });
+        return { dept: d, n: n };
+      }),
       env: { c: s.env.c, iso: s.env.iso, garrison: ga, mech: mechanization(state, cfg) },
       thresholds: cfg.society.summon
     };

@@ -28,7 +28,7 @@
 (function (global) {
   "use strict";
 
-  var VERSION = "2.10.0";
+  var VERSION = "2.11.0";
 
   // 一周为 1：单位 → 周数。month 不是整数周，按 52/12 折算后再取整。
   var UNITS = {

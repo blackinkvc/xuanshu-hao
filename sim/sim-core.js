@@ -633,7 +633,10 @@
       ship: {
         speedC: (cfg.ship && cfg.ship.speedC) || 0.045,
         propellant: (cfg.ship && cfg.ship.propellant && isNum(cfg.ship.propellant.initT))
-          ? cfg.ship.propellant.initT : 2400
+          ? cfg.ship.propellant.initT : 2400,
+        // v6.39：船体现状。结构随磨损缓慢下降、维护到位才修复；护盾靠富余电力回充
+        structure: 94, structureMax: 100,
+        shield: 86, shieldMax: 100
       },
       phase: 0,
       phaseUp: 0,
@@ -968,6 +971,22 @@
       state.weeks < num(state.society.machine.overrideUntil, -1))
       ? num(state.society.machine.overrideMW) : 0;
     if (machMW > 0) rest = Math.max(0, rest - Math.min(machMW, rest));
+    // v6.39：船体结构 / 护盾
+    var hull = state.ship;
+    if (hull) {
+      if (hull.structureMax == null) hull.structureMax = 100;
+      if (hull.shieldMax == null) hull.shieldMax = 100;
+      if (!isNum(hull.structure)) hull.structure = hull.structureMax;
+      if (!isNum(hull.shield)) hull.shield = hull.shieldMax;
+      var surplus = rest - 40;
+      if (surplus > 0) hull.shield = Math.min(hull.shieldMax, hull.shield + 0.5 * clamp(surplus / 60, 0.1, 1));
+      else hull.shield = Math.max(0, hull.shield - 0.12);
+      hull.structure = Math.max(0, hull.structure - 0.0035 * (0.5 + 2 * clamp(state.wear, 0, 1)));
+      if (num(state.maintGap) <= 0 && num(state.stocks.metal) > 0.02) {
+        hull.structure = Math.min(hull.structureMax, hull.structure + 0.0025);
+        state.stocks.metal = Math.max(0, num(state.stocks.metal) - 0.02);
+      }
+    }
     // 休眠维持：舱位电耗先扣，剩余才给农业/工业
     var dormantMW = Math.min(t0.dormant * ((cfg.hibernation && cfg.hibernation.mWPerDormant) || 0), rest);
     rest = Math.max(0, rest - dormantMW);
@@ -1767,6 +1786,10 @@
             ratio: Math.round((state.ship.speedC /
               ((cfg.ship && cfg.ship.speedBaseC) || 0.045)) * 1000) / 1000,
             propellant: Math.round((state.ship.propellant || 0) * 10) / 10,
+            structure: Math.round(num(state.ship.structure, 94) * 10) / 10,
+            structureMax: num(state.ship.structureMax, 100),
+            shield: Math.round(num(state.ship.shield, 86) * 10) / 10,
+            shieldMax: num(state.ship.shieldMax, 100),
             rangeKm: Math.round(remainingRangeKm(cfg, state.ship.propellant, state.ship.speedC))
           } : null,
           phase: state.phase,
