@@ -59,18 +59,20 @@
       //   克隆人 440（醒 440 / 舱 0）
       // 机器人另计 400 台：走现有机械口径，不占口粮、不占舱位、不进人口 groups。
       groups: [
-        { id: "original",  name: "原初体",     short: "原初", awake: 12,  dormant: 0,    mortality: 0.0040, color: "#d8dde5", canSleep: false },
-        { id: "combat",    name: "战斗编制",   short: "战斗", awake: 260, dormant: 0,    mortality: 0.0120, color: "#b0605a", canSleep: false },
-        { id: "tech",      name: "技术·情报",  short: "技术", awake: 360, dormant: 0,    mortality: 0.0110, color: "#6f8fa6", canSleep: false },
-        { id: "service",   name: "勤务·礼仪",  short: "勤务", awake: 400, dormant: 0,    mortality: 0.0120, color: "#8a9a7b", canSleep: false },
-        { id: "medical",   name: "服务·医疗",  short: "服务", awake: 212, dormant: 0,    mortality: 0.0130, color: "#a68b6f", canSleep: false },
-        { id: "noble",     name: "贵族",       short: "贵族", awake: 120, dormant: 1600, mortality: 0.0030, color: "#c9b37a", canSleep: true, minAwake: 60 },
-        { id: "clone",     name: "变异克隆",   short: "克隆", awake: 440, dormant: 0,    mortality: 0.0833, color: "#7d728f", clone: true, canSleep: false },
-        { id: "undecided", name: "未定·未成年", short: "未定", awake: 596, dormant: 0,    mortality: 0.0220, color: "#5d6675", canSleep: false },
+        { id: "original",  name: "原初体",     short: "原初", awake: 12,  dormant: 0,    mortality: 0.0040, color: "#d8dde5" },
+        { id: "combat",    name: "战斗编制",   short: "战斗", awake: 260, dormant: 0,    mortality: 0.0120, color: "#b0605a" },
+        { id: "tech",      name: "技术·情报",  short: "技术", awake: 360, dormant: 0,    mortality: 0.0110, color: "#6f8fa6" },
+        { id: "service",   name: "勤务·礼仪",  short: "勤务", awake: 400, dormant: 0,    mortality: 0.0120, color: "#8a9a7b" },
+        { id: "medical",   name: "服务·医疗",  short: "服务", awake: 212, dormant: 0,    mortality: 0.0130, color: "#a68b6f" },
+        { id: "noble",     name: "贵族",       short: "贵族", awake: 120, dormant: 1600, mortality: 0.0030, color: "#c9b37a", minAwake: 60 },
+        { id: "clone",     name: "变异克隆",   short: "克隆", awake: 440, dormant: 0,    mortality: 0.0833, color: "#7d728f", clone: true },
+        { id: "undecided", name: "未定·未成年", short: "未定", awake: 596, dormant: 0,    mortality: 0.0220, color: "#5d6675" },
         // 遗弃殖民舰带回来的遗民：默认休眠，唤醒走同一套复温死亡公式
-        { id: "derelict",  name: "遗民",       short: "遗民", awake: 0,   dormant: 0,    mortality: 0.0100, color: "#9a8f7a", canSleep: true }
+        { id: "derelict",  name: "遗民",       short: "遗民", awake: 0,   dormant: 0,    mortality: 0.0100, color: "#9a8f7a" }
       ],
       robots: { count: 400, note: "机械编制，计入现有机器系统；不占口粮、不占休眠位、不进人口 groups" },
+      // v6.37：休眠资格的唯一来源。平民/克隆人不在名单里就是无资格；机器人不进 groups，无需列。
+      // 常规进出舱与粮食危机卡的「强制沉睡」都只在这里挑人（贵族优先）。
       sleepEligible: ["noble", "derelict"],
       undecidedId: "undecided",
       laborFull: 1720,          // 【档案】醒态在岗 1,720
@@ -785,6 +787,7 @@
        牌库剩余/已抽/洗牌轮次/当前候选/历史全部进 state.encounter。 */
     encounter: {
       enabled: true,
+      // v6.37：检查间隔（年，可小于 1，如 0.25 = 每季查一次）；maxPerYear 是每年最多成事次数。
       checkEveryYears: 1,
       baseBias: -0.76,
       luckMin: 0.55,
@@ -951,6 +954,7 @@
     deck: {
       drawCount: 3,
       redrawMax: 9,
+      // v6.37：牌库剩余低于此值才洗一轮补牌；为 0 时只在抽空后补。
       refillWhenBelow: 3,
       rarityWeights: { common: 0.58, rare: 0.28, epic: 0.11, legendary: 0.03 },
       categories: ["explore", "tech", "resource", "society", "oldgod", "crisis", "trade"],
@@ -1072,6 +1076,7 @@
       targetLoops: 41,
       autoChunkYears: 1,
       autoDefault: false,
+      // v6.37：千年节点间隔（年）。引擎与站点倒计时都从这里读，不再写死 1000。
       nodeYears: 1000,
       fail: {
         minPopulation: 200,

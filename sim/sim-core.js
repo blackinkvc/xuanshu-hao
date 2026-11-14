@@ -1144,9 +1144,19 @@
     var targetDorm = t2.total * I.dormancyTarget;
     var delta = targetDorm - t2.dormant;
     var entries = 0, wakes = 0, reviveFails = 0;
-    // v6.23：只有有休眠资格的人群（贵族 / 遗民）能进出舱；克隆人、平民永远醒着。
+    // v6.37：休眠资格只认 population.sleepEligible；平民、克隆人、未定不在名单里，永远醒着。
+    // 机器人不占舱位、不进 groups，天然不参与。
+    var sleepIds = (function () {
+      var list = cfg.population && cfg.population.sleepEligible;
+      if (Array.isArray(list)) return list.slice();
+      return cfg.population.groups
+        .filter(function (g) { return g.id !== cfg.population.undecidedId; })
+        .map(function (g) { return g.id; });
+    })();
     var workingIds = cfg.population.groups
-      .filter(function (g) { return g.id !== cfg.population.undecidedId && g.canSleep !== false; })
+      .filter(function (g) {
+        return g.id !== cfg.population.undecidedId && sleepIds.indexOf(g.id) >= 0;
+      })
       .map(function (g) { return g.id; });
     // 常规轮换不得把在岗骨干全部送进舱：贵族至少留 minAwake 人醒着管理。
     var groupKeep = {};
@@ -1487,8 +1497,8 @@
     if (global.XuanShuPlayer) {
       global.XuanShuPlayer.sync(state, cfg);
       if (state.weeks % cfg.time.weeksPerYear === 0) {
-        // 顺序：周结算 → 玩家周更新（sync 已做）→ 年度奇遇 → 怀孕
-        if (global.XuanShuEncounter) global.XuanShuEncounter.yearly(state, cfg);
+        // 顺序：周结算 → 玩家周更新（sync 已做）→ 怀孕
+        // 奇遇检查已改由 weekly 按 checkEveryYears 调度，这里不再每年硬触发。
         global.XuanShuPlayer.yearly(state, cfg);
         // 古神：神恩回归、周期索取、祝福/诅咒年度结算
         if (global.XuanShuGods) global.XuanShuGods.yearly(state, cfg);
@@ -1508,11 +1518,16 @@
     }
     if (state.weeks % cfg.time.weeksPerYear === 0) pushSeries(state, cfg);
 
+    // 奇遇检查：按 encounter.checkEveryYears 折算成周（默认每年一次），maxPerYear 封顶
+    if (global.XuanShuEncounter) global.XuanShuEncounter.weekly(state, cfg);
+
     // 失败检查（每周一次，优先级 0–6）：命中即终局，时间冻结
     if (global.XuanShuRun) global.XuanShuRun.weekly(state, cfg);
 
-    // 千年节点 / 胜利 / 回滚：老存档与关闭 run 时仍走原回滚
-    if (cfg.time.rollback && state.weeks >= cfg.time.loopYears * cfg.time.weeksPerYear) {
+    // 千年节点 / 胜利 / 回滚：节点年数读 run.nodeYears，不再写死 1000
+    var nodeYears = Number(cfg.run && cfg.run.nodeYears);
+    if (!(nodeYears > 0)) nodeYears = cfg.time.loopYears || 1000;
+    if (cfg.time.rollback && state.weeks >= nodeYears * cfg.time.weeksPerYear) {
       var end = global.XuanShuRun
         ? global.XuanShuRun.onLoopEnd(state, cfg)
         : { action: "rollback" };

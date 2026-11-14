@@ -137,6 +137,7 @@
     if (!e.counts.byCat) e.counts.byCat = {};
     if (!e.mods) e.mods = [];
     if (typeof e.gapYears !== "number") e.gapYears = 0;
+    if (!e.yearFires || typeof e.yearFires !== "object") e.yearFires = { year: null, n: 0 };
     if (typeof e.luck !== "number") e.luck = 1;
     if (!e.pending) e.pending = null;
     if (!e.planetsDone || typeof e.planetsDone !== "object") e.planetsDone = {};
@@ -316,7 +317,8 @@
   }
 
   function drawOne(state, cfg, cat, picked, d) {
-    if (!d.filled || d.remaining.length === 0) refill(state, cfg, cat);
+    // v6.37：补牌只由 drawThree 按 deck.refillWhenBelow 触发；这里抽空就返回 null，
+    // 避免单次抽牌过程中反复洗牌、同一张牌无限回流。
     var want = pickRarity(state, cfg);
     // 星启者祝福：科技卡稀有度 +1 档
     if (cat === "tech" && global.XuanShuGods) {
@@ -332,12 +334,6 @@
     }
     var pool = poolOf(want);
     if (!pool.length) pool = poolOf("");
-    if (!pool.length) {
-      // 牌库这一轮抽空了：洗一轮再试，仍无才返回空
-      refill(state, cfg, cat);
-      pool = poolOf(want);
-      if (!pool.length) pool = poolOf("");
-    }
     if (!pool.length) return null;
     var c2 = pool[Math.floor(randNext(state) * pool.length)];
     var at = d.remaining.indexOf(c2.id);
@@ -371,12 +367,23 @@
     var e = ensure(state, cfg);
     var d = e.deck[cat];
     var count = Math.max(1, rnd(cfg.deck.drawCount || 3));
-    if (!d.filled || d.remaining.length < count) refill(state, cfg, cat);
+    // v6.37：只有剩余低于 refillWhenBelow 才补一整轮；0 表示抽空才补。
+    var below = Math.max(0, rnd(cfg.deck.refillWhenBelow == null ? 3 : cfg.deck.refillWhenBelow));
+    if (!d.filled || (below > 0 ? d.remaining.length < below : d.remaining.length === 0)) {
+      refill(state, cfg, cat);
+    }
 
     var picked = [];
+    var refilled = false;
     while (picked.length < count) {
       var c2 = drawOne(state, cfg, cat, picked, d);
-      if (!c2) break;
+      if (!c2) {
+        // 一轮抽空后最多再补一次，避免无限补牌
+        if (refilled) break;
+        refilled = true;
+        refill(state, cfg, cat);
+        continue;
+      }
       picked.push(c2);
     }
 
@@ -932,18 +939,13 @@
     return { judged: true, fired: u < p, allow: u < p, probability: p, rand: u };
   }
 
-  function yearly(state, cfg) {
+  // 单次检查：不做周/年节流，由 weekly 按配置调度。
+  function checkNow(state, cfg, stepYears) {
     var e = ensure(state, cfg);
     if (!e.enabled || e.legacy) return null;
     if (!state.player || !state.player.started) return null;
-    var wpy = cfg.time.weeksPerYear;
-    if (state.weeks % wpy !== 0) return null;
-    // 每轮最后一周交给回滚/节点结算，不生成奇遇
-    if (state.weeks >= cfg.time.loopYears * wpy) return null;
-    // 41000 年当年直接进胜利结算
-    if (absYear(state, cfg) >= 41000) return null;
 
-    if (e.pending) { e.gapYears = num(e.gapYears) + 1; return null; }
+    if (e.pending) { e.gapYears = num(e.gapYears) + stepYears; return null; }
 
     var E = cfg.encounter || {};
     var luck = luckOf(state, cfg);
@@ -956,7 +958,7 @@
         : fallbackCheck(state, cfg, luck, gap));
 
     if (!jr.fired) {
-      e.gapYears = num(e.gapYears) + 1;
+      e.gapYears = num(e.gapYears) + stepYears;
       e.last = { week: state.weeks, year: Math.floor(absYear(state, cfg)),
         probability: Math.round(num(jr.probability) * 1000) / 1000,
         fired: false };
@@ -1026,6 +1028,37 @@
       return null;
     }
     return e.pending;
+  }
+
+  /* v6.37：奇遇检查调度。
+     checkEveryYears 折算成周（1=每年、0.25=每季），maxPerYear 封顶每年成事次数。
+     默认 1 / 1 与旧行为一致；高剂量与年数只影响发生概率，不改变这里。 */
+  function weekly(state, cfg) {
+    var e = ensure(state, cfg);
+    if (!e.enabled || e.legacy) return null;
+    if (!state.player || !state.player.started) return null;
+    var wpy = cfg.time.weeksPerYear;
+    var nodeYears = num(cfg.run && cfg.run.nodeYears, cfg.time.loopYears || 1000);
+    // 节点前最后一周交给回滚/节点结算，不生成奇遇
+    if (state.weeks >= nodeYears * wpy) return null;
+    // 41000 年当年直接进胜利结算
+    if (absYear(state, cfg) >= 41000) return null;
+
+    var E = cfg.encounter || {};
+    var every = num(E.checkEveryYears, 1);
+    if (!(every > 0)) every = 1;
+    var stepWeeks = Math.max(1, Math.round(wpy * every));
+    if (state.weeks % stepWeeks !== 0) return null;
+
+    var maxPer = Math.max(1, Math.floor(num(E.maxPerYear, 1)));
+    var yr = Math.floor(absYear(state, cfg));
+    if (!e.yearFires || e.yearFires.year !== yr) e.yearFires = { year: yr, n: 0 };
+    if (e.yearFires.n >= maxPer) return null;
+
+    var before = num(e.counts.total, 0);
+    var out = checkNow(state, cfg, every);
+    if (num(e.counts.total, 0) > before) e.yearFires.n += 1;
+    return out;
   }
 
   // 自动选牌：确定性（身份偏好 → 稀有度 → 候选顺序），消耗同一 rngA
@@ -2362,8 +2395,9 @@
     version: VERSION,
     create: create,
     ensure: ensure,
-    yearly: yearly,
-    yearlyCheck: yearly,
+    weekly: weekly,
+    yearly: weekly,
+    yearlyCheck: weekly,
     luckOf: luckOf,
     categoryWeights: categoryWeights,
     pickCategory: pickCategory,

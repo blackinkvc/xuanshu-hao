@@ -322,22 +322,49 @@
     return { fired: true, p: p, dead: false };
   }
 
-  /* 强制沉睡：断粮时把有资格者（贵族）送进空余休眠舱，按 5% 口粮折算。
-     由粮食卡 / 托管的 sleep 项调用；克隆人、平民没有资格，机器人不参与。 */
-  function sleepNobles(state, cfg, fam, wantAll) {
-    var noble = state.groups && state.groups.noble;
-    if (!noble || noble.awake <= 0) return 0;
+  /* v6.37：强制沉睡按 population.sleepEligible 挑人，贵族优先。
+     平民、克隆人、未定没有资格；机器人不占舱位，天然不参与。 */
+  function sleepEligibleIds(state, cfg) {
+    var list = cfg.population && cfg.population.sleepEligible;
+    var ids = Array.isArray(list) ? list : ["noble", "derelict"];
+    ids = ids.filter(function (id) { return !!(state.groups && state.groups[id]); });
+    ids.sort(function (a, b) {
+      if (a === "noble") return -1;
+      if (b === "noble") return 1;
+      return 0;
+    });
+    return list;
+  }
+
+  function sleepEligibleAwake(state, cfg) {
+    var n = 0;
+    sleepEligibleIds(state, cfg).forEach(function (id) {
+      n += Math.max(0, num(state.groups[id].awake));
+    });
+    return n;
+  }
+
+  function sleepCrew(state, cfg, fam, wantAll) {
+    var ids = sleepEligibleIds(state, cfg);
+    var awakeTotal = sleepEligibleAwake(state, cfg);
+    if (awakeTotal <= 0) return 0;
     var t = totals(state, cfg);
     var free = Math.max(0, Math.floor(num(state.infra && state.infra.pods, 0) - t.dormant));
-    var want = wantAll ? Math.round(noble.awake) : Math.max(0, Math.round(num(wantAll)));
+    var want = wantAll ? Math.round(awakeTotal) : Math.max(0, Math.round(num(wantAll)));
     var can = Math.min(want, free);
-    if (can > 0) {
-      noble.awake -= can;
-      noble.dormant += can;
-      fam.slept = num(fam.slept, 0) + can;
-    }
+    var left = can;
+    ids.forEach(function (id) {
+      if (left <= 0) return;
+      var take = Math.min(left, Math.max(0, num(state.groups[id].awake)));
+      if (take <= 0) return;
+      state.groups[id].awake -= take;
+      state.groups[id].dormant += take;
+      left -= take;
+    });
+    var done = can - left;
+    if (done > 0) fam.slept = num(fam.slept, 0) + done;
     if (want > can) fam.sleepBlocked = num(fam.sleepBlocked, 0) + (want - can);
-    return can;
+    return done;
   }
 
   function famineStep(state, cfg, g, t, soc) {
@@ -441,7 +468,7 @@
       if (fam.layers.indexOf(order[i]) < 0) { next = order[i]; break; }
     }
     if (next) sel.stop = [next];
-    if (state.groups && state.groups.noble && state.groups.noble.awake > 0) sel.sleep = "all";
+    if (sleepEligibleAwake(state, cfg) > 0) sel.sleep = "all";
     if (fam.layers.length >= 2) {
       var target = fam.layers[fam.layers.length - 1];
       var avail = layerPop(state, target);
@@ -481,14 +508,15 @@
     }
 
     if (choice.sleep) {
-      var noble = state.groups.noble || { awake: 0, dormant: 0 };
       var t0 = totals(state, cfg);
       var free = Math.max(0, Math.floor(num(state.infra && state.infra.pods, 0) - t0.dormant));
-      var want = choice.sleep === "all" ? Math.round(noble.awake) : Math.min(noble.awake, Math.round(num(choice.sleep)));
-      var can = sleepNobles(state, cfg, fam, choice.sleep === "all" ? true : Math.max(0, want));
-      if (can > 0) lines.push("强制沉睡 " + can + " 名贵族");
+      var eligibleAwake = sleepEligibleAwake(state, cfg);
+      var want = choice.sleep === "all" ? Math.round(eligibleAwake)
+        : Math.min(eligibleAwake, Math.round(num(choice.sleep)));
+      var can = sleepCrew(state, cfg, fam, choice.sleep === "all" ? true : Math.max(0, want));
+      if (can > 0) lines.push("强制沉睡 " + can + " 名有休眠资格者（贵族优先）");
       if (want > can) {
-        lines.push("舱位不足，还有 " + Math.round(want - can) + " 名贵族没能沉睡（余位 " + free + "）");
+        lines.push("舱位不足，还有 " + Math.round(want - can) + " 名有资格者没能沉睡（余位 " + free + "）");
       }
     }
 
@@ -667,7 +695,9 @@
       loop: state.loop,
       targetYear: target,
       targetLoops: num(cfg.run && cfg.run.targetLoops, 41),
-      nextNodeIn: Math.max(0, Math.ceil((Math.floor(now / 1000) + 1) * 1000 - now)),
+      nextNodeIn: Math.max(0, Math.ceil(
+        (Math.floor(now / num(cfg.run && cfg.run.nodeYears, 1000)) + 1) *
+          num(cfg.run && cfg.run.nodeYears, 1000) - now)),
       progress: clamp(now / target, 0, 1),
       endedWeek: g.endedWeek,
       endedYear: g.endedYear,
@@ -707,6 +737,12 @@
           layerPops: order.map(function (L) { return { id: L, pop: Math.round(layerPop(state, L)) }; }),
           noblesAwake: Math.round(noble.awake),
           noblesDormant: Math.round(noble.dormant),
+          // v6.37：粮食卡按配置的休眠资格挑人，不再写死贵族
+          sleepEligibleAwake: Math.round(sleepEligibleAwake(state, cfg)),
+          sleepEligibleLabel: sleepEligibleIds(state, cfg).map(function (id) {
+            var g = (cfg.population.groups || []).filter(function (x) { return x.id === id; })[0];
+            return g ? g.name : id;
+          }).join("、"),
           podsFree: free,
           recycleYield: Math.round(cfg.food.perCapitaTpy * num(fm.recycleYield, 0.55) * 1000) / 1000,
           harvestGain: Math.round(num(state.production, 0) * 0.02),
