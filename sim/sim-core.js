@@ -639,6 +639,9 @@
     // 药剂池 / 营养 / 成瘾 / 辐射：旧档缺字段时由 ensureVitals 补默认
     ensureVitals(state, cfg);
     state.vitals = null;
+    if (global.XuanShuEncounter && global.XuanShuEncounter.ensureTrade) {
+      global.XuanShuEncounter.ensureTrade(state, cfg);
+    }
     state.last = {
       rationActual: 1,
       energy: cfg.energy.baseMW,
@@ -738,7 +741,8 @@
       addictHeavy: state.addict ? Math.round(state.addict.heavy) : 0,
       resist: state.addict ? state.addict.resistance : 0,
       protein: state.nutrition ? state.nutrition.protein : 1,
-      neuro: state.nutrition ? state.nutrition.neuro : 0
+      neuro: state.nutrition ? state.nutrition.neuro : 0,
+      mortgageN: state.geneMortgage && state.geneMortgage.active ? Math.round(state.geneMortgage.n) : 0
     });
     if (state.series.length > cfg.time.seriesCap) state.series.shift();
   }
@@ -965,6 +969,12 @@
     var maintYield = stepMaintenance(state, cfg);
     var soc = state.society;
 
+    // 基因抵押：逐年抬升秩序惩罚，到期自动赎回或违约
+    if (global.XuanShuEncounter && global.XuanShuEncounter.mortgageTick) {
+      global.XuanShuEncounter.mortgageTick(state, cfg);
+    }
+    var GM = state.geneMortgage || null;
+
     // 药剂 / 营养 / 成瘾：先结算本周的用药与成瘾，再让产出、秩序、死亡吃它的反馈
     stepVitals(state, cfg, t0, medCoverage, soc);
     var AD = state.addict.effects || { fitMul: 1, obey: 0, errorK: 0, deathMul: 0, resist: 0, bliss: false };
@@ -999,6 +1009,10 @@
     }
     production *= AD.fitMul;
     if (AD.bliss) production *= (1 - cfg.addict.bliss.prodLoss);
+    // 基因抵押：被抵押人群产出 ×0.85，按醒态占比摊到全船
+    if (GM && GM.active && t0.awake > 0) {
+      production *= (1 - (1 - cfg.trade.mortgage.prodMul) * clamp(GM.n / t0.awake, 0, 1));
+    }
     // v1.2 长期折损：年份不可逆衰减 + 农环老化 + 人口结构 + 船况磨损
     // 四项独立相乘；只作用于水培产出，行星来货仍按 planetTpy 恒定。
     var FD = cfg.food.decay;
@@ -1064,6 +1078,9 @@
     cfg.population.groups.forEach(function (g) {
       var s = state.groups[g.id];
       var rate = g.mortality * (1 + (AD.deathMul || 0));
+      if (GM && GM.active && !g.clone) {
+        rate *= 1 + cfg.trade.mortgage.deathMul * clamp(GM.n / Math.max(1, t0.awake), 0, 1);
+      }
       if (g.clone) rate = g.mortality / clamp(rationActual, 0.35, 1);
       var d = Math.min(s.awake, s.awake * (rate + extra) * dt * noise(0.08));
       s.awake -= d;
@@ -1292,6 +1309,8 @@
     // 成瘾：服从性加成（三档加权），化学极乐额外 +12%；戒断人数按醒态占比扣秩序
     orderEq += clamp(AD.obey || 0, 0, 0.18);
     if (AD.bliss) orderEq += cfg.addict.bliss.orderGain;
+    // 基因抵押：抵押期内常年秩序惩罚（逐年递进）
+    if (GM && GM.active) orderEq -= num0(GM.yearlyPenalty, 0);
     if (state.addict.withdraw) {
       var wNow = state.addict.withdraw.light + state.addict.withdraw.mid + state.addict.withdraw.heavy;
       orderEq -= 0.10 * clamp(wNow / Math.max(1, t3.awake), 0, 1);
@@ -1531,6 +1550,8 @@
     state.health = fresh.health;
     state.dream = fresh.dream;
     state.vitals = null;
+    state.negotiation = fresh.negotiation;
+    state.geneMortgage = fresh.geneMortgage;
     if (global.XuanShuSociety) state.society = global.XuanShuSociety.create(cfg);
     if (global.XuanShuPeople) state.people = global.XuanShuPeople.create(cfg);
     // 玩家身份是跨轮长期状态：健康、年龄、权限、动作冷却、契约都保留
@@ -1728,6 +1749,9 @@
           addict: state.addict ? clone(state.addict) : null,
           health: state.health ? clone(state.health) : null,
           vitals: state.vitals ? clone(state.vitals) : null,
+          // 谈判 / 基因抵押（v6.30）
+          negotiation: state.negotiation ? clone(state.negotiation) : null,
+          geneMortgage: state.geneMortgage ? clone(state.geneMortgage) : null,
           births: state.last.births,
           deaths: state.last.deaths,
           cloneOut: state.last.cloneOut,
@@ -1900,6 +1924,43 @@
           : { ok: false, msg: "encounter 层未加载" };
       },
 
+      /** 谈判：出价 / 掠夺；收场后清 pending（v6.30） */
+      negotiationView: function (debug) {
+        return global.XuanShuEncounter && global.XuanShuEncounter.negotiationView
+          ? global.XuanShuEncounter.negotiationView(state, cfg, !!debug)
+          : null;
+      },
+      negotiationResolve: function (sel) {
+        return global.XuanShuEncounter
+          ? global.XuanShuEncounter.negotiationResolve(state, cfg, sel || {})
+          : { ok: false, msg: "encounter 层未加载" };
+      },
+      negotiationClose: function () {
+        return global.XuanShuEncounter
+          ? global.XuanShuEncounter.negotiationClose(state, cfg, {})
+          : { ok: false, msg: "encounter 层未加载" };
+      },
+      mortgageView: function () {
+        return global.XuanShuEncounter && global.XuanShuEncounter.mortgageView
+          ? global.XuanShuEncounter.mortgageView(state, cfg)
+          : null;
+      },
+      mortgageStart: function (sel) {
+        return global.XuanShuEncounter
+          ? global.XuanShuEncounter.mortgageStart(state, cfg, sel || {})
+          : { ok: false, msg: "encounter 层未加载" };
+      },
+      mortgageRedeem: function () {
+        return global.XuanShuEncounter && global.XuanShuEncounter.mortgageRedeem
+          ? global.XuanShuEncounter.mortgageRedeem(state, cfg)
+          : { ok: false, msg: "encounter 层未加载" };
+      },
+      mortgageClose: function () {
+        return global.XuanShuEncounter && global.XuanShuEncounter.mortgageClose
+          ? global.XuanShuEncounter.mortgageClose(state, cfg, {})
+          : { ok: false, msg: "encounter 层未加载" };
+      },
+
       /** 自动推演一个 chunk（默认 1 年）；遇节点先按自动结算，遇终局立即停 */
       autoStep: function (years) {
         if (!global.XuanShuRun) return api.getState();
@@ -1938,6 +1999,9 @@
         ensureGroups(state, cfg);
         ensurePods(state, cfg);
         ensureVitals(state, cfg);
+        if (global.XuanShuEncounter && global.XuanShuEncounter.ensureTrade) {
+          global.XuanShuEncounter.ensureTrade(state, cfg);
+        }
         if (global.XuanShuPlayer) global.XuanShuPlayer.ensure(state, cfg);
         if (global.XuanShuEncounter) global.XuanShuEncounter.ensure(state, cfg);
         if (global.XuanShuGods) global.XuanShuGods.ensure(state, cfg);
@@ -1960,6 +2024,9 @@
         ensureGroups(state, cfg);
         ensurePods(state, cfg);
         ensureVitals(state, cfg);
+        if (global.XuanShuEncounter && global.XuanShuEncounter.ensureTrade) {
+          global.XuanShuEncounter.ensureTrade(state, cfg);
+        }
         if (global.XuanShuPlayer) global.XuanShuPlayer.ensure(state, cfg);
         if (global.XuanShuEncounter) global.XuanShuEncounter.ensure(state, cfg);
         if (global.XuanShuGods) global.XuanShuGods.ensure(state, cfg);

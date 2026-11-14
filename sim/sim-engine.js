@@ -28,7 +28,7 @@
 (function (global) {
   "use strict";
 
-  var VERSION = "2.3.0";
+  var VERSION = "2.4.0";
 
   // 一周为 1：单位 → 周数。month 不是整数周，按 52/12 折算后再取整。
   var UNITS = {
@@ -326,6 +326,46 @@
       derelictClose: function () {
         if (typeof sim.derelictClose !== "function") return { ok: false, msg: "引擎未提供废弃殖民舰结算" };
         var r = sim.derelictClose();
+        emit("encounter", r, {});
+        return r;
+      },
+
+      // —— 谈判 / 基因抵押（v6.30） ——
+      negotiationView: function () {
+        if (typeof sim.negotiationView !== "function") return null;
+        return sim.negotiationView(true);
+      },
+      negotiationOffer: function (sel) {
+        if (typeof sim.negotiationResolve !== "function") return { ok: false, msg: "引擎未提供谈判结算" };
+        var r = sim.negotiationResolve(sel || {});
+        emit("encounter", r, {});
+        return r;
+      },
+      negotiationClose: function () {
+        if (typeof sim.negotiationClose !== "function") return { ok: false, msg: "引擎未提供谈判收场" };
+        var r = sim.negotiationClose();
+        emit("encounter", r, {});
+        return r;
+      },
+      mortgageView: function () {
+        if (typeof sim.mortgageView !== "function") return null;
+        return sim.mortgageView();
+      },
+      mortgageStart: function (sel) {
+        if (typeof sim.mortgageStart !== "function") return { ok: false, msg: "引擎未提供基因抵押" };
+        var r = sim.mortgageStart(sel || {});
+        emit("encounter", r, {});
+        return r;
+      },
+      mortgageRedeem: function () {
+        if (typeof sim.mortgageRedeem !== "function") return { ok: false, msg: "引擎未提供基因抵押" };
+        var r = sim.mortgageRedeem();
+        emit("encounter", r, {});
+        return r;
+      },
+      mortgageClose: function () {
+        if (typeof sim.mortgageClose !== "function") return { ok: false, msg: "引擎未提供基因抵押收场" };
+        var r = sim.mortgageClose();
         emit("encounter", r, {});
         return r;
       },

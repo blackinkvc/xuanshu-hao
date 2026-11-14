@@ -946,6 +946,16 @@
     var i = autoPick(state, cfg);
     if (i < 0) return null;
     var card = e.pending.cards[i];
+    // 自动推演：谈判按 0.75P 直接还价并收场；抵押不做（债务交给玩家）
+    if (card && card.id === "tr_negotiator") {
+      ensureTrade(state, cfg);
+      makeCounterparty(state, cfg);
+      negotiationResolve(state, cfg, { ratio: 0.75 });
+      return negotiationClose(state, cfg, { auto: true });
+    }
+    if (card && card.id === "tr_gene_mortgage") {
+      return choose(state, cfg, i, { auto: true, tradeDone: true, choice: (card.choices || [])[0] });
+    }
     var opts = { auto: true };
     if (card && card.choices && card.choices.length) opts.choice = card.choices[0];
     return choose(state, cfg, i, opts);
@@ -964,6 +974,16 @@
     if (card.id === "ex_derelict" && !opts.derelictDone) {
       return { ok: true, needDerelict: true, derelict: derelictView(state, cfg),
         card: card, msg: "废弃殖民舰要在卡片里逐项勾选" };
+    }
+    if (card.id === "tr_negotiator" && !opts.tradeDone) {
+      ensureTrade(state, cfg);
+      makeCounterparty(state, cfg);
+      return { ok: true, needNegotiation: true, negotiation: negotiationView(state, cfg),
+        card: card, msg: "先在面板里出价或改为武力夺取" };
+    }
+    if (card.id === "tr_gene_mortgage" && !opts.tradeDone) {
+      return { ok: true, needMortgage: true, mortgage: mortgageView(state, cfg),
+        card: card, msg: "先填人数与期限" };
     }
     if (card.choices && card.choices.length && !opts.choice) {
       return { ok: true, needChoice: true, choices: card.choices.slice(),
@@ -1301,6 +1321,460 @@
     return best;
   }
 
+  /* ---------------- 谈判 · 心理价 / 四档出价 / 掠夺（v6.30） ---------------- */
+
+  function tradeCfg(cfg) { return cfg.trade || {}; }
+
+  function ensureTrade(state, cfg) {
+    var e = ensure(state, cfg);
+    if (!state.negotiation || typeof state.negotiation !== "object") {
+      state.negotiation = { lastP: 0, lastOffer: 0, lastRatio: 0, hostileUntil: 0, greedMul: 1, active: false, result: null };
+    }
+    var n = state.negotiation;
+    ["lastP", "lastOffer", "lastRatio", "hostileUntil"].forEach(function (k) {
+      if (typeof n[k] !== "number") n[k] = 0;
+    });
+    if (typeof n.greedMul !== "number") n.greedMul = 1;
+    if (typeof n.active !== "boolean") n.active = false;
+    if (n.result === undefined) n.result = null;
+    if (!state.geneMortgage || typeof state.geneMortgage !== "object") {
+      state.geneMortgage = { active: false, n: 0, years: 0, startWeek: 0, dueWeek: 0,
+        yearlyPenalty: 0, paid: 0, defaulted: false, redeemed: false, spouseSplit: 0 };
+    }
+    return e;
+  }
+
+  function playerForce(state) {
+    var soc = state.society || {};
+    var g = soc.garrison || {};
+    var dur = clamp(num(g.durability, 80) / 100, 0, 1);
+    var combat = state.groups && state.groups.combat ? num(state.groups.combat.awake) : 0;
+    var tech = soc.machine ? num(soc.machine.tech) : 0.3;
+    return round1(num(g.strength, 60) * (0.6 + 0.4 * dur) + combat * 0.2 + tech * 40);
+  }
+
+  function round1(v) { return Math.round(v * 10) / 10; }
+
+  function typeLabelOf(k) {
+    return ({ colony: "殖民站", alien: "外星文明", hostile: "敌对据点", abandoned: "遗弃据点", ruins: "遗迹" })[k] || "据点";
+  }
+
+  function makeCounterparty(state, cfg) {
+    var T = tradeCfg(cfg);
+    var types = Object.keys(T.popValueByType || { colony: 22 });
+    var type = types[Math.min(types.length - 1, Math.floor(randNext(state) * types.length))] || "colony";
+    var pop = rnd(T.popRange[0] || 120) + Math.floor(randNext(state) *
+      Math.max(1, (T.popRange[1] || 420) - (T.popRange[0] || 120)));
+    var rare = rnd(T.rareRange[0] || 20) + Math.floor(randNext(state) *
+      Math.max(1, (T.rareRange[1] || 90) - (T.rareRange[0] || 20)));
+    var tier = (T.tierRange[0] || 1) + Math.floor(randNext(state) *
+      Math.max(1, (T.tierRange[1] || 5) - (T.tierRange[0] || 1) + 1));
+    var aggr = randNext(state);
+    var F = 80 + 40 * tier + 30 * aggr;
+    var M = playerForce(state);
+    var gr = T.greed || {};
+    var greed = M > F * 1.5 ? num(gr.normal, 1) : (M >= F ? num(gr.stalemate, 1.3) : num(gr.weak, 1.6));
+    var popValue = pop * num((T.popValueByType || {})[type], 22);
+    var P = Math.round((popValue + tier * num(T.techValueK, 120) + rare * num(T.rareValueK, 12)) * greed);
+    P = Math.round(P * (state.weeks < num(state.negotiation.hostileUntil) ? num(T.hostileGreed, 1.3) : 1));
+    var n = state.negotiation;
+    n.cp = { type: type, pop: pop, rare: rare, tier: tier, aggr: round1(aggr * 100) / 100,
+      F: Math.round(F), M: M, greed: greed, P: P };
+    n.P = P;
+    n.active = true;
+    n.result = null;
+    n.offered = -1;
+    return n.cp;
+  }
+
+  function availableValue(state, cfg) {
+    var V = tradeCfg(cfg).unitValue || {};
+    var s = state.stocks || {};
+    return round1(num(s.metal) * num(V.metal, 1) + num(s.food) * num(V.food, 0.5) +
+      num(s.drug) * num(V.drug, 2) + num(s.water) * num(V.water, 0.5));
+  }
+
+  function payValue(state, cfg, value) {
+    var T = tradeCfg(cfg), V = T.unitValue || {}, s = state.stocks || {};
+    var order = ["metal", "food", "drug", "water"];
+    var remain = value, spent = {};
+    for (var i = 0; i < order.length; i++) {
+      var k = order[i], u = num(V[k], 1);
+      var avail = num(s[k]) * u;
+      var take = Math.min(avail, remain);
+      if (take > 0) {
+        s[k] = Math.max(0, num(s[k]) - take / u);
+        spent[k] = Math.round(take / u * 10) / 10;
+        remain -= take;
+      }
+    }
+    return { ok: remain <= 0.5, short: Math.max(0, Math.round(remain * 10) / 10), spent: spent };
+  }
+
+  function freePods(state, cfg) {
+    var t = global.XuanShuSim && global.XuanShuSim.totals ? global.XuanShuSim.totals(state, cfg) : null;
+    var dormant = t ? num(t.dormant) : 0;
+    return Math.max(0, Math.floor(num(state.infra && state.infra.pods, 0) - dormant));
+  }
+
+  function deliver(state, cfg, cp, mode, lines) {
+    var T = tradeCfg(cfg);
+    var techGain = 0, metalAdd = 0, popAdd = 0;
+    if (mode === "resource" || mode === "full") {
+      metalAdd = Math.round(cp.rare * num(T.rareValueK, 12) * (mode === "full" ? 1 : 0.6));
+      state.stocks.metal = Math.min(num(cfg.metal.cap, 1e9), num(state.stocks.metal) + metalAdd);
+      lines.push("得到：稀有资源折金属 +" + metalAdd + " 吨");
+    }
+    if (mode === "tech" || mode === "full") {
+      techGain = Math.round(cp.tier * num(T.techGainK, 0.02) * 1000) / 1000;
+      addTech(state, techGain);
+      lines.push("得到：科技 +" + techGain + "（对方科技档 " + cp.tier + "）");
+    }
+    if (mode === "full") {
+      var want = Math.round(cp.pop * num(T.popTransferK, 0.10));
+      popAdd = Math.min(want, freePods(state, cfg));
+      if (popAdd > 0) state.groups.derelict.dormant += popAdd;
+      lines.push("得到：休眠移民 +" + popAdd + " 人" +
+        (popAdd < want ? "（舱位不足，原定 " + want + " 人）" : ""));
+    }
+    return { techGain: techGain, metalAdd: metalAdd, popAdd: popAdd };
+  }
+
+  // 按价值从高到低扣人：科技 > 贵族 > 医疗 > 战斗 > 勤务 > 未定 > 克隆 > 遗民
+  function removeValuePop(state, cfg, n) {
+    var order = ["tech", "noble", "medical", "combat", "service", "undecided", "clone", "derelict"];
+    var left = n, taken = 0;
+    for (var i = 0; i < order.length && left > 0; i++) {
+      var g = state.groups[order[i]];
+      if (!g) continue;
+      var take = Math.min(num(g.awake), left);
+      if (take > 0) { g.awake -= take; left -= take; taken += take; }
+    }
+    return Math.round(taken);
+  }
+
+  function spouseSplitOf(state, cfg, removed, pool) {
+    var s = num(tradeCfg(cfg).spouseShare, 0.45);
+    return Math.round(s * removed * Math.max(0, 1 - removed / Math.max(1, pool)));
+  }
+
+  function negotiationView(state, cfg, debug) {
+    ensureTrade(state, cfg);
+    var n = state.negotiation;
+    if (!n.cp) makeCounterparty(state, cfg);
+    var cp = n.cp, T = tradeCfg(cfg);
+    var offers = (T.offers || [0.4, 0.75, 1.2, 2.2]).map(function (r) {
+      var value = Math.round(cp.P * r);
+      return { ratio: r, value: value, payOk: availableValue(state, cfg) >= value };
+    });
+    var v = {
+      type: cp.type, typeLabel: typeLabelOf(cp.type),
+      pop: cp.pop, rare: cp.rare, tier: cp.tier,
+      forceF: cp.F, forceM: cp.M, plunderOk: cp.M >= cp.F,
+      have: round1(availableValue(state, cfg)),
+      offers: offers,
+      hostile: state.weeks < num(n.hostileUntil),
+      hostileWeeksLeft: Math.max(0, Math.round(num(n.hostileUntil) - state.weeks)),
+      result: n.result || null,
+      hint: n.result ? "" : "对方只肯给一句准话：这个数「远低于 / 接近 / 高于」他们心里的价。"
+    };
+    if (debug) v.P = cp.P;
+    return v;
+  }
+
+  function negotiationResolve(state, cfg, sel) {
+    ensureTrade(state, cfg);
+    var n = state.negotiation;
+    if (!n.cp) return { ok: false, msg: "没有谈判对象" };
+    if (n.result) return { ok: false, msg: "这一单已经结算" };
+    var cp = n.cp, T = tradeCfg(cfg);
+    var lines = [];
+    var ratio = num(sel && sel.ratio, -1);
+    var plunder = !!(sel && sel.plunder);
+
+    n.lastRatio = plunder ? num(T.plunderTotalK, 2) : ratio;
+    n.lastP = cp.P;
+    n.lastOffer = Math.round(cp.P * n.lastRatio);
+    n.active = false;
+
+    if (plunder) {
+      if (cp.M < cp.F) {
+        n.active = true;
+        return { ok: false, msg: "我方战力 " + cp.M + " 对 " + cp.F + "，硬抢不成立" };
+      }
+      var total = Math.round(cp.P * num(T.plunderTotalK, 2));
+      var sh = T.plunderShare || {};
+      var drugAdd = Math.round(total * num(sh.drug, 0.2) / num((T.unitValue || {}).drug, 2));
+      var metalAdd = Math.round(total * num(sh.metal, 0.4) / num((T.unitValue || {}).metal, 1));
+      var foodAdd = Math.round(total * num(sh.food, 0.2) / num((T.unitValue || {}).food, 0.5));
+      var waterAdd = Math.round(total * num(sh.water, 0.1) / num((T.unitValue || {}).water, 0.5));
+      var popWant = Math.round(total * num(sh.pop, 0.1) / num((T.unitValue || {}).pop, 3));
+      var popAdd = Math.min(popWant, cp.pop, freePods(state, cfg));
+      state.stocks.drug = Math.min(num(cfg.hibernation.drugCap, 1e9), num(state.stocks.drug) + drugAdd);
+      state.stocks.metal = Math.min(num(cfg.metal.cap, 1e9), num(state.stocks.metal) + metalAdd);
+      state.stocks.food = Math.min(num(cfg.food.cap, 1e9), num(state.stocks.food) + foodAdd);
+      state.stocks.water = Math.min(num(cfg.water.cap, 1e9), num(state.stocks.water) + waterAdd);
+      if (popAdd > 0) state.groups.derelict.dormant += popAdd;
+      var split = spouseSplitOf(state, cfg, popAdd, cp.pop);
+      var ord = num((T.plunderOrder || {}).normal, 0.04) * (split > 0 ? num((T.plunderOrder || {}).spouseMul, 1.1) : 1);
+      state.order = clamp(num(state.order) - ord, 0.05, 1);
+      n.hostileUntil = state.weeks + num(T.hostileWeeks, 520);
+      lines.push("付出：无，武力夺取固定按 2P 折算（P=" + cp.P + "）");
+      lines.push("得到：药剂 +" + drugAdd + " 份、金属 +" + metalAdd + " 吨、粮 +" + foodAdd +
+        " 吨、水 +" + waterAdd + " 吨、休眠移民 +" + popAdd + " 人");
+      lines.push("关系：敌对 " + Math.round(num(T.hostileWeeks, 520) / 52) + " 年；秩序 −" +
+        (ord * 100).toFixed(1) + "%" + (split > 0 ? "（夫妻拆散 " + split + " 对，惩罚 ×1.1）" : "") +
+        (popAdd < popWant ? "；舱位不足，少带走 " + (popWant - popAdd) + " 人" : ""));
+      n.result = { lines: lines, kind: "plunder", spouseSplit: split, popAdd: popAdd };
+      pushEvent(state, cfg, "trade", "谈判", "武力夺取 · " + typeLabelOf(cp.type),
+        "2P=" + total + " 当量；" + lines[1],
+        "我方战力 " + cp.M + " ≥ 对方 " + cp.F + "；夫妻拆散 " + split + " 对",
+        true, { "秩序": -Math.round(ord * 1000) / 10, "金属": metalAdd, "人口": popAdd },
+        "对方星球标记敌视，同类事件心理价 +30%");
+      return { ok: true, msg: lines.join("；"), result: n.result, negotiation: negotiationView(state, cfg) };
+    }
+
+    if (!(ratio > 0)) return { ok: false, msg: "先选一个出价" };
+    var offerValue = Math.round(cp.P * ratio);
+    if (availableValue(state, cfg) < offerValue) {
+      n.active = true;
+      return { ok: false, msg: "可动用资源 " + availableValue(state, cfg) + "，出价要 " + offerValue };
+    }
+    var pay = payValue(state, cfg, offerValue);
+    if (!pay.ok) { n.active = true; return { ok: false, msg: "资源不足，差 " + pay.short }; }
+    var spentTxt = Object.keys(pay.spent).map(function (k) {
+      return ({ metal: "金属", food: "粮", drug: "药剂", water: "水" }[k] || k) + " −" + pay.spent[k];
+    }).join("、") || "无";
+
+    if (ratio < 0.5) {
+      var loss = Math.round(10 + Math.min(20, 40 * (0.5 - ratio)));
+      var dead = removeValuePop(state, cfg, loss);
+      var split2 = spouseSplitOf(state, cfg, dead, 2400);
+      var ord2 = 0.02 * (split2 > 0 ? 1.1 : 1);
+      state.order = clamp(num(state.order) - ord2, 0.05, 1);
+      n.hostileUntil = state.weeks + num(T.hostileWeeks, 520);
+      lines.push("付出：" + spentTxt + "（" + offerValue + " 当量）");
+      lines.push("得到：无，对方拒绝并动手，人口 −" + dead + " 人");
+      lines.push("关系：敌对，短期内无法再谈；秩序 −" + (ord2 * 100).toFixed(1) + "%" +
+        (split2 > 0 ? "（夫妻拆散 " + split2 + " 对，惩罚 ×1.1）" : ""));
+      n.result = { lines: lines, kind: "refuse", split: split2 };
+    } else if (ratio < 1.0) {
+      var giveTech = randNext(state) < num(T.partialTechP, 0.5);
+      var got = deliver(state, cfg, cp, giveTech ? "tech" : "resource", lines);
+      state.order = clamp(num(state.order) - 0.01, 0.05, 1);
+      lines.unshift("付出：" + spentTxt + "（" + offerValue + " 当量，出价 / P ≈ " + ratio.toFixed(2) + "）");
+      lines.push("关系：部分成交，对方态度下降，人口不给；秩序 −1%");
+      got.partial = true;
+      n.result = { lines: lines, kind: "partial", got: got };
+    } else if (ratio < 2.0) {
+      var got3 = deliver(state, cfg, cp, "full", lines);
+      lines.unshift("付出：" + spentTxt + "（" + offerValue + " 当量，出价 / P ≈ " + ratio.toFixed(2) + "）");
+      lines.push("关系：全额成交，关系中性");
+      n.result = { lines: lines, kind: "full", got: got3 };
+    } else {
+      var got4 = deliver(state, cfg, cp, "full", lines);
+      state.order = clamp(num(state.order) - 0.04, 0.05, 1);
+      addC(state, 2);
+      lines.unshift("付出：" + spentTxt + "（" + offerValue + " 当量，出价 / P ≈ " + ratio.toFixed(2) + "）");
+      lines.push("关系：掠夺性出价，对方收钱但全船鄙夷；秩序 −4%、感染 +2");
+      n.result = { lines: lines, kind: "predatory", got: got4 };
+    }
+    pushEvent(state, cfg, "trade", "谈判", "谈判 · " + typeLabelOf(cp.type),
+      lines.join("；"),
+      "P=" + cp.P + "，出价 " + offerValue + "，比值 " + ratio.toFixed(2) +
+      "，我方战力 " + cp.M + " / 对方 " + cp.F,
+      true, null, "三次结算行见奇遇面板");
+    return { ok: true, msg: lines.join("；"), result: n.result, negotiation: negotiationView(state, cfg) };
+  }
+
+  function negotiationClose(state, cfg, opts) {
+    opts = opts || {};
+    var e = ensure(state, cfg);
+    if (!e.pending) return { ok: false, msg: "当前没有待结算的奇遇" };
+    var n = state.negotiation;
+    if (!n || !n.result) return { ok: false, msg: "这一单还没结算" };
+    e.history.push({
+      year: e.pending.year, cat: e.pending.cat, cardId: "tr_negotiator",
+      cardName: "行星代理人", rarity: "rare", choice: 0,
+      sub: n.result.kind, week: state.weeks, auto: !!opts.auto
+    });
+    var cap = num((cfg.encounter || {}).historyCap, 200);
+    if (e.history.length > cap) e.history.shift();
+    e.pending = null;
+    n.cp = null;
+    n.active = false;
+    return { ok: true, msg: "", encounter: brief(state, cfg) };
+  }
+
+  /* ---------------- 基因抵押（v6.30） ---------------- */
+
+  function mortgageCfg(cfg) { return (cfg.trade || {}).mortgage || {}; }
+
+  function eligibleMortgage(state) {
+    var gs = state.groups || {};
+    return Math.floor(num(gs.undecided && gs.undecided.awake) +
+      num(gs.original && gs.original.awake));
+  }
+
+  function mortgageTier(state) {
+    return 1 + Math.round(num(state.society && state.society.machine && state.society.machine.tech, 0.3) * 4);
+  }
+
+  function mortgageYearMul(cfg, years) {
+    var ym = mortgageCfg(cfg).yearMul || { 5: 1, 10: 1.4, 20: 2 };
+    return num(ym[years], 1);
+  }
+
+  function mortgageValue(state, cfg) {
+    var M = mortgageCfg(cfg);
+    return round1(num(M.valueMetal, 12) + num(M.valueTechK, 6) * mortgageTier(state));
+  }
+
+  function mortgageView(state, cfg) {
+    ensureTrade(state, cfg);
+    var gm = state.geneMortgage, M = mortgageCfg(cfg);
+    var V = mortgageValue(state, cfg);
+    var yearAdd = { 5: 0, 10: 0, 20: 0 };
+    [5, 10, 20].forEach(function (y) {
+      yearAdd[y] = Math.round(1000 * Math.round(V * num(M.instantK, 0.6) * mortgageYearMul(cfg, y)) / 1000);
+    });
+    var redeemPrice = 0;
+    if (gm.active) {
+      var leftYears = Math.max(1, Math.ceil((num(gm.dueWeek) - state.weeks) / 52));
+      redeemPrice = Math.round(leftYears * num(gm.n) * V * num(M.redeemK, 0.8));
+    }
+    return {
+      active: !!gm.active, n: Math.round(num(gm.n)), years: Math.round(num(gm.years)),
+      eligible: eligibleMortgage(state), value: V, tier: mortgageTier(state),
+      perYear: yearAdd, yearMuls: { 5: mortgageYearMul(cfg, 5), 10: mortgageYearMul(cfg, 10), 20: mortgageYearMul(cfg, 20) },
+      dueWeek: Math.round(num(gm.dueWeek)), yearsLeft: gm.active
+        ? Math.max(0, Math.ceil((num(gm.dueWeek) - state.weeks) / 52)) : 0,
+      yearlyPenalty: num(gm.yearlyPenalty), redeemPrice: redeemPrice,
+      paid: Math.round(num(gm.paid)), defaulted: !!gm.defaulted, redeemed: !!gm.redeemed,
+      result: gm.resultPending ? gm.result : null,
+      have: round1(availableValue(state, cfg))
+    };
+  }
+
+  function mortgageStart(state, cfg, sel) {
+    ensureTrade(state, cfg);
+    var gm = state.geneMortgage, M = mortgageCfg(cfg);
+    if (gm.active) return { ok: false, msg: "已经有一笔抵押在跑，先赎回" };
+    var n = Math.round(num(sel && sel.n));
+    var years = Math.round(num(sel && sel.years, 5));
+    if (!(n > 0)) return { ok: false, msg: "先填抵押人数" };
+    if ([5, 10, 20].indexOf(years) < 0) return { ok: false, msg: "期限只能是 5 / 10 / 20 年" };
+    var elig = eligibleMortgage(state);
+    if (n > elig) return { ok: false, msg: "育龄人口只有 " + elig + " 人" };
+    var V = mortgageValue(state, cfg);
+    var gross = Math.round(n * V * num(M.instantK, 0.6) * mortgageYearMul(cfg, years));
+    state.stocks.metal = Math.min(num(cfg.metal.cap, 1e9), num(state.stocks.metal) + gross);
+    gm.active = true;
+    gm.n = n; gm.years = years;
+    gm.startWeek = state.weeks;
+    gm.dueWeek = state.weeks + years * 52;
+    gm.yearlyPenalty = num((M.orderByYear || [0.02])[0], 0.02);
+    gm.paid = gross;
+    gm.defaulted = false;
+    gm.redeemed = false;
+    gm.spouseSplit = 0;
+    gm.resultPending = true;
+    gm.result = {
+      lines: [
+        "付出：未来 " + years + " 年内 " + n + " 人的基因处置权（每年秩序惩罚，产出 ×0.85、寿命 −5%）",
+        "得到：金属 +" + gross + " 吨（单人价值 " + V + " × 0.6 × 年化 " + mortgageYearMul(cfg, years) + "）",
+        "关系：到期需付 " + Math.round(years * n * V * num(M.redeemK, 0.8)) + " 金属当量赎回（剩余年 × 人数 × 单人价值 × 0.8），否则违约扣人"
+      ],
+      kind: "start"
+    };
+    pushEvent(state, cfg, "trade", "谈判", "签下基因抵押",
+      n + " 人 × " + years + " 年，即时金属 +" + gross + " 吨",
+      "单人价值 " + V + "；年化系数 " + mortgageYearMul(cfg, years) + "；首年秩序 −" +
+      (gm.yearlyPenalty * 100).toFixed(0) + "%",
+      true, { "金属": gross }, "这是把未来折成今天");
+    return { ok: true, msg: "抵押已生效", result: gm.result, mortgage: mortgageView(state, cfg) };
+  }
+
+  function mortgageSettle(state, cfg, manual) {
+    ensureTrade(state, cfg);
+    var gm = state.geneMortgage, M = mortgageCfg(cfg);
+    if (!gm.active) return { ok: false, msg: "没有进行中的抵押" };
+    gm.resultPending = !!manual;
+    var V = mortgageValue(state, cfg);
+    var leftYears = Math.max(1, Math.ceil((num(gm.dueWeek) - state.weeks) / 52));
+    var price = Math.round(leftYears * num(gm.n) * V * num(M.redeemK, 0.8));
+    var pay = availableValue(state, cfg) >= price ? payValue(state, cfg, price) : { ok: false, short: price };
+    var lines = [];
+    if (pay.ok) {
+      gm.active = false;
+      gm.redeemed = true;
+      gm.result = { lines: [
+        "付出：" + (pay.spent ? Object.keys(pay.spent).map(function (k) {
+          return ({ metal: "金属", food: "粮", drug: "药剂", water: "水" }[k] || k) + " −" + pay.spent[k];
+        }).join("、") : "金属 −" + price),
+        "得到：" + gm.n + " 人的基因处置权收回，秩序惩罚停止",
+        "关系：赎回完成，未违约"
+      ], kind: "redeem" };
+      pushEvent(state, cfg, "trade", "谈判", "赎回基因抵押",
+        gm.n + " 人赎回，付出 " + price + " 金属当量",
+        "剩余年限 " + leftYears + " 年 × " + gm.n + " 人 × 单人价值 " + V + " × 0.8",
+        true, null, "债务结清");
+      return { ok: true, msg: "赎回成功", mortgage: mortgageView(state, cfg) };
+    }
+    // 违约：按价值从高到低扣人，配偶分离额外 +10% 秩序惩罚
+    var taken = removeValuePop(state, cfg, Math.round(num(gm.n)));
+    var split = spouseSplitOf(state, cfg, taken, 2400);
+    var ord = num(M.defaultOrder, 0.10) * (split > 0 ? 1.10 : 1);
+    state.order = clamp(num(state.order) - ord, 0.05, 1);
+    addC(state, num(M.defaultInfect, 3));
+    gm.active = false;
+    gm.defaulted = true;
+    gm.spouseSplit = split;
+    gm.result = { lines: [
+      "付出：" + taken + " 人被强制带走（按价值从高到低），秩序 −" + (ord * 100).toFixed(1) + "%",
+      "得到：无，抵押到期未赎回",
+      "关系：违约，感染 +" + num(M.defaultInfect, 3) + (split > 0 ? "；夫妻拆散 " + split + " 对，惩罚 ×1.1" : "")
+    ], kind: "default" };
+    pushEvent(state, cfg, "trade", "谈判", "基因抵押违约",
+      taken + " 人被带走，秩序 −" + (ord * 100).toFixed(1) + "%",
+      "到期未赎回；配偶拆散 " + split + " 对" + (split > 0 ? "，秩序惩罚 ×1.1" : "") +
+      "；感染 +" + num(M.defaultInfect, 3),
+      true, { "秩序": -Math.round(ord * 1000) / 10, "人口": -taken }, "债主上门不谈判");
+    return { ok: true, msg: "抵押违约", mortgage: mortgageView(state, cfg) };
+  }
+
+  // 每周推进：逐年提升秩序惩罚；到期自动尝试赎回，不足则违约
+  function mortgageTick(state, cfg) {
+    ensureTrade(state, cfg);
+    var gm = state.geneMortgage;
+    if (!gm.active) return;
+    var M = mortgageCfg(cfg);
+    var idx = Math.max(0, Math.floor((state.weeks - num(gm.startWeek)) / 52));
+    var arr = M.orderByYear || [0.02, 0.04, 0.06, 0.08, 0.12];
+    gm.yearlyPenalty = num(arr[Math.min(idx, arr.length - 1)], 0.12);
+    if (state.weeks >= num(gm.dueWeek)) mortgageSettle(state, cfg, false);
+  }
+
+  function mortgageClose(state, cfg, opts) {
+    opts = opts || {};
+    var e = ensure(state, cfg);
+    if (!e.pending) return { ok: false, msg: "当前没有待结算的奇遇" };
+    e.history.push({
+      year: e.pending.year, cat: e.pending.cat, cardId: "tr_gene_mortgage",
+      cardName: "基因抵押商", rarity: "rare", choice: 0,
+      sub: state.geneMortgage && state.geneMortgage.active ? "signed" : "passed",
+      week: state.weeks, auto: !!opts.auto
+    });
+    var cap = num((cfg.encounter || {}).historyCap, 200);
+    if (e.history.length > cap) e.history.shift();
+    e.pending = null;
+    if (state.geneMortgage) {
+      state.geneMortgage.result = null;
+      state.geneMortgage.resultPending = false;
+    }
+    return { ok: true, msg: "", encounter: brief(state, cfg) };
+  }
+
   /* ---------------- 摘要 ---------------- */
 
   function brief(state, cfg) {
@@ -1330,7 +1804,10 @@
         week: e.pending.week,
         cards: e.pending.cards,
         auto: !!e.pending.auto,
-        derelict: e.pending.derelict ? derelictView(state, cfg) : null
+        derelict: e.pending.derelict ? derelictView(state, cfg) : null,
+        negotiation: state.negotiation && state.negotiation.cp ? negotiationView(state, cfg) : null,
+        mortgage: e.pending.cards && e.pending.cards.some(function (c) { return c.id === "tr_gene_mortgage"; })
+          ? mortgageView(state, cfg) : null
       } : null,
       counts: e.counts,
       deck: deck,
@@ -1369,7 +1846,17 @@
     rarities: RARITY_RANK,
     derelictResolve: derelictResolve,
     derelictClose: derelictClose,
-    derelictView: derelictView
+    derelictView: derelictView,
+    // 谈判 / 基因抵押（v6.30）
+    negotiationView: negotiationView,
+    negotiationResolve: negotiationResolve,
+    negotiationClose: negotiationClose,
+    mortgageView: mortgageView,
+    mortgageStart: mortgageStart,
+    mortgageRedeem: function (state, cfg) { return mortgageSettle(state, cfg, true); },
+    mortgageClose: mortgageClose,
+    mortgageTick: mortgageTick,
+    ensureTrade: ensureTrade
   };
 
   global.XuanShuEncounter = api;

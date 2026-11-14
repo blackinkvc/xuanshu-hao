@@ -174,6 +174,42 @@
       industryFullMW: 22        // 【档案】工业 22 MW
     },
 
+    /* ---------------- 谈判 / 基因抵押（v6.30，见《谈判与基因抵押》v1.0） ----------------
+       心理价 P = (人口×人均估值 + 科技档×120 + 稀有吨×12) × greed。
+       出价以资源当量计：金属 1、粮 0.5、药 2、水 0.5、人口 3。 */
+    trade: {
+      popRange: [120, 420],
+      rareRange: [20, 90],
+      tierRange: [1, 5],
+      popValueByType: { colony: 30, alien: 22, hostile: 20, abandoned: 18, ruins: 10 },
+      techValueK: 120,
+      rareValueK: 12,
+      greed: { normal: 1.0, stalemate: 1.3, weak: 1.6 },
+      unitValue: { metal: 1, food: 0.5, drug: 2, water: 0.5, pop: 3 },
+      offers: [0.4, 0.75, 1.2, 2.2],
+      partialTechP: 0.5,       // 部分成交时，给科技的概率（否则只给资源）
+      hostileWeeks: 520,
+      hostileGreed: 1.3,       // 掠夺/敌对后同类事件心理价 +30%
+      plunderTotalK: 2.0,      // 掠夺总额 = 2P
+      plunderShare: { drug: 0.20, metal: 0.40, food: 0.20, water: 0.10, pop: 0.10 },
+      plunderOrder: { normal: 0.04, spouseMul: 1.10 },
+      spouseShare: 0.45,       // 船员中已婚比例（期望拆散对数用）
+      techGainK: 0.02,         // 全额成交：科技档 × 2%
+      popTransferK: 0.10,      // 全额成交：对方人口的 10% 作为休眠移民
+      mortgage: {
+        valueMetal: 12,
+        valueTechK: 6,
+        instantK: 0.6,
+        yearMul: { 5: 1.0, 10: 1.4, 20: 2.0 },
+        orderByYear: [0.02, 0.04, 0.06, 0.08, 0.12],
+        prodMul: 0.85,
+        deathMul: 0.05,
+        redeemK: 0.8,
+        defaultOrder: 0.10,
+        defaultInfect: 3
+      }
+    },
+
     /* ---------------- 医疗 ---------------- */
     medical: {
       coverageBase: 0.35,
@@ -304,7 +340,7 @@
         "encounter", "player_action", "action",
         "mutiny", "strike", "machine", "binge", "atrocity", "summon", "gods",
         "build_hydro", "build_pods", "build_clone",
-        "addiction", "withdraw"
+        "addiction", "withdraw", "trade"
       ],
       keyLevels: { infection: ["眷属"] },
       routineTypes: [
@@ -957,6 +993,8 @@
           { id: "cr_blackout", name: "全船停电", rarity: "legendary", need: {}, ops: [{ t: "mod", key: "prodMul", v: 0.75, weeks: 8 }, { t: "order", v: -0.06 }, { t: "machine", k: "autonomy", v: 0.05 }], effectText: "产能 −25%（8 周）", costText: "秩序 −6%、机器自主 +0.05", followText: "—" }
         ],
         trade: [
+          { id: "tr_negotiator", name: "行星代理人", rarity: "rare", need: { orderMin: 0.25 }, choices: ["谈谈"], ops: [], effectText: "按心理价成交 / 还价 / 武力夺取", costText: "资源当量", followText: "谈崩会敌对" },
+          { id: "tr_gene_mortgage", name: "基因抵押商", rarity: "rare", need: { orderMin: 0.30 }, choices: ["抵押"], ops: [], effectText: "以后代基因处置权换即时金属", costText: "逐年秩序与产出", followText: "到期不赎即违约" },
           { id: "tr_trader", name: "巡回商船", rarity: "common", need: { orderMin: 0.30 }, choices: ["metal", "food"], ops: [], effectText: "金属 +40 t 或 粮 +50 吨", costText: "另一项 −20 吨", followText: "—" },
           { id: "tr_intel_broker", name: "情报贩子", rarity: "rare", need: { orderMin: 0.35 }, ops: [{ t: "intel", level: "high", weeks: 200 }, { t: "stock", k: "metal", v: -20 }], effectText: "情报 +1 档 200 周", costText: "金属 −20 吨", followText: "—" },
           { id: "tr_mercenary", name: "雇佣兵", rarity: "rare", need: { orderMin: 0.30 }, ops: [{ t: "garrison", k: "strength", v: 15 }, { t: "mod", key: "garrison", v: 15, weeks: 5200 }, { t: "stock", k: "food", v: -25 }], effectText: "警备兵力 +15（100 年）", costText: "粮 −25 吨", followText: "—" },
