@@ -603,26 +603,43 @@
 
     if (a.society) {
       var r = global.XuanShuSociety && global.XuanShuSociety.act
-        ? global.XuanShuSociety.act(state, cfg, a.society) : { ok: false, msg: "社会层未加载" };
+        ? global.XuanShuSociety.act(state, cfg, a.society, { dept: payload.dept }) : { ok: false, msg: "社会层未加载" };
       if (!r.ok) return { ok: false, msg: r.msg, action: id };
       msg = r.msg;
       if (id === "replace_mid") p.pc.dominionBonus = num(p.pc.dominionBonus) - 8;
       if (id === "lockdown") p.lockdownUntil = Math.max(p.lockdownUntil, state.weeks + cfg.society.actions.lockdown.isoWeeks);
+      if (id === "interrogate") {
+        // 审讯的语义结果：除了压服，还要换回情报——把涉事部门标出来，情报抬一档
+        var ib = effectiveIntel(state, cfg, p) === "low" ? "mid" : "high";
+        p.intelBuff = { level: ib, until: state.weeks + cfg.society.actions.interrogate.isoWeeks };
+        var md = state.society.mutiny.dept ||
+          ((state.society.queues || []).filter(function (q) { return q.layer === "L2"; })[0] || {}).dept || "";
+        msg += "；情报升到「" + intelText(ib) + "」" +
+          (md ? "，涉事部门「" + md + "」被标出" : "，但没锁定具体部门");
+      }
       markCd(p, id, a.cdWeeks);
     } else {
       at = attrs(state, cfg);
       var et = a.effect ? a.effect.type : "";
 
       if (et === "input") {
+        // 按「旧值 → 新值」结算：没改动就不扣秩序、也不占冷却，
+        // 避免把「点一下」当成一次真实调整（旧版拿 1.00 当基准，点一次白扣秩序）。
+        var prevV = num(state.inputs[a.effect.key], 1);
         var v = payload.value;
-        if (typeof v !== "number") v = num(state.inputs[a.effect.key], 1);
+        if (typeof v !== "number") v = prevV;
         v = clamp(v, a.effect.min, a.effect.max);
+        var dv = Math.round((v - prevV) * 10000) / 10000;
         state.inputs[a.effect.key] = v;
-        var dv = v - 1;
-        state.order = clamp(num(state.order) + dv * 0.05, 0.05, 1);
-        addQueue100(state, null, "O", dv * 10);
-        msg = a.label + "：设为 " + v.toFixed(2) + "，秩序 " + (dv >= 0 ? "+" : "") + (dv * 5).toFixed(1) + "%";
-        markCd(p, id, a.cdWeeks);
+        if (Math.abs(dv) > 1e-9) {
+          state.order = clamp(num(state.order) + dv * 0.05, 0.05, 1);
+          addQueue100(state, null, "O", dv * 10);
+          msg = a.label + "：" + prevV.toFixed(2) + " → " + v.toFixed(2) +
+            "，秩序 " + (dv >= 0 ? "+" : "") + (dv * 5).toFixed(1) + "%";
+          markCd(p, id, a.cdWeeks);
+        } else {
+          msg = a.label + "：已经是 " + v.toFixed(2) + "，这次没有改动（不计冷却）";
+        }
       } else if (et === "audience") {
         state.order = clamp(num(state.order) + 0.02, 0.05, 1);
         addQueue100(state, null, "O", 2);
@@ -632,11 +649,16 @@
         msg = "巡视完：秩序 +2%、服从 +2，情报升到「" + intelText(buff) + "」，管 8 周";
         markCd(p, id, a.cdWeeks);
       } else if (et === "purge_tech") {
-        if (state.society.machine) state.society.machine.tech = clamp(num(state.society.machine.tech) - 0.03, 0, 1);
-        var dT = state.society.depts["技术"];
-        if (dT) dT.I = clamp(num(dT.I) - 0.15, 0, 1);
+        var techBefore = state.society.machine ? num(state.society.machine.tech) : 0;
+        if (state.society.machine) state.society.machine.tech = clamp(techBefore - 0.03, 0, 1);
+        var techAfter = state.society.machine ? num(state.society.machine.tech) : 0;
+        var dT = state.society.depts && state.society.depts["技术"];
+        var iBefore = dT ? num(dT.I) : 0;
+        if (dT) dT.I = clamp(iBefore - 0.15, 0, 1);
         addQueue100(state, function (q) { return q.dept === "技术"; }, "W", 4);
-        msg = "技术环清洗完：科技 −0.03，技术部门失序 −0.15，技术部门不服 +4";
+        msg = "技术环清洗完：科技 " + techBefore.toFixed(2) + " → " + techAfter.toFixed(2) +
+          "，技术部门失序 " + iBefore.toFixed(2) + " → " + (dT ? num(dT.I).toFixed(2) : "—") +
+          "，技术部门不服 +4";
         markCd(p, id, a.cdWeeks);
       } else if (et === "petition") {
         var okP = randNext(state) < 0.5;
@@ -728,7 +750,7 @@
         var okD = riskCheck(state, cfg, a);
         if (okD) {
           state.wear = clamp(num(state.wear) + 0.03, 0, 1);
-          var dS = state.society.depts[p.pc.dept];
+          var dS = state.society.depts && state.society.depts[p.pc.dept];
           if (dS) dS.I = clamp(num(dS.I) + 0.05, 0, 1);
           msg = "破坏成了：磨损 +3%，部门失序 +0.05";
         } else {
@@ -788,12 +810,13 @@
 
     p.history.push({ week: state.weeks, year: Math.floor(state.weeks / cfg.time.weeksPerYear), action: id, ok: true, msg: msg });
     if (p.history.length > 200) p.history.shift();
+    var D = global.XuanShuSim.diffMetrics(M0, global.XuanShuSim.metrics(state, cfg));
     pushEvent(state, cfg, "player_action", "行动",
       modeLabel(p.mode) + " · " + a.label,
       msg + (p.mode === "creator" ? "（调试）" : ""),
-      global.XuanShuSim.diffMetrics(M0, global.XuanShuSim.metrics(state, cfg)),
+      D,
       p.mode === "creator" ? "" : "你亲自动了手");
-    return { ok: true, msg: msg, action: id, critical: critical, player: brief(state, cfg) };
+    return { ok: true, msg: msg, action: id, critical: critical, deltas: global.XuanShuSim.cleanDeltas(D), player: brief(state, cfg) };
   }
 
   function brief(state, cfg) {

@@ -799,13 +799,28 @@
 
   /* ---------------- 扑灭手段 ---------------- */
 
-  function act(state, cfg, name) {
+  // 本周口粮需求量（吨/周）：优先用上周结算值，开局还没结算过就按人口口径现算，
+  // 否则「让步 / 仪式」在第一周会因为 last.consumption=0 而白拿效果、不付粮。
+  function weeklyDemand(state, cfg) {
+    var last = state.last && num(state.last.consumption);
+    if (last > 0) return last / cfg.time.weeksPerYear;
+    var t = global.XuanShuSim ? global.XuanShuSim.totals(state, cfg) : null;
+    if (!t) return 0;
+    var yearly = t.awake * cfg.food.perCapitaTpy +
+      t.dormant * cfg.food.perCapitaTpy * cfg.food.dormantFactor;
+    return yearly / cfg.time.weeksPerYear;
+  }
+
+  function act(state, cfg, name, opts) {
     var a = cfg.society.actions[name];
     if (!a) return { ok: false, msg: "未知手段" };
     var soc = state.society;
     var cd = soc.actions.cd[name] || 0;
     if (state.weeks < cd) return { ok: false, msg: a.label + "冷却中，还需 " + (cd - state.weeks) + " 周" };
     if (a.needL1 && soc.mutiny.l1dead) return { ok: false, msg: "最高贵族已经死了，这套仪式没用了" };
+
+    var targetDept = (opts && opts.dept) || soc.mutiny.dept ||
+      ((soc.queues || []).filter(function (q) { return q.layer === "L2"; })[0] || {}).dept || "";
 
     var M0 = global.XuanShuSim.metrics(state, cfg);
     var used = soc.actions.uses[name] || 0;
@@ -833,34 +848,40 @@
       extra = "警备耐久 −" + Math.round(a.durCost * mul) + "、金属 −" + Math.round(a.metal * mul) +
         " 吨，服从 +" + eff.toFixed(0) + "（警备还能用 " + Math.round(avail * 100) + "%）";
     } else if (name === "concede") {
-      var demandW = (state.last.consumption || 0) / cfg.time.weeksPerYear;
+      var demandW = weeklyDemand(state, cfg);
       var cost = demandW * a.foodShare * a.foodWeeks;
-      state.stocks.food = Math.max(0, state.stocks.food - cost);
-      soc.effects.oShift += a.o * mul;
-      soc.effects.wShift += a.w * mul;
-      state.order = clamp(state.order + a.order, 0.05, 1);
-      extra = "补发了 " + Math.round(cost) + " 吨粮，服从 +" + (a.o * mul).toFixed(0);
+      var paid = Math.min(cost, num(state.stocks.food));
+      var payRatio = cost > 0 ? paid / cost : 0;
+      state.stocks.food = Math.max(0, num(state.stocks.food) - paid);
+      soc.effects.oShift += a.o * mul * payRatio;
+      soc.effects.wShift += a.w * mul * payRatio;
+      state.order = clamp(state.order + a.order * payRatio, 0.05, 1);
+      extra = "补发了 " + Math.round(paid) + " 吨粮（应发 " + Math.round(cost) + " 吨），服从 +" +
+        (a.o * mul * payRatio).toFixed(0) + (payRatio < 0.999 ? "（库存不足，效果按比例打折）" : "");
     } else if (name === "execute") {
+      var killed = 0;
       cfg.population.groups.forEach(function (g) {
         var s = state.groups[g.id];
-        s.awake = Math.max(0, s.awake - s.awake * a.death * mul);
+        var cut = s.awake * a.death * mul;
+        killed += cut;
+        s.awake = Math.max(0, s.awake - cut);
       });
       soc.effects.oShift += a.o * mul;
       soc.effects.wShift += a.w * mul;
-      var worst = soc.queues.filter(function (q) { return q.layer === "L2" && q.dept === soc.mutiny.dept; })[0] ||
+      var worst = soc.queues.filter(function (q) { return q.layer === "L2" && q.dept === targetDept; })[0] ||
         soc.queues.filter(function (q) { return q.layer === "L2"; })[0];
       if (worst) { worst.dPenalty += 5; worst.wPerm += a.w * mul; }
       soc.exec.push({ m: state.weeks, frac: a.death * mul });
-      extra = "处决了约 " + Math.round((state.total || 0) * a.death * mul) + " 人，涉事的中层贵族统御 −5";
+      extra = "处决了 " + Math.round(killed) + " 人（「" + (targetDept || "各环") + "」领头者），涉事的中层贵族统御 −5";
     } else if (name === "replace") {
-      var l2 = soc.queues.filter(function (q) { return q.layer === "L2" && q.dept === soc.mutiny.dept; })[0];
+      var l2 = soc.queues.filter(function (q) { return q.layer === "L2" && q.dept === targetDept; })[0];
       if (l2) l2.dPenalty += 8;
       soc.replaceCount++;
       soc.queues.forEach(function (q) {
-        if (q.dept === soc.mutiny.dept) q.S = clamp(q.S + a.spread, 0, 1);
+        if (q.dept === targetDept) q.S = clamp(q.S + a.spread, 0, 1);
       });
       soc.effects.oShift += a.o * mul;
-      extra = "换了人：统御 −8，同部门其他节点压力 +0.12";
+      extra = "换了「" + targetDept + "」的人：统御 −8，同部门其他节点压力 +0.12";
     } else if (name === "interrogate") {
       if (soc.garrison.infiltrators <= 0) return { ok: false, msg: "没有可用的潜伏机" };
       soc.garrison.metal = Math.max(0, soc.garrison.metal - a.metal * mul);
@@ -883,11 +904,14 @@
       extra = "产出只剩 " + Math.round(a.prodMul * 100) + "%，隔离 +" + a.iso +
         "，感染扩散 ×" + a.infSpread + "，警备耐久 −" + Math.round(a.durCost * mul);
     } else if (name === "ritual") {
-      var costR = (state.last.consumption || 0) / cfg.time.weeksPerYear * a.foodShare;
-      state.stocks.food = Math.max(0, state.stocks.food - costR);
-      soc.effects.oShift += a.o * mul;
-      soc.effects.wShift += a.w * mul;
-      extra = "花了 " + Math.round(costR) + " 吨粮做仪式，服从 +" + (a.o * mul).toFixed(0);
+      var costR = weeklyDemand(state, cfg) * a.foodShare;
+      var paidR = Math.min(costR, num(state.stocks.food));
+      var ratioR = costR > 0 ? paidR / costR : 0;
+      state.stocks.food = Math.max(0, num(state.stocks.food) - paidR);
+      soc.effects.oShift += a.o * mul * ratioR;
+      soc.effects.wShift += a.w * mul * ratioR;
+      extra = "花了 " + paidR.toFixed(1) + " 吨粮做仪式，服从 +" + (a.o * mul * ratioR).toFixed(0) +
+        (ratioR < 0.999 ? "（库存不足，效果按比例打折）" : "");
     }
 
     soc.actions.uses[name] = used + 1;

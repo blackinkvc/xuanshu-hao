@@ -155,8 +155,8 @@
     return {
       "人口": Math.round(tots.total),
       "健康": p && p.pc ? Math.round((typeof p.pc.health === "number" ? p.pc.health : 0)) : 0,
-      "粮食": Math.round(state.stocks.food),
-      "秩序": Math.round(state.order * 100),
+      "粮食": Math.round(state.stocks.food * 10) / 10,
+      "秩序": Math.round(state.order * 1000) / 10,
       "磨损": Math.round(state.wear * 100),
       "感染": Math.round(((soc.infection || {}).share || 0) * 100),
       "耐久": Math.round((soc.garrison || {}).durability || 0),
@@ -1370,9 +1370,9 @@
           : { ok: false, msg: "社会层未加载" };
       },
 
-      societyAction: function (name) {
+      societyAction: function (name, payload) {
         return global.XuanShuSociety
-          ? global.XuanShuSociety.act(state, cfg, name)
+          ? global.XuanShuSociety.act(state, cfg, name, payload || {})
           : { ok: false, msg: "社会层未加载" };
       },
 
