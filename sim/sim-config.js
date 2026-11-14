@@ -793,16 +793,16 @@
 
     /* ---------------- 遗迹 / 殖民地 / 遗弃船 / 外星文明：差距 → 产出 ----------------
        d = T_r − t（目标科技 − 玩家科技），Δ = 科技增量，保证 t + Δ ≤ T_r。
-       A 远低于你：Δ=0，物资 ×1.2 起、d 每再低 0.10 加 5%，封顶 ×1.4；
-       B 相当/略低：0 ≤ d ≤ low，Δ=min(0.03, d)，物资 ×1.0；
+       A 远低于你：d < lowMin，Δ=0，物资从 ×1.2 起、d 每再低 0.10 加 5%，封顶 ×1.4；
+       B 相当/略低：lowMin ≤ d ≤ low，d ≤ 0 时 Δ=0，d > 0 时 Δ=min(0.03, d)，物资 ×1.0；
        C 略高可探：low < d ≤ high，Δ=min(0.03+0.30(d−low), d)，物资 ×0.85；
        D 高出 high：不可探，文案「科技相差甚远，无法探索」。 */
     exploreGap: {
       types: {
-        ruins:  { label: "遗迹",     targetTech: 0.55, low: 0.08, high: 0.22, matBase: 60, fail: { infect: 6 }, success: { A: 0.90, B: 0.80, C: 0.45 } },
-        colony: { label: "殖民地",   targetTech: 0.45, low: 0.10, high: 0.20, matBase: 70, fail: { infect: 3 }, success: { A: 0.90, B: 0.80, C: 0.45 } },
-        wreck:  { label: "遗弃船",   targetTech: 0.40, low: 0.10, high: 0.28, matBase: 80, fail: { wear: 0.04 }, success: { A: 0.90, B: 0.80, C: 0.45 } },
-        alien:  { label: "外星文明", targetTech: 0.65, low: 0.06, high: 0.16, matBase: 60, fail: { infect: 8 }, success: { A: 0.85, B: 0.75, C: 0.35 } }
+        ruins:  { label: "遗迹",     targetTech: 0.55, lowMin: -0.12, low: 0.08, high: 0.22, matBase: 60, fail: { infect: 6 }, success: { A: 0.90, B: 0.80, C: 0.45 } },
+        colony: { label: "殖民地",   targetTech: 0.45, lowMin: -0.15, low: 0.10, high: 0.20, matBase: 70, fail: { infect: 3 }, success: { A: 0.90, B: 0.80, C: 0.45 } },
+        wreck:  { label: "遗弃船",   targetTech: 0.40, lowMin: -0.15, low: 0.10, high: 0.28, matBase: 80, fail: { wear: 0.04 }, success: { A: 0.90, B: 0.80, C: 0.45 } },
+        alien:  { label: "外星文明", targetTech: 0.65, lowMin: -0.10, low: 0.06, high: 0.16, matBase: 60, fail: { infect: 8 }, success: { A: 0.85, B: 0.75, C: 0.35 } }
       }
     },
 

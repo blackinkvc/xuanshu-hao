@@ -395,15 +395,15 @@
         matMul: 0, metal: 0, success: 0
       };
     }
-    if (d < -1e-9) {
+    if (d < num(G.lowMin, -num(G.low, 0)) - 1e-9) {
       tier = "A";
       delta = 0;
-      // 每再低 0.10，物资 +5%，从 ×1.2 起，封顶 ×1.4
-      matMul = Math.min(1.4, 1.2 + 0.05 * Math.floor((-d + 1e-9) / 0.10));
+      // 从较低档位起 ×1.2，每再低 0.10 加 5%，封顶 ×1.4
+      matMul = Math.min(1.4, 1.2 + 0.05 * Math.floor((num(G.lowMin, 0) - d + 1e-9) / 0.10));
       success = num(G.success && G.success.A, 0.9);
     } else if (d <= num(G.low, 0) + 1e-9) {
       tier = "B";
-      delta = Math.min(0.03, d);
+      delta = Math.min(0.03, Math.max(0, d));
       matMul = 1;
       success = num(G.success && G.success.B, 0.8);
     } else {
