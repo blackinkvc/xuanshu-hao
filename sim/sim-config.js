@@ -52,17 +52,26 @@
 
     /* ---------------- 人口 ---------------- */
     population: {
-      // awake/dormant 初值合计：醒态 2400，休眠 1600，在册 4000（【档案】）
+      // v6.23 按阶级重做：只有贵族有休眠资格，克隆人与平民永远醒着劳动。
+      // 开局在册 4,000（生物）：醒 2,400 / 休眠 1,600，且休眠区几乎是清一色贵族。
+      //   贵族 1,720（醒 120 / 舱 1,600）
+      //   平民 1,840（醒 1,840 / 舱 0）：原初 12、战斗 260、技术 360、勤务 400、医疗 212、未定 596
+      //   克隆人 440（醒 440 / 舱 0）
+      // 机器人另计 400 台：走现有机械口径，不占口粮、不占舱位、不进人口 groups。
       groups: [
-        { id: "original",  name: "原初体",     short: "原初", awake: 12,  dormant: 14,  mortality: 0.0040, color: "#d8dde5" },
-        { id: "combat",    name: "战斗编制",   short: "战斗", awake: 260, dormant: 340, mortality: 0.0120, color: "#b0605a" },
-        { id: "tech",      name: "技术·情报",  short: "技术", awake: 360, dormant: 580, mortality: 0.0110, color: "#6f8fa6" },
-        { id: "service",   name: "勤务·礼仪",  short: "勤务", awake: 400, dormant: 340, mortality: 0.0120, color: "#8a9a7b" },
-        { id: "medical",   name: "服务·医疗",  short: "服务", awake: 212, dormant: 276, mortality: 0.0130, color: "#a68b6f" },
-        { id: "noble",     name: "贵族",       short: "贵族", awake: 36,  dormant: 50,  mortality: 0.0030, color: "#c9b37a" },
-        { id: "clone",     name: "变异克隆",   short: "克隆", awake: 440, dormant: 0,   mortality: 0.0833, color: "#7d728f", clone: true },
-        { id: "undecided", name: "未定·未成年", short: "未定", awake: 680, dormant: 0,   mortality: 0.0220, color: "#5d6675" }
+        { id: "original",  name: "原初体",     short: "原初", awake: 12,  dormant: 0,    mortality: 0.0040, color: "#d8dde5", canSleep: false },
+        { id: "combat",    name: "战斗编制",   short: "战斗", awake: 260, dormant: 0,    mortality: 0.0120, color: "#b0605a", canSleep: false },
+        { id: "tech",      name: "技术·情报",  short: "技术", awake: 360, dormant: 0,    mortality: 0.0110, color: "#6f8fa6", canSleep: false },
+        { id: "service",   name: "勤务·礼仪",  short: "勤务", awake: 400, dormant: 0,    mortality: 0.0120, color: "#8a9a7b", canSleep: false },
+        { id: "medical",   name: "服务·医疗",  short: "服务", awake: 212, dormant: 0,    mortality: 0.0130, color: "#a68b6f", canSleep: false },
+        { id: "noble",     name: "贵族",       short: "贵族", awake: 120, dormant: 1600, mortality: 0.0030, color: "#c9b37a", canSleep: true, minAwake: 60 },
+        { id: "clone",     name: "变异克隆",   short: "克隆", awake: 440, dormant: 0,    mortality: 0.0833, color: "#7d728f", clone: true, canSleep: false },
+        { id: "undecided", name: "未定·未成年", short: "未定", awake: 596, dormant: 0,    mortality: 0.0220, color: "#5d6675", canSleep: false },
+        // 遗弃殖民舰带回来的遗民：默认休眠，唤醒走同一套复温死亡公式
+        { id: "derelict",  name: "遗民",       short: "遗民", awake: 0,   dormant: 0,    mortality: 0.0100, color: "#9a8f7a", canSleep: true }
       ],
+      robots: { count: 400, note: "机械编制，计入现有机器系统；不占口粮、不占休眠位、不进人口 groups" },
+      sleepEligible: ["noble", "derelict"],
       undecidedId: "undecided",
       laborFull: 1720,          // 【档案】醒态在岗 1,720
       minAwake: 1500,           // 【推定】航行与生保最低编制
@@ -642,7 +651,72 @@
       droughtAfterYears: 12,
       droughtCoef: 0.035,
       maxPerYear: 1,
-      historyCap: 200
+      historyCap: 200,
+
+      /* ---------------- 废弃殖民舰 · 七选项 ----------------
+         前两项（探索科技 / 回收物资）可多选、可单选、可不选；后五项（回收蛋白质 /
+         苏醒全部 / 带走部分 / 带走全部 / 留下基因）互斥，只能选 0 或 1 个。
+         工质走同一个扣减入口 spendPropellant()，不足时整单禁用并报差额。
+         带走人占本舰休眠余位（infra.pods − dormant），不拖对方舱。 */
+      derelict: {
+        enabled: true,
+        maxSorties: 3,             // 探索 / 回收各自最多 3 次
+        teamSize: 20,              // 探索小队基数，单次伤亡上限 20
+        salvageShare: 0.40,        // 每次回收拿走剩余物资的 40%
+        proteinPerBody: 0.05,      // 吨/人：回收蛋白质的可食用折算
+        geneTech: 1.0,             // 基因样本按船的 gene.tech 全额入账
+        arrivalGroupId: "derelict",
+        prop: {
+          explore: 12,             // 每次探索往返
+          salvage: 18,             // 每次回收往返
+          protein: 15,             // 处理机组
+          dock: 8,                 // 对接固定开销
+          perPerson: 0.012,        // 转运每人
+          gene: 6                  // 取样返回
+        },
+        ships: [
+          { id: "ds_changye", name: "长夜号", cls: "低温运输舰", tech: 0.38, hull: 0.62, hazard: 0.12,
+            dormant: 1200, salvage: { metal: 260, water: 120, drug: 30, food: 40 },
+            gene: { tech: 0.006, drug: 20 }, note: "货舱里是一排排没醒过的铺位",
+            crew: ["舰长 韩熄", "轮机长 罗盘", "货管 陈七", "医官 白鹭"] },
+          { id: "ds_baie", name: "白垩纪号", cls: "农业殖民船", tech: 0.34, hull: 0.70, hazard: 0.10,
+            dormant: 900, salvage: { metal: 140, water: 300, drug: 20, food: 160 },
+            gene: { tech: 0.005, drug: 15 }, note: "农环早已干涸，种库里还有活种",
+            crew: ["船长 苗禾", "农艺师 谷雨", "水手 沈舟", "医官 苏叶"] },
+          { id: "ds_helios", name: "赫利俄斯号", cls: "太阳能方舟", tech: 0.46, hull: 0.55, hazard: 0.18,
+            dormant: 1600, salvage: { metal: 220, water: 80, drug: 120, food: 30 },
+            gene: { tech: 0.009, drug: 40 }, note: "帆面碎了大半，药柜却锁得完好",
+            crew: ["舰长 翟光", "帆手 阿叶", "药师 纳兰", "领航 柯白"] },
+          { id: "ds_wushe", name: "无舌者号", cls: "宗教殖民船", tech: 0.30, hull: 0.48, hazard: 0.30,
+            dormant: 2400, salvage: { metal: 180, water: 160, drug: 60, food: 90 },
+            gene: { tech: 0.004, drug: 25 }, note: "舱壁刻满祷文，没人愿意先开口",
+            crew: ["主祭 默", "执事 无咎", "看守 铁头", "抄经 青禾"] },
+          { id: "ds_tiezhen", name: "铁砧号", cls: "工业母舰", tech: 0.52, hull: 0.66, hazard: 0.16,
+            dormant: 480, salvage: { metal: 900, water: 60, drug: 40, food: 20 },
+            gene: { tech: 0.012, drug: 10 }, note: "锻炉冷了，料场还堆着整船钢材",
+            crew: ["总工 邵砧", "炉长 石敢", "调度 何九", "医官 吴桐"] },
+          { id: "ds_huijin", name: "灰烬号", cls: "灾变撤离船", tech: 0.40, hull: 0.30, hazard: 0.36,
+            dormant: 1800, salvage: { metal: 300, water: 100, drug: 80, food: 70 },
+            gene: { tech: 0.007, drug: 30 }, note: "外壳烧穿了，舱里的人在等一个不会来的救援",
+            crew: ["舰长 余烬", "消防长 秦烈", "护士长 叶蓝", "通信 白鸦"] },
+          { id: "ds_shuangsheng", name: "双生号", cls: "双体殖民舰", tech: 0.44, hull: 0.58, hazard: 0.20,
+            dormant: 2000, salvage: { metal: 420, water: 200, drug: 70, food: 110 },
+            gene: { tech: 0.008, drug: 35 }, note: "两个船体靠一根断裂的桁架牵着",
+            crew: ["舰长 周合", "副长 周离", "结构师 林间", "医官 江晚"] },
+          { id: "ds_jingshui", name: "静水号", cls: "海洋殖民船", tech: 0.36, hull: 0.60, hazard: 0.14,
+            dormant: 1100, salvage: { metal: 160, water: 1200, drug: 30, food: 60 },
+            gene: { tech: 0.005, drug: 20 }, note: "压载水舱满得几乎推不动",
+            crew: ["船长 蓝澈", "潜水长 曲渊", "水手 沙洲", "医官 白涟"] },
+          { id: "ds_wandao", name: "晚祷号", cls: "医疗方舟", tech: 0.48, hull: 0.72, hazard: 0.08,
+            dormant: 700, salvage: { metal: 120, water: 150, drug: 400, food: 50 },
+            gene: { tech: 0.010, drug: 80 }, note: "病房的灯还亮着，像刚交完班",
+            crew: ["院长 顾行", "外科 沈砚", "麻醉 冯露", "药剂 陆迟"] },
+          { id: "ds_wugui", name: "无归号", cls: "监狱运输舰", tech: 0.32, hull: 0.40, hazard: 0.45,
+            dormant: 2800, salvage: { metal: 240, water: 90, drug: 50, food: 80 },
+            gene: { tech: 0.004, drug: 15 }, note: "舱门外焊着铁条，里面的人睡得很沉",
+            crew: ["典狱 雷戈", "押运 刀疤", "记录 许默", "医官 何棠"] }
+        ]
+      }
     },
 
     /* 古神契约：四位神的索求/赐予/神噬；跨轮保留。
@@ -704,7 +778,7 @@
         explore: [
           { id: "ex_metal_asteroid", name: "富金属小行星", rarity: "common", need: { techMin: 0.30 }, ops: [{ t: "stock", k: "metal", v: 90 }, { t: "wear", v: 0.03 }], follow: [{ key: "encounter.crisis", v: 0.10, weeks: 520 }], effectText: "金属 +90 吨", costText: "磨损 +0.03，占用 8 周", followText: "10 年内危机权重 +0.10" },
           { id: "ex_ice_asteroid", name: "冰质小行星", rarity: "common", need: { techMin: 0.25 }, ops: [{ t: "stock", k: "water", v: 400 }, { t: "stock", k: "metal", v: -10 }], effectText: "水 +400 吨", costText: "金属 −10 吨，占用 6 周", followText: "—" },
-          { id: "ex_derelict", name: "废弃殖民舰", rarity: "rare", need: { techMin: 0.40 }, ops: [{ t: "pop", group: "undecided", v: 18 }, { t: "stock", k: "metal", v: 40 }, { t: "stock", k: "drug", v: -30 }, { t: "infect", v: 3 }], effectText: "人口 +18（未定）、金属 +40 吨", costText: "药剂 −30", followText: "全船感染 +3" },
+          { id: "ex_derelict", name: "废弃殖民舰", rarity: "rare", need: { techMin: 0.40 }, ops: [], effectText: "七选项：探索 / 回收物资 / 回收蛋白质 / 苏醒全部 / 带走部分 / 带走全部 / 留下基因", costText: "工质与伤亡按勾选结算", followText: "带走的人要占本舰休眠余位" },
           { id: "ex_ruins", name: "远古遗迹", rarity: "epic", gap: "ruins", ops: [{ t: "gapReward", type: "ruins" }], follow: [{ key: "encounter.oldgod", v: 0.30, weeks: 5200 }], effectText: "按科技差结算", costText: "探索失败：全船感染 +6", followText: "100 年内古神权重 ×1.3" },
           { id: "ex_colony", name: "前人类殖民地", rarity: "rare", gap: "colony", ops: [{ t: "gapReward", type: "colony" }], effectText: "按科技差结算", costText: "探索失败：全船感染 +3", followText: "—" },
           { id: "ex_wreck", name: "遗弃船", rarity: "rare", gap: "wreck", ops: [{ t: "gapReward", type: "wreck" }], effectText: "按科技差结算", costText: "探索失败：磨损 +0.04", followText: "—" },
@@ -849,7 +923,14 @@
           casualtyBase: 0.04,      // 叛乱本身的人口损耗（低等级为主）
           casualtyK: 0.18
         },
-        highIdentity: ["ruler", "creator"]   // 高身份：可先停哪一级 / 抢收 / 下令回收
+        // 强制沉睡：断粮启动时先把有资格者（贵族）送进空余休眠舱，按 5% 口粮折算。
+        // 克隆人/平民没有资格，只能走停供与回收；机器人不参与。
+        forceSleep: {
+          enabled: true,
+          perStepShare: 1.0,       // 每级间隔最多送睡剩余醒着贵族的比例（1 = 一次性全送）
+          minFreePods: 1
+        },
+        highIdentity: ["ruler", "creator"]   // 高身份：可先停哪一级 / 抢收 / 下令回收 / 强制沉睡
       }
     },
 

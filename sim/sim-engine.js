@@ -307,6 +307,29 @@
         return r;
       },
 
+      // —— 断粮处置 / 废弃殖民舰七选项（v6.23） ——
+      /** 粮食卡一次提交一组勾选：sleep / stop[] / recycle / harvest */
+      famineAct: function (choice) {
+        if (typeof sim.famineAct !== "function") return { ok: false, msg: "引擎未提供断粮干预" };
+        var r = sim.famineAct(choice || {});
+        emit("famine", r, {});
+        return r;
+      },
+      /** 废弃殖民舰：按勾选组合结算一次，结果留在 pending 上供原地展示 */
+      derelictResolve: function (sel) {
+        if (typeof sim.derelictResolve !== "function") return { ok: false, msg: "引擎未提供废弃殖民舰结算" };
+        var r = sim.derelictResolve(sel || {});
+        emit("encounter", r, {});
+        return r;
+      },
+      /** 收队：把这一单写进历史并清掉 pending */
+      derelictClose: function () {
+        if (typeof sim.derelictClose !== "function") return { ok: false, msg: "引擎未提供废弃殖民舰结算" };
+        var r = sim.derelictClose();
+        emit("encounter", r, {});
+        return r;
+      },
+
       // —— 古神契约（v2.2.0） ——
       /** 四位神的主约/旁约、神恩、祝福/诅咒、神噬、待回应索取 */
       getGods: function () { return sim.getGods(); },

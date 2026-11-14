@@ -50,11 +50,23 @@
     var awake = 0, dormant = 0, working = 0;
     cfg.population.groups.forEach(function (g) {
       var s = state.groups[g.id];
+      if (!s) return;
       awake += s.awake;
       dormant += s.dormant;
       if (g.id !== cfg.population.undecidedId) working += s.awake;
     });
     return { awake: awake, dormant: dormant, total: awake + dormant, working: working };
+  }
+
+  // 旧档兼容：补齐配置里新增的人群（如 v6.23 的「遗民」）。
+  function ensureGroups(state, cfg) {
+    if (!state || !state.groups) return state;
+    (cfg.population.groups || []).forEach(function (g) {
+      if (!state.groups[g.id]) {
+        state.groups[g.id] = { awake: g.awake || 0, dormant: g.dormant || 0 };
+      }
+    });
+    return state;
   }
 
   // 旧档兼容：舱位不得低于总人口，且至少留 20% 余量。
@@ -728,9 +740,14 @@
     var targetDorm = t2.total * I.dormancyTarget;
     var delta = targetDorm - t2.dormant;
     var entries = 0, wakes = 0, reviveFails = 0;
+    // v6.23：只有有休眠资格的人群（贵族 / 遗民）能进出舱；克隆人、平民永远醒着。
     var workingIds = cfg.population.groups
-      .filter(function (g) { return g.id !== cfg.population.undecidedId; })
+      .filter(function (g) { return g.id !== cfg.population.undecidedId && g.canSleep !== false; })
       .map(function (g) { return g.id; });
+    // 常规轮换不得把在岗骨干全部送进舱：贵族至少留 minAwake 人醒着管理。
+    var groupKeep = {};
+    cfg.population.groups.forEach(function (g) { groupKeep[g.id] = g.minAwake || 0; });
+    var famineActive = !!(state.run && state.run.famine && state.run.famine.active);
 
     if (delta > 0) {
       var wantRaw = Math.min(
@@ -744,12 +761,15 @@
       var want = takeInteger(state, "entry", wantRaw);
       if (want > 0) {
         var pool = 0;
-        workingIds.forEach(function (id) { pool += state.groups[id].awake; });
+        workingIds.forEach(function (id) {
+          pool += Math.max(0, state.groups[id].awake - groupKeep[id]);
+        });
         if (pool > 0) {
           var take = Math.min(want, pool);
           workingIds.forEach(function (id) {
-            var share = state.groups[id].awake / pool;
-            var n = take * share;
+            var free = Math.max(0, state.groups[id].awake - groupKeep[id]);
+            if (free <= 0) return;
+            var n = take * (free / pool);
             state.groups[id].awake -= n;
             state.groups[id].dormant += n;
           });
@@ -757,7 +777,8 @@
           state.stocks.drug = Math.max(0, state.stocks.drug - take * cfg.hibernation.drugPerEntry);
         }
       }
-    } else if (delta < 0) {
+    } else if (delta < 0 && !famineActive) {
+      // 断粮期间不自动唤醒：强制沉睡省下的口粮不能被常规轮换又吐出来。
       var wantWRaw = Math.min(-delta, cfg.hibernation.wakePerWeek, t2.dormant, 60 * medCoverage);
       var wantW = takeInteger(state, "wake", wantWRaw);
       if (wantW > 0) {
@@ -1148,7 +1169,7 @@
     if (!base) throw new Error("缺少 XUANSHU_CONFIG，请先加载 sim-config.js");
     var cfg = deepMerge(base, options.config || {});
     var seed = isNum(options.seed) ? options.seed : 20261111;
-    var state = createState(cfg, seed);
+    var state = ensureGroups(createState(cfg, seed), cfg);
 
     var api = {
       version: cfg.version,
@@ -1433,6 +1454,18 @@
           : { ok: false, msg: "run 层未加载" };
       },
 
+      /** 废弃殖民舰七选项：一次提交一组勾选，原地出结果；收队后才清 pending */
+      derelictResolve: function (sel) {
+        return global.XuanShuEncounter
+          ? global.XuanShuEncounter.derelictResolve(state, cfg, sel || {})
+          : { ok: false, msg: "encounter 层未加载" };
+      },
+      derelictClose: function () {
+        return global.XuanShuEncounter
+          ? global.XuanShuEncounter.derelictClose(state, cfg, {})
+          : { ok: false, msg: "encounter 层未加载" };
+      },
+
       /** 自动推演一个 chunk（默认 1 年）；遇节点先按自动结算，遇终局立即停 */
       autoStep: function (years) {
         if (!global.XuanShuRun) return api.getState();
@@ -1468,6 +1501,7 @@
       restore: function (obj) {
         if (!obj || !obj.groups || !obj.stocks) throw new Error("状态格式不正确");
         state = clone(obj);
+        ensureGroups(state, cfg);
         ensurePods(state, cfg);
         if (global.XuanShuPlayer) global.XuanShuPlayer.ensure(state, cfg);
         if (global.XuanShuEncounter) global.XuanShuEncounter.ensure(state, cfg);
@@ -1488,6 +1522,7 @@
           state.ship.propellant = (cfg.ship && cfg.ship.propellant && isNum(cfg.ship.propellant.initT))
             ? cfg.ship.propellant.initT : 2400;
         }
+        ensureGroups(state, cfg);
         ensurePods(state, cfg);
         if (global.XuanShuPlayer) global.XuanShuPlayer.ensure(state, cfg);
         if (global.XuanShuEncounter) global.XuanShuEncounter.ensure(state, cfg);

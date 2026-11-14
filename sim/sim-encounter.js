@@ -895,6 +895,9 @@
       createdWeek: state.weeks,
       auto: false
     };
+    if (e.pending.cards.some(function (c) { return c.id === "ex_derelict"; })) {
+      e.pending.derelict = makeDerelict(state, cfg);
+    }
     e.gapYears = 0;
     e.lastWeek = state.weeks;
     e.lastYear = Math.floor(absYear(state, cfg));
@@ -914,6 +917,23 @@
   function autoResolve(state, cfg) {
     var e = ensure(state, cfg);
     if (!e.pending) return null;
+    if (e.pending.derelict) {
+      var d = e.pending.derelict;
+      var t = global.XuanShuSim ? global.XuanShuSim.totals(state, cfg) : { dormant: 0 };
+      var free = Math.max(0, Math.floor(num(state.infra && state.infra.pods, 0) - t.dormant));
+      var tries = [
+        { salvage: 1, takeSome: Math.min(400, free, d.dormant) },
+        { salvage: 1, gene: 1 },
+        { gene: 1 },
+        { salvage: 1 }
+      ];
+      for (var k = 0; k < tries.length; k++) {
+        if (tries[k].takeSome <= 0) delete tries[k].takeSome;
+        var rr = derelictResolve(state, cfg, tries[k]);
+        if (rr.ok) return derelictClose(state, cfg, { auto: true });
+      }
+      return derelictClose(state, cfg, { auto: true });
+    }
     var i = autoPick(state, cfg);
     if (i < 0) return null;
     var card = e.pending.cards[i];
@@ -932,6 +952,10 @@
     var card = e.pending.cards[i];
     if (!card) return { ok: false, msg: "没有这张卡" };
     if (!card.available) return { ok: false, msg: "这张卡现在拿不到：" + card.reason, code: "locked" };
+    if (card.id === "ex_derelict" && !opts.derelictDone) {
+      return { ok: true, needDerelict: true, derelict: derelictView(state, cfg),
+        card: card, msg: "废弃殖民舰要在卡片里逐项勾选" };
+    }
     if (card.choices && card.choices.length && !opts.choice) {
       return { ok: true, needChoice: true, choices: card.choices.slice(),
         card: card, msg: "这张卡还要再选一步" };
@@ -973,6 +997,274 @@
       auto: !!opts.auto, effects: notes,
       encounter: brief(state, cfg)
     };
+  }
+
+  /* ---------------- 废弃殖民舰 · 七选项 ---------------- */
+
+  function derelictCfg(cfg) { return (cfg.encounter || {}).derelict || {}; }
+
+  function propOf(state) {
+    return num(state.ship && state.ship.propellant, 0);
+  }
+
+  // 工质的唯一扣减入口：所有选项都先汇总到这里，不足就整单拒绝并报差额。
+  function spendPropellant(state, tons) {
+    var have = propOf(state);
+    if (tons > have + 1e-9) {
+      return { ok: false, short: Math.round((tons - have) * 10) / 10, have: have, need: tons };
+    }
+    state.ship.propellant = Math.max(0, have - tons);
+    return { ok: true, have: have, spent: tons };
+  }
+
+  function techOf(state) {
+    return num(state.society && state.society.machine && state.society.machine.tech, 0);
+  }
+  function addTech(state, v) {
+    if (!state.society) return;
+    if (!state.society.machine) state.society.machine = {};
+    state.society.machine.tech = clamp(techOf(state) + v, 0, 1);
+  }
+
+  function killAwake(state, n) {
+    var order = ["combat", "service", "tech", "medical", "undecided", "clone", "original"];
+    var left = Math.max(0, Math.round(n)), killed = 0;
+    order.forEach(function (id) {
+      if (left <= 0) return;
+      var s = state.groups && state.groups[id];
+      if (!s) return;
+      var take = Math.min(num(s.awake), left);
+      s.awake -= take;
+      left -= take;
+      killed += take;
+    });
+    return killed;
+  }
+
+  function makeDerelict(state, cfg) {
+    var D = derelictCfg(cfg);
+    if (D.enabled === false || !D.ships || !D.ships.length) return null;
+    var ship = D.ships[Math.floor(randNext(state) * D.ships.length)] || D.ships[0];
+    if (!state.derelicts || typeof state.derelicts !== "object") state.derelicts = {};
+    var seen = state.derelicts[ship.id] || null;
+    state.derelicts[ship.id] = {
+      firstSeenYear: seen ? seen.firstSeenYear : Math.floor(absYear(state, cfg)),
+      times: (seen ? seen.times : 0) + 1,
+      profiles: ship.crew.slice()
+    };
+    return {
+      id: ship.id, name: ship.name, cls: ship.cls, note: ship.note,
+      tech: ship.tech, hull: ship.hull, hazard: ship.hazard,
+      dormant: ship.dormant, salvage: Object.assign({}, ship.salvage),
+      left: Object.assign({}, ship.salvage),
+      gene: Object.assign({}, ship.gene),
+      profiles: ship.crew.slice(),
+      exploreRuns: 0, salvageRuns: 0,
+      peopleTaken: 0, peopleWoken: 0, proteinTaken: 0, geneTaken: false,
+      result: null
+    };
+  }
+
+  function revivFailRate(state, cfg) {
+    var med = clamp(num(state.last && state.last.medCoverage, 0.8), 0, 1);
+    return (cfg.hibernation.reviveFail || 0.012) + 0.004 * (1 - med);
+  }
+
+  function derelictCost(ship, sel, cfg) {
+    var P = derelictCfg(cfg).prop || {};
+    var cost = 0;
+    cost += Math.max(0, num(sel.explore)) * num(P.explore, 12);
+    cost += Math.max(0, num(sel.salvage)) * num(P.salvage, 18);
+    if (sel.protein) cost += num(P.protein, 15);
+    if (sel.wakeAll) cost += num(P.dock, 8) + ship.dormant * num(P.perPerson, 0.012);
+    if (sel.takeSome) cost += num(P.dock, 8) + num(sel.takeSome) * num(P.perPerson, 0.012);
+    if (sel.takeAll) cost += num(P.dock, 8) + ship.dormant * num(P.perPerson, 0.012);
+    if (sel.gene) cost += num(P.gene, 6);
+    return Math.round(cost * 10) / 10;
+  }
+
+  function derelictView(state, cfg) {
+    var e = ensure(state, cfg);
+    var d = e.pending && e.pending.derelict;
+    if (!d) return null;
+    var D = derelictCfg(cfg);
+    var t = global.XuanShuSim ? global.XuanShuSim.totals(state, cfg) : { dormant: 0, total: 0 };
+    var pods = num(state.infra && state.infra.pods, 0);
+    var free = Math.max(0, Math.floor(pods - t.dormant));
+    var per = num(D.proteinPerBody, 0.05);
+    return {
+      id: d.id, name: d.name, cls: d.cls, note: d.note,
+      tech: d.tech, hull: d.hull, hazard: d.hazard,
+      dormant: Math.round(d.dormant),
+      salvage: Object.assign({}, d.left),
+      gene: Object.assign({}, d.gene),
+      profiles: d.profiles.slice(),
+      prop: { have: Math.round(propOf(state) * 10) / 10 },
+      pods: { total: pods, used: Math.round(t.dormant), free: free },
+      maxSorties: num(D.maxSorties, 3),
+      unit: {
+        explore: num((D.prop || {}).explore, 12),
+        salvage: num((D.prop || {}).salvage, 18),
+        protein: num((D.prop || {}).protein, 15),
+        dock: num((D.prop || {}).dock, 8),
+        perPerson: num((D.prop || {}).perPerson, 0.012),
+        gene: num((D.prop || {}).gene, 6)
+      },
+      yields: {
+        proteinFood: Math.round(d.dormant * per * 10) / 10,
+        proteinPerBody: per,
+        salvageShare: num(D.salvageShare, 0.4),
+        reviveFail: Math.round(revivFailRate(state, cfg) * 1000) / 10,
+        teamSize: num(D.teamSize, 20)
+      },
+      result: d.result,
+      canAct: !d.result
+    };
+  }
+
+  function derelictResolve(state, cfg, sel) {
+    var e = ensure(state, cfg);
+    if (!e.pending) return { ok: false, msg: "当前没有待结算的奇遇" };
+    var d = e.pending.derelict;
+    if (!d) return { ok: false, msg: "这局不是废弃殖民舰" };
+    if (d.result) return { ok: false, msg: "这一单已经结算过了" };
+    sel = sel || {};
+    var D = derelictCfg(cfg);
+    var explore = clamp(Math.round(num(sel.explore)), 0, num(D.maxSorties, 3));
+    var salvageN = clamp(Math.round(num(sel.salvage)), 0, num(D.maxSorties, 3));
+    var mutex = ["protein", "wakeAll", "takeSome", "takeAll", "gene"].filter(function (k) { return sel[k]; });
+    if (mutex.length > 1) return { ok: false, msg: "后五项只能选一个" };
+    var t0 = global.XuanShuSim ? global.XuanShuSim.totals(state, cfg) : { dormant: 0 };
+    var free = Math.max(0, Math.floor(num(state.infra && state.infra.pods, 0) - t0.dormant));
+    var takeN = sel.takeSome ? Math.round(num(sel.takeSome)) : (sel.takeAll ? d.dormant : 0);
+    if (sel.takeSome && (takeN <= 0 || takeN > d.dormant)) return { ok: false, msg: "带走人数不对" };
+    if (sel.takeAll && d.dormant > free) {
+      return { ok: false, msg: "休眠余位不够：还差 " + (d.dormant - free) + " 个舱位" };
+    }
+    if (takeN > free) return { ok: false, msg: "休眠余位不够：还差 " + (takeN - free) + " 个舱位" };
+    if (!explore && !salvageN && mutex.length === 0) return { ok: false, msg: "至少选一项" };
+
+    var cost = derelictCost(d, { explore: explore, salvage: salvageN, protein: !!sel.protein,
+      wakeAll: !!sel.wakeAll, takeSome: sel.takeSome ? takeN : 0, takeAll: !!sel.takeAll, gene: !!sel.gene }, cfg);
+    var paid = spendPropellant(state, cost);
+    if (!paid.ok) return { ok: false, msg: "工质不足：还差 " + paid.short + " 吨", short: paid.short, need: paid.need };
+
+    var lines = [], deaths = 0, techGain = 0, foodAdd = 0, mAdd = 0, wAdd = 0, drAdd = 0;
+    var caps = { food: cfg.food.cap, water: cfg.water.cap, metal: cfg.metal.cap, drug: cfg.hibernation.drugCap };
+
+    // 探索：每次 20 人小队，伤亡上限 20
+    for (var i = 0; i < explore; i++) {
+      d.exploreRuns++;
+      var okP = clamp(0.30 + 0.55 * num(d.hull) - 0.25 * num(d.hazard), 0.10, 0.95);
+      var ok = randNext(state) < okP;
+      var cas = Math.round(num(D.teamSize, 20) * (0.05 + num(d.hazard) * (ok ? 0.25 : 0.55)));
+      cas = clamp(cas, 0, num(D.teamSize, 20));
+      var lost = killAwake(state, cas);
+      deaths += lost;
+      var gap = Math.max(0, num(d.tech) - techOf(state));
+      var gain = ok ? Math.min(0.012, gap * 0.35 + 0.002) : Math.min(0.004, gap * 0.12);
+      addTech(state, gain);
+      techGain += gain;
+      lines.push("探索第 " + d.exploreRuns + " 次：" + (ok ? "摸进主控舱" : "只到外环") +
+        "，科技 +" + (gain * 100).toFixed(2) + "%，伤亡 " + lost + " 人");
+    }
+
+    // 回收物资：每次拿走剩余的四成
+    for (var j = 0; j < salvageN; j++) {
+      d.salvageRuns++;
+      var parts = [];
+      ["metal", "water", "drug", "food"].forEach(function (k) {
+        var got = Math.round(num(d.left[k]) * num(D.salvageShare, 0.4));
+        if (got <= 0) return;
+        d.left[k] = Math.max(0, num(d.left[k]) - got);
+        state.stocks[k] = Math.min(num(caps[k], 1e9), num(state.stocks[k]) + got);
+        if (k === "metal") mAdd += got;
+        if (k === "water") wAdd += got;
+        if (k === "drug") drAdd += got;
+        if (k === "food") foodAdd += got;
+        parts.push(({ metal: "金属", water: "淡水", drug: "药剂", food: "粮食" })[k] + " +" + got);
+      });
+      var sc = clamp(Math.round(num(D.teamSize, 20) * 0.10 * num(d.hazard)), 0, 10);
+      var sl = killAwake(state, sc);
+      deaths += sl;
+      lines.push("回收第 " + d.salvageRuns + " 次：" + (parts.join("、") || "只剩空舱") +
+        (sl ? "，伤亡 " + sl + " 人" : ""));
+    }
+
+    // 回收蛋白质
+    if (sel.protein) {
+      var bodies = Math.round(d.dormant);
+      var gotFood = Math.round(bodies * num(D.proteinPerBody, 0.05) * 10) / 10;
+      state.stocks.food = Math.min(num(cfg.food.cap, 1e9), num(state.stocks.food) + gotFood);
+      state.order = clamp(num(state.order) - 0.03, 0.05, 1);
+      state.society.queues.forEach(function (q) { q.O = clamp(num(q.O, 50) - 2, 0, 100); });
+      d.proteinTaken = bodies;
+      d.dormant = 0;
+      foodAdd += gotFood;
+      lines.push("回收蛋白质：" + bodies + " 人折粮 " + gotFood + " 吨，秩序 −3");
+    }
+
+    // 苏醒全部：复用同一套复温死亡公式
+    if (sel.wakeAll) {
+      var fail = revivFailRate(state, cfg);
+      var n0 = Math.round(d.dormant);
+      var dead = Math.round(n0 * fail);
+      var alive = Math.max(0, n0 - dead);
+      state.groups.derelict.awake += alive;
+      d.peopleWoken = alive;
+      d.dormant = 0;
+      deaths += dead;
+      lines.push("苏醒全部：" + n0 + " 人唤醒，复温失败 " + dead + " 人（失败率 " +
+        (fail * 100).toFixed(1) + "%），" + alive + " 人登船");
+    }
+
+    // 带走部分 / 全部：占本舰休眠余位
+    if (takeN > 0) {
+      state.groups.derelict.dormant += takeN;
+      d.peopleTaken = takeN;
+      d.dormant = Math.max(0, d.dormant - takeN);
+      lines.push((sel.takeAll ? "带走全部：" : "带走部分：") + takeN + " 人进本舰休眠舱，余位剩 " +
+        Math.max(0, free - takeN));
+    }
+
+    // 留下基因
+    if (sel.gene) {
+      addTech(state, num(d.gene.tech));
+      state.stocks.drug = Math.min(num(cfg.hibernation.drugCap, 1e9), num(state.stocks.drug) + num(d.gene.drug));
+      d.geneTaken = true;
+      techGain += num(d.gene.tech);
+      drAdd += num(d.gene.drug);
+      lines.push("留下基因：科技 +" + (num(d.gene.tech) * 100).toFixed(2) + "%、药剂 +" + num(d.gene.drug) +
+        "；休眠者留在原位");
+    }
+
+    var summary = lines.join("；");
+    d.result = { lines: lines, cost: cost, deaths: deaths, techGain: techGain,
+      food: foodAdd, metal: mAdd, water: wAdd, drug: drAdd };
+    pushEvent(state, cfg, "encounter", "废弃殖民舰 · " + d.name,
+      d.cls + "：" + summary,
+      "工质 −" + cost + " 吨；" + (d.note || ""),
+      { "粮食": Math.round(foodAdd), "金属": Math.round(mAdd), "科技": Math.round(techGain * 1000) / 10 },
+      deaths ? "减员 " + deaths + " 人" : "无减员");
+    return { ok: true, msg: summary, result: d.result, derelict: derelictView(state, cfg) };
+  }
+
+  function derelictClose(state, cfg, opts) {
+    opts = opts || {};
+    var e = ensure(state, cfg);
+    if (!e.pending) return { ok: false, msg: "当前没有待结算的奇遇" };
+    var d = e.pending.derelict;
+    if (d && !d.result) return { ok: false, msg: "还没结算" };
+    var entry = {
+      year: e.pending.year, cat: e.pending.cat, cardId: "ex_derelict",
+      cardName: d ? ("废弃殖民舰 · " + d.name) : "废弃殖民舰",
+      rarity: "rare", choice: 0, sub: d ? d.name : "", week: state.weeks, auto: !!opts.auto
+    };
+    e.history.push(entry);
+    var cap = num((cfg.encounter || {}).historyCap, 200);
+    if (e.history.length > cap) e.history.shift();
+    e.pending = null;
+    return { ok: true, msg: "", encounter: brief(state, cfg) };
   }
 
   function autoPick(state, cfg) {
@@ -1028,7 +1320,8 @@
         year: e.pending.year,
         week: e.pending.week,
         cards: e.pending.cards,
-        auto: !!e.pending.auto
+        auto: !!e.pending.auto,
+        derelict: e.pending.derelict ? derelictView(state, cfg) : null
       } : null,
       counts: e.counts,
       deck: deck,
@@ -1064,7 +1357,10 @@
     modSum: modSum,
     addMod: addMod,
     labels: CAT_LABEL,
-    rarities: RARITY_RANK
+    rarities: RARITY_RANK,
+    derelictResolve: derelictResolve,
+    derelictClose: derelictClose,
+    derelictView: derelictView
   };
 
   global.XuanShuEncounter = api;

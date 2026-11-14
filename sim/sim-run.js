@@ -57,6 +57,7 @@
     return {
       active: false, settled: false, weeks: 0, stage: 0,
       layers: [], stoppedPop: 0, recycled: 0, starved: 0, rebellions: 0, rebelKilled: 0,
+      slept: 0, sleepBlocked: 0,
       lastStepAt: -999, awaiting: null, startWeek: -1, startYear: -1,
       realDeaths: 0, peakTotal: 0,
       policy: { order: null, recycle: true, earlyHarvest: false }
@@ -96,6 +97,8 @@
     var g = state.run;
     if (!g.counters) g.counters = { orderCollapse: 0, famine: 0, noL2: 0 };
     if (!g.famine) g.famine = createFamine();
+    if (typeof g.famine.slept !== "number") g.famine.slept = 0;
+    if (typeof g.famine.sleepBlocked !== "number") g.famine.sleepBlocked = 0;
     if (!g.famine.policy) g.famine.policy = { order: null, recycle: true, earlyHarvest: false };
     if (!g.history) g.history = [];
     if (!g.status) g.status = "playing";
@@ -242,12 +245,6 @@
     return n > 0 ? c / n : 0;
   }
 
-  function isHighIdentity(state, cfg) {
-    var F = (cfg.run || {}).famine || {};
-    var mode = state.player && state.player.mode;
-    return (F.highIdentity || []).indexOf(mode) >= 0;
-  }
-
   function famineReason(state, cfg, g, kind) {
     var fam = g.famine;
     var t = totals(state, cfg);
@@ -256,6 +253,7 @@
     parts.push("停供 " + (fam.layers.join("→") || "无") +
       "（覆盖 " + Math.round(fam.stoppedPop) + " 人）");
     parts.push("回收 " + Math.round(fam.recycled) + " 人为粮");
+    if (fam.slept > 0) parts.push("强制沉睡 " + Math.round(fam.slept) + " 人（贵族优先）");
     parts.push("饿死 " + Math.round(fam.starved) + " 人");
     if (fam.rebellions) parts.push("叛乱 " + fam.rebellions + " 次、死 " + Math.round(fam.rebelKilled || 0) + " 人");
     parts.push("共减员 " + Math.round(fam.realDeaths) + " 人");
@@ -315,6 +313,24 @@
     return { fired: true, p: p, dead: false };
   }
 
+  /* 强制沉睡：断粮时把有资格者（贵族）送进空余休眠舱，按 5% 口粮折算。
+     由粮食卡 / 托管的 sleep 项调用；克隆人、平民没有资格，机器人不参与。 */
+  function sleepNobles(state, cfg, fam, wantAll) {
+    var noble = state.groups && state.groups.noble;
+    if (!noble || noble.awake <= 0) return 0;
+    var t = totals(state, cfg);
+    var free = Math.max(0, Math.floor(num(state.infra && state.infra.pods, 0) - t.dormant));
+    var want = wantAll ? Math.round(noble.awake) : Math.max(0, Math.round(num(wantAll)));
+    var can = Math.min(want, free);
+    if (can > 0) {
+      noble.awake -= can;
+      noble.dormant += can;
+      fam.slept = num(fam.slept, 0) + can;
+    }
+    if (want > can) fam.sleepBlocked = num(fam.sleepBlocked, 0) + (want - can);
+    return can;
+  }
+
   function famineStep(state, cfg, g, t, soc) {
     var F = (cfg.run || {}).famine;
     if (!F) return null;
@@ -327,14 +343,15 @@
       fam.active = true; fam.settled = false; fam.weeks = 0; fam.stage = 0;
       fam.layers = []; fam.stoppedPop = 0; fam.recycled = 0; fam.starved = 0;
       fam.realDeaths = 0; fam.rebellions = 0; fam.peakTotal = t.total;
-      fam.lastStepAt = -999; fam.lastRecycle = -999; fam.lastRebel = -999;
+      fam.slept = 0; fam.sleepBlocked = 0;
+      fam.lastStepAt = -999; fam.lastRecycle = -999; fam.lastRebel = -999; fam.lastAuto = -9999;
       fam.startWeek = absWeek(state, cfg);
       fam.startYear = Math.round(absYear(state, cfg) * 100) / 100;
       fam.awaiting = null;
-      pushEvent(state, cfg, "断粮", "断粮阶梯启动",
-        "存粮见底，先切断 L4 配给，逐级往上；仍不足再回收低等级人口为粮。",
-        "存粮日 < " + num(F.triggerDays, 3) + "；" + (F.recycleOrder || []).join("→"),
-        null, "不再一刀切全灭");
+      pushEvent(state, cfg, "断粮", "粮食危机",
+        "存粮见底，粮食卡已挂到决定栏：停供、强制沉睡、回收、抢收都由你勾选，不再自动往下推。",
+        "存粮日 < " + num(F.triggerDays, 3) + "；可选 " + (F.recycleOrder || []).join("→"),
+        null, "危机不消除就一直挂着");
     }
 
     fam.weeks++;
@@ -352,33 +369,10 @@
     }
 
     var stepW = num(F.stepWeeks, 8);
-    var order = (fam.policy.order && fam.policy.order.length) ? fam.policy.order : (F.recycleOrder || []);
 
-    // 高身份：每级推进前挂起 4 周，等玩家选择（不选则自动执行）
-    if (isHighIdentity(state, cfg) && fam.stage < order.length) {
-      if (!fam.awaiting && fam.weeks >= fam.stage * stepW + 1) {
-        fam.awaiting = { at: fam.weeks, layer: order[fam.stage] };
-        pushEvent(state, cfg, "断粮", "等你下令",
-          "下一步将停供 " + order[fam.stage] + "。可以继续停供、提前抢收，或直接下令回收。",
-          "4 周内不选按阶梯自动执行");
-      }
-      if (fam.awaiting && fam.weeks - fam.awaiting.at >= 4) fam.awaiting = null;
-    }
-
-    // 阶梯停供
-    if (fam.stage < order.length && fam.weeks >= fam.stage * stepW + 1) {
-      var layer = order[fam.stage];
-      var n = layerPop(state, layer);
-      if (n > 0) {
-        fam.layers.push(layer);
-        fam.stoppedPop = fam.layers.reduce(function (a, L) { return a + layerPop(state, L); }, 0);
-        fam.lastStepAt = fam.weeks;
-        pushEvent(state, cfg, "断粮", "停供 " + layer,
-          layer + " 的 " + Math.round(n) + " 人先断了配给，高等级暂时保留。",
-          "阶梯顺序 " + order.join("→"));
-      }
-      fam.stage++;
-    }
+    // v6.23：阶梯不再自动推进。危机挂着，等玩家在粮食卡里勾选后由 famineAct 结算。
+    fam.awaiting = { at: fam.weeks, manual: true };
+    if (g.auto) autoFamine(state, cfg, fam);
 
     // 停供人群饿死
     if (fam.stoppedPop > 0) {
@@ -393,30 +387,7 @@
       fam.stoppedPop = fam.layers.reduce(function (a, L) { return a + layerPop(state, L); }, 0);
     }
 
-    // 回收为粮
-    if (fam.policy.recycle !== false && fam.stage >= num(F.recycleAfterStops, 2) &&
-        fam.weeks - num(fam.lastRecycle, -999) >= stepW) {
-      var target = fam.layers[fam.layers.length - 1];
-      var avail = layerPop(state, target);
-      if (avail > 0) {
-        var batch = Math.max(1, Math.round(avail * 0.10));
-        var got = killLayer(state, cfg, target, batch);
-        if (got > 0) {
-          fam.recycled += got;
-          fam.realDeaths += got;
-          fam.lastRecycle = fam.weeks;
-          var per = cfg.food.perCapitaTpy * num(F.recycleYield, 0.55);
-          var foodAdd = got * per;
-          state.stocks.food += foodAdd;
-          state.order = clamp(num(state.order) - 0.05, 0.05, 1);
-          ((soc && soc.queues) || []).forEach(function (q) { q.O = clamp(num(q.O, 50) - 4, 0, 100); });
-          pushEvent(state, cfg, "断粮", "回收 " + target + " 为粮",
-            "回收 " + Math.round(got) + " 人，折粮 " + foodAdd.toFixed(1) + " 吨；秩序与服从即时下跌。",
-            "每人约 " + per.toFixed(3) + " 吨（全年口粮 × " + num(F.recycleYield, 0.55) + "）",
-            { "粮食": Math.round(foodAdd) }, "低等级人口被折算成口粮");
-        }
-      }
-    }
+    // v6.23：回收也由玩家在粮食卡里勾选，不再自动执行。
 
     // 叛乱：停供/回收后满一个阶梯间隔才判，且每 8 周最多一次（保证高身份有反应时间）
     if ((fam.stage > 0 || fam.recycled > 0) && fam.weeks >= stepW &&
@@ -449,44 +420,112 @@
     return null;
   }
 
+  /* 托管时的粮食卡自动勾选：每 8 周最多一次，先沉睡、再停下一级、必要时回收一小批。 */
+  function autoFamine(state, cfg, fam) {
+    if (state.weeks - num(fam.lastAuto, -9999) < 8) return null;
+    fam.lastAuto = state.weeks;
+    var F = (cfg.run || {}).famine || {};
+    var order = (fam.policy.order && fam.policy.order.length) ? fam.policy.order : (F.recycleOrder || []);
+    var sel = {};
+    var next = null;
+    for (var i = 0; i < order.length; i++) {
+      if (fam.layers.indexOf(order[i]) < 0) { next = order[i]; break; }
+    }
+    if (next) sel.stop = [next];
+    if (state.groups && state.groups.noble && state.groups.noble.awake > 0) sel.sleep = "all";
+    if (fam.layers.length >= 2) {
+      var target = fam.layers[fam.layers.length - 1];
+      var avail = layerPop(state, target);
+      if (avail > 0) sel.recycle = Math.max(1, Math.round(avail * 0.05));
+    }
+    return famineAct(state, cfg, sel);
+  }
+
+  /* 粮食卡：一次提交一组勾选，按真实数值当场结算。
+     choice = { sleep: N|"all", stop: ["L4","L3"...], recycle: N, harvest: bool }
+     身份只决定哪些项可选：creator/ruler 全开；mid 可抢收；slave 只能沉睡与停供。 */
   function famineAct(state, cfg, choice) {
     var g = ensure(state, cfg);
     var fam = g.famine;
     choice = choice || {};
     if (!fam.active) return { ok: false, msg: "当前没有断粮事件" };
-    if (!isHighIdentity(state, cfg)) return { ok: false, msg: "当前身份不能干预，系统按阶梯自动执行" };
     var F = (cfg.run || {}).famine || {};
-    if (choice.action === "harvest") {
+    var mode = (state.player && state.player.mode) || "slave";
+    var canRecycle = mode === "creator" || mode === "ruler";
+    var canHarvest = mode === "creator" || mode === "ruler" || mode === "mid";
+    var order = (fam.policy.order && fam.policy.order.length) ? fam.policy.order : (F.recycleOrder || []);
+    var lines = [];
+
+    if (choice.stop) {
+      var wanted = (Array.isArray(choice.stop) ? choice.stop : [choice.stop])
+        .filter(function (L) { return order.indexOf(L) >= 0; });
+      wanted.forEach(function (L) {
+        if (fam.layers.indexOf(L) >= 0) return;
+        var n = layerPop(state, L);
+        if (n <= 0) return;
+        fam.layers.push(L);
+        lines.push("停供 " + L + "（" + Math.round(n) + " 人）");
+      });
+      fam.stage = fam.layers.length;
+      fam.stoppedPop = fam.layers.reduce(function (a, L) { return a + layerPop(state, L); }, 0);
+      fam.policy.order = order;
+    }
+
+    if (choice.sleep) {
+      var noble = state.groups.noble || { awake: 0, dormant: 0 };
+      var t0 = totals(state, cfg);
+      var free = Math.max(0, Math.floor(num(state.infra && state.infra.pods, 0) - t0.dormant));
+      var want = choice.sleep === "all" ? Math.round(noble.awake) : Math.min(noble.awake, Math.round(num(choice.sleep)));
+      var can = sleepNobles(state, cfg, fam, choice.sleep === "all" ? true : Math.max(0, want));
+      if (can > 0) lines.push("强制沉睡 " + can + " 名贵族");
+      if (want > can) {
+        lines.push("舱位不足，还有 " + Math.round(want - can) + " 名贵族没能沉睡（余位 " + free + "）");
+      }
+    }
+
+    if (choice.harvest) {
+      if (!canHarvest) return { ok: false, msg: "当前身份不能下令抢收" };
       if (fam.harvested) return { ok: false, msg: "这一轮已经抢收过了" };
-      var add = (num(state.last && state.last.production, 0)) * 0.02;
+      var add = num(state.production, 0) * 0.02;
       fam.harvested = true;
       state.stocks.food += add;
-      pushEvent(state, cfg, "断粮", "提前抢收", "抢收折粮 " + Math.round(add) + " 吨。", "年产量的 2%");
-      return { ok: true, msg: "抢收 +" + Math.round(add) + " 吨", famine: fam };
+      lines.push("提前抢收 +" + Math.round(add) + " 吨");
     }
-    if (choice.action === "stop" && choice.layer) {
-      var ord = (F.recycleOrder || []).slice();
-      ord = [choice.layer].concat(ord.filter(function (x) { return x !== choice.layer; }));
-      fam.policy.order = ord;
-      fam.stage = 0;
-      fam.layers = [];
-      fam.awaiting = null;
-      pushEvent(state, cfg, "断粮", "调整停供顺序", "下一级先停 " + choice.layer + "。", "顺序 " + ord.join("→"));
-      return { ok: true, msg: "优先停供 " + choice.layer, famine: fam };
+
+    if (choice.recycle) {
+      if (!canRecycle) return { ok: false, msg: "当前身份不能下令回收" };
+      if (!fam.layers.length) return { ok: false, msg: "先停供，才能回收" };
+      var target = fam.layers[fam.layers.length - 1];
+      var avail = layerPop(state, target);
+      var wantR = choice.recycle === "all" ? avail : Math.round(num(choice.recycle));
+      var got = killLayer(state, cfg, target, Math.min(avail, Math.max(0, wantR)));
+      if (got > 0) {
+        var per = cfg.food.perCapitaTpy * num(F.recycleYield, 0.55);
+        var foodAdd = got * per;
+        fam.recycled += got;
+        fam.realDeaths += got;
+        fam.lastRecycle = fam.weeks;
+        state.stocks.food += foodAdd;
+        state.order = clamp(num(state.order) - 0.05, 0.05, 1);
+        ((state.society && state.society.queues) || []).forEach(function (q) {
+          q.O = clamp(num(q.O, 50) - 4, 0, 100);
+        });
+        fam.stoppedPop = fam.layers.reduce(function (a, L) { return a + layerPop(state, L); }, 0);
+        lines.push("回收 " + Math.round(got) + " 人为粮（+" + foodAdd.toFixed(1) + " 吨，秩序 −5）");
+      } else {
+        lines.push("可回收人口已经为空");
+      }
     }
-    if (choice.action === "recycle") {
-      fam.policy.recycle = true;
-      fam.recycleNow = true;
-      fam.stage = Math.max(fam.stage, num(F.recycleAfterStops, 2));
-      fam.awaiting = null;
-      pushEvent(state, cfg, "断粮", "下令回收", "开始按阶梯回收低等级人口为粮。", "玩家下令");
-      return { ok: true, msg: "已下令回收", famine: fam };
-    }
-    if (choice.action === "resume") {
-      fam.awaiting = null;
-      return { ok: true, msg: "按阶梯继续", famine: fam };
-    }
-    return { ok: false, msg: "未知的断粮指令" };
+
+    if (!lines.length) return { ok: false, msg: "至少勾一项" };
+    fam.awaiting = { at: fam.weeks, manual: true };
+    var summary = lines.join("；");
+    pushEvent(state, cfg, "断粮", "粮食卡 · 处置",
+      summary + "。",
+      "停供 " + (fam.layers.join("/") || "无") + "；累计沉睡 " + Math.round(fam.slept) +
+      "、回收 " + Math.round(fam.recycled) + "、饿死 " + Math.round(fam.starved),
+      null, "叛乱风险按秩序/服从/眷属比重新判定");
+    return { ok: true, msg: summary, lines: lines, famine: brief(state, cfg).famine };
   }
 
   /* ---------------- 每周失败检查 ---------------- */
@@ -625,20 +664,47 @@
       endedYear: g.endedYear,
       luck: Math.round(num(luck, 1) * 100) / 100,
       counters: g.counters,
-      famine: {
-        active: !!g.famine.active,
-        settled: !!g.famine.settled,
-        weeks: g.famine.weeks,
-        stage: g.famine.stage,
-        layers: (g.famine.layers || []).slice(),
-        stoppedPop: Math.round(g.famine.stoppedPop),
-        recycled: Math.round(g.famine.recycled),
-        starved: Math.round(g.famine.starved),
-        rebellions: g.famine.rebellions,
-        awaiting: g.famine.awaiting,
-        canAct: isHighIdentity(state, cfg),
-        startYear: g.famine.startYear
-      },
+      famine: (function () {
+        var fm = (cfg.run || {}).famine || {};
+        var mode = (state.player && state.player.mode) || "slave";
+        var order = (g.famine.policy && g.famine.policy.order && g.famine.policy.order.length)
+          ? g.famine.policy.order : (fm.recycleOrder || []);
+        var tt = totals(state, cfg);
+        var noble = state.groups.noble || { awake: 0, dormant: 0 };
+        var free = Math.max(0, Math.floor(num(state.infra && state.infra.pods, 0) - tt.dormant));
+        return {
+          active: !!g.famine.active,
+          settled: !!g.famine.settled,
+          weeks: g.famine.weeks,
+          stage: g.famine.stage,
+          layers: (g.famine.layers || []).slice(),
+          stoppedPop: Math.round(g.famine.stoppedPop),
+          recycled: Math.round(g.famine.recycled),
+          starved: Math.round(g.famine.starved),
+          rebellions: g.famine.rebellions,
+          slept: Math.round(g.famine.slept || 0),
+          sleepBlocked: Math.round(g.famine.sleepBlocked || 0),
+          awaiting: g.famine.awaiting,
+          canAct: true,
+          startYear: g.famine.startYear,
+          mode: mode,
+          can: {
+            sleep: true,
+            stop: true,
+            recycle: mode === "creator" || mode === "ruler",
+            harvest: mode === "creator" || mode === "ruler" || mode === "mid"
+          },
+          order: order.slice(),
+          layerPops: order.map(function (L) { return { id: L, pop: Math.round(layerPop(state, L)) }; }),
+          noblesAwake: Math.round(noble.awake),
+          noblesDormant: Math.round(noble.dormant),
+          podsFree: free,
+          recycleYield: Math.round(cfg.food.perCapitaTpy * num(fm.recycleYield, 0.55) * 1000) / 1000,
+          harvestGain: Math.round(num(state.production, 0) * 0.02),
+          harvestUsed: !!g.famine.harvested,
+          settledAt: g.famine.settled ? g.famine.weeks : null
+        };
+      })(),
       failList: FAILS,
       history: (g.history || []).slice(-20)
     };
