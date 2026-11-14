@@ -1426,6 +1426,13 @@
           : { ok: false, msg: "run 层未加载" };
       },
 
+      /** 无粮阶梯干预（仅高身份）：harvest 抢收 / stop 指定先停哪级 / recycle 下令回收 / resume 继续 */
+      famineAct: function (choice) {
+        return global.XuanShuRun
+          ? global.XuanShuRun.famineAct(state, cfg, choice)
+          : { ok: false, msg: "run 层未加载" };
+      },
+
       /** 自动推演一个 chunk（默认 1 年）；遇节点先按自动结算，遇终局立即停 */
       autoStep: function (years) {
         if (!global.XuanShuRun) return api.getState();

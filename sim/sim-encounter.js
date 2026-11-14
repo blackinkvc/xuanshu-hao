@@ -364,6 +364,28 @@
         picked[views.length - 1] = repl;
       }
     }
+    // 三张稀有度全相同（含可用性替换后）时换掉最后一张，保证至少两种稀有度。
+    if (picked.length >= 2) {
+      var rar0 = picked[0].rarity;
+      var allSame = picked.every(function (c) { return c.rarity === rar0; });
+      if (allSame) {
+        var others = cardsOf(cfg, cat).filter(function (c) {
+          return c.rarity !== rar0 && !picked.some(function (p) { return p.id === c.id; });
+        });
+        if (others.length) {
+          var swap = others[Math.floor(randNext(state) * others.length)];
+          var lastCard = picked[picked.length - 1];
+          picked[picked.length - 1] = swap;
+          views[views.length - 1] = cardView(state, cfg, cat, swap);
+          var di = d.drawn.indexOf(lastCard.id);
+          if (di >= 0) d.drawn.splice(di, 1);
+          d.drawn.push(swap.id);
+          var ri2 = d.remaining.indexOf(swap.id);
+          if (ri2 >= 0) d.remaining.splice(ri2, 1);
+          d.remaining.push(lastCard.id);
+        }
+      }
+    }
     return { cat: cat, cards: views, raw: picked };
   }
 

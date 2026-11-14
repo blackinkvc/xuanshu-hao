@@ -83,7 +83,7 @@
       waterBuffer: 600,         // 【推定】水储备低于 600 t 开始限产
       stockInit: 240,           // 【推定】约 156 天
       cap: 0,                   // v1.2：0 = 不设上限（原 400 t 天花板已拆）
-      spoilagePerYear: 0.25,    // v1.2：储备年损耗（仓储霉变/虫害/品质衰减），原 0
+      spoilagePerYear: 0.04,    // v6.22：储备年损耗按真空/惰性气体仓储的粮食保质期口径取 4%（原 25%）
       // v1.2：产出冗余随年份与船况衰减，在既有能源/水/人力/社会反馈系数之上
       // 再叠一层长期折损。年份+农环受 maxLoss 封顶，磨损/人口结构按当期实际值另算。
       decay: {
@@ -819,11 +819,37 @@
       fail: {
         minPopulation: 200,
         orderCollapseWeeks: 26,
-        famineWeeks: 12,
         machineDepts: 4,
         thrallShare: 0.75,
         thrallCount: 1200,
         l2EmptyWeeks: 26
+      },
+      /* 无粮阶梯（替代「连续 12 周没粮 → 全灭」）
+         1) 存粮见底后先切断 L4 配给，逐级往上（L4→L3→L2→L1），每级之间隔 stepWeeks 周；
+         2) 停供仍不足 → 回收低等级人口为粮，每人折算一年口粮的 recycleYield 倍；
+         3) 回收/停供期间按秩序、服从、眷属比例、战斗力量、已停供/已回收人数判叛乱；
+         4) 玩家死亡即终局（成因写「死于叛乱」）；叛乱未死且人口降到可持续规模则进入低人口稳态。 */
+      famine: {
+        triggerDays: 3,            // 存粮日 < 3 且库存为 0 → 进入阶梯
+        stepWeeks: 8,              // 每级停供间隔
+        recycleAfterStops: 2,      // 已停供级数 ≥ 2 且仍无粮才允许回收
+        recycleYield: 0.55,        // 每回收一人 = 一年口粮 0.2263 t × 0.55 ≈ 0.124 t
+        starveRate: 0.35,          // 停供人群的年死亡率（回收前先饿）
+        recycleOrder: ["L4", "L3", "L2", "L1"],
+        // 叛乱倾向：T = Σ(系数 × 因素)，p = 1/(1+e^(-3.2·T))
+        rebellion: {
+          orderK: 2.2,             // ×(1 − 秩序)
+          obedienceK: 1.4,         // ×(1 − 平均服从/100)
+          thrallK: 1.6,            // ×眷属比例
+          combatK: 1.8,            // ×(1 − 战斗力量/基准)
+          stopK: 2.0,              // ×已停供人口占比
+          recycleK: 3.0,           // ×已回收人口占比
+          bias: -1.05,
+          playerDeathBase: 0.35,   // 叛乱爆发时玩家死亡基础概率
+          casualtyBase: 0.04,      // 叛乱本身的人口损耗（低等级为主）
+          casualtyK: 0.18
+        },
+        highIdentity: ["ruler", "creator"]   // 高身份：可先停哪一级 / 抢收 / 下令回收
       }
     },
 
