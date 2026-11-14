@@ -775,6 +775,20 @@
           state.groups.original.dormant = Math.max(0, num(state.groups.original.dormant) + num(op.v));
         }
         notes.push("休眠 " + (op.v >= 0 ? "+" : "") + op.v);
+      } else if (k === "captive") {
+        if (global.XuanShuPrison) {
+          var P = global.XuanShuPrison.ensure(state, cfg);
+          P.captives = Math.max(0, num(P.captives) + num(op.v));
+          notes.push("俘虏 " + (op.v >= 0 ? "+" : "") + op.v);
+        }
+      } else if (k === "prisonCrime") {
+        if (global.XuanShuPrison) {
+          var rc = global.XuanShuPrison.triggerCrime(state, cfg, {
+            crime: op.crime, severity: op.severity, involved: op.involved,
+            count: op.count, group: op.group
+          });
+          if (rc && rc.convicted) notes.push("判罚 " + rc.convicted + " 人入狱");
+        }
       } else if (k === "player") {
         if (state.player && state.player.pc) {
           var p = state.player.pc;
@@ -1090,6 +1104,10 @@
     if (card.id === "tr_gene_mortgage" && !opts.tradeDone) {
       return { ok: true, needMortgage: true, mortgage: mortgageView(state, cfg),
         card: card, msg: "先填人数与期限" };
+    }
+    if (card.id === "og_sacrifice" && !opts.sacrificeDone) {
+      return { ok: true, needSacrifice: true, sacrifice: sacrificeView(state, cfg),
+        card: card, msg: "先选来源与时段" };
     }
     if (card.choices && card.choices.length && !opts.choice) {
       return { ok: true, needChoice: true, choices: card.choices.slice(),
@@ -2280,6 +2298,20 @@
 
   /* ---------------- 摘要 ---------------- */
 
+  /* ---------------- 献祭 · 二级菜单 ---------------- */
+
+  function sacrificeView(state, cfg) {
+    var list = global.XuanShuPrison ? global.XuanShuPrison.candidates(state, cfg) : [];
+    var prim = (global.XuanShuGods && global.XuanShuGods.primaryOf)
+      ? global.XuanShuGods.primaryOf(state, cfg) : null;
+    return {
+      sources: list,
+      primary: prim,
+      timeSlots: (cfg.sacrifice && cfg.sacrifice.timeSlots) || { day: 1, night: 0.6, private: 0.35 },
+      last: state.prison && state.prison.lastResult ? state.prison.lastResult : null
+    };
+  }
+
   function brief(state, cfg) {
     var e = ensure(state, cfg);
     var deck = {};
@@ -2311,7 +2343,9 @@
         planet: e.pending.planet ? planetView(state, cfg) : null,
         negotiation: state.negotiation && state.negotiation.cp ? negotiationView(state, cfg) : null,
         mortgage: e.pending.cards && e.pending.cards.some(function (c) { return c.id === "tr_gene_mortgage"; })
-          ? mortgageView(state, cfg) : null
+          ? mortgageView(state, cfg) : null,
+        sacrifice: e.pending.cards && e.pending.cards.some(function (c) { return c.id === "og_sacrifice"; })
+          ? sacrificeView(state, cfg) : null
       } : null,
       counts: e.counts,
       deck: deck,

@@ -683,6 +683,10 @@
     if (global.XuanShuGods && cfg.gods && cfg.gods.enabled !== false) {
       state.gods = global.XuanShuGods.create(cfg);
     }
+    // 监狱与囚徒：名册随轮内清空，俘虏池与处决统计跨轮由 run 层另记
+    if (global.XuanShuPrison && cfg.prison && cfg.prison.enabled !== false) {
+      state.prison = global.XuanShuPrison.create(cfg);
+    }
     // 千年节点 / 自动推演 / 胜负：开局未选身份前为 started=false，时间闸门关闭
     if (global.XuanShuRun && cfg.run && cfg.run.enabled !== false) {
       state.run = global.XuanShuRun.create(cfg);
@@ -1482,6 +1486,8 @@
         global.XuanShuPlayer.yearly(state, cfg);
         // 古神：神恩回归、周期索取、祝福/诅咒年度结算
         if (global.XuanShuGods) global.XuanShuGods.yearly(state, cfg);
+        // 监狱：刑期递减、刑罚年效果、劳动产出、哗变自动抓捕
+        if (global.XuanShuPrison) global.XuanShuPrison.yearly(state, cfg);
         // 休眠维系年账：冻着多少人、电与药各耗多少，一眼可查
         var dormNow = totals(state, cfg).dormant;
         if (dormNow > 0) {
@@ -1556,6 +1562,8 @@
     state.vitals = null;
     state.negotiation = fresh.negotiation;
     state.geneMortgage = fresh.geneMortgage;
+    // 监狱名册是舰务层：回滚后清空，俘虏池与新案从头计
+    state.prison = fresh.prison;
     if (global.XuanShuSociety) state.society = global.XuanShuSociety.create(cfg);
     if (global.XuanShuPeople) state.people = global.XuanShuPeople.create(cfg);
     // 玩家身份是跨轮长期状态：健康、年龄、权限、动作冷却、契约都保留
@@ -1783,6 +1791,9 @@
           // 古神摘要：主约、神恩、祝福/诅咒、神噬、待回应索取
           gods: (global.XuanShuGods && state.gods)
             ? global.XuanShuGods.brief(state, cfg) : null,
+          // 监狱摘要：在押、俘虏池、刑罚分布、名册前 12 人与献祭历史
+          prison: (global.XuanShuPrison && state.prison)
+            ? global.XuanShuPrison.brief(state, cfg) : null,
           // 千年节点 / 自动推演 / 胜负摘要
           run: (global.XuanShuRun && state.run)
             ? global.XuanShuRun.brief(state, cfg) : null
@@ -1880,6 +1891,21 @@
       /* ---------- 古神契约 ---------- */
       getGods: function () {
         return global.XuanShuGods ? global.XuanShuGods.brief(state, cfg) : null;
+      },
+
+      /* ---------- 监狱与献祭 ---------- */
+      getPrison: function () {
+        return global.XuanShuPrison ? global.XuanShuPrison.brief(state, cfg) : null;
+      },
+
+      prisonCandidates: function () {
+        return global.XuanShuPrison ? global.XuanShuPrison.candidates(state, cfg) : [];
+      },
+
+      prisonSacrifice: function (sel) {
+        return global.XuanShuPrison
+          ? global.XuanShuPrison.sacrifice(state, cfg, sel || {})
+          : { ok: false, msg: "监狱层未加载" };
       },
 
       /** 回应周期索取（目前是赤织母的献祭） */
@@ -2026,6 +2052,7 @@
         if (global.XuanShuPlayer) global.XuanShuPlayer.ensure(state, cfg);
         if (global.XuanShuEncounter) global.XuanShuEncounter.ensure(state, cfg);
         if (global.XuanShuGods) global.XuanShuGods.ensure(state, cfg);
+        if (global.XuanShuPrison) global.XuanShuPrison.ensure(state, cfg);
         if (global.XuanShuRun) global.XuanShuRun.ensure(state, cfg);
         return api.getState();
       },
@@ -2051,6 +2078,7 @@
         if (global.XuanShuPlayer) global.XuanShuPlayer.ensure(state, cfg);
         if (global.XuanShuEncounter) global.XuanShuEncounter.ensure(state, cfg);
         if (global.XuanShuGods) global.XuanShuGods.ensure(state, cfg);
+        if (global.XuanShuPrison) global.XuanShuPrison.ensure(state, cfg);
         if (global.XuanShuRun) global.XuanShuRun.ensure(state, cfg);
         return api.getState();
       }

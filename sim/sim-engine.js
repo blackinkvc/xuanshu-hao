@@ -28,7 +28,7 @@
 (function (global) {
   "use strict";
 
-  var VERSION = "2.6.0";
+  var VERSION = "2.6.1";
 
   // 一周为 1：单位 → 周数。month 不是整数周，按 52/12 折算后再取整。
   var UNITS = {
@@ -78,12 +78,13 @@
   var ACTION_KEYS = ["suppress", "concede", "execute", "replace", "interrogate", "lockdown", "ritual"];
 
   function ensureDeps() {
-    if (global.XUANSHU_CONFIG && global.XuanShuSim && global.XuanShuSociety) return;
+    if (global.XUANSHU_CONFIG && global.XuanShuSim && global.XuanShuSociety && global.XuanShuPrison) return;
     if (typeof require === "function") {
       try {
         if (!global.XUANSHU_CONFIG) require("./sim-config.js");
         if (!global.XuanShuJudge) require("./sim-judge.js");
         if (!global.XuanShuPeople) require("./sim-people.js");
+        if (!global.XuanShuPrison) require("./sim-prison.js");
         if (!global.XuanShuSociety) require("./sim-society.js");
         if (!global.XuanShuPlayer) require("./sim-player.js");
         if (!global.XuanShuEncounter) require("./sim-encounter.js");
@@ -385,6 +386,23 @@
         if (typeof sim.mortgageClose !== "function") return { ok: false, msg: "引擎未提供基因抵押收场" };
         var r = sim.mortgageClose();
         emit("encounter", r, {});
+        return r;
+      },
+
+      // —— 监狱与献祭（v2.6.1） ——
+      /** 囚徒名册、刑罚分布、俘虏池、累计处决/释放/献祭 */
+      getPrison: function () {
+        return typeof sim.getPrison === "function" ? sim.getPrison() : null;
+      },
+      /** 七类献祭来源的可用人数（UI 只展示四组） */
+      prisonCandidates: function () {
+        return typeof sim.prisonCandidates === "function" ? sim.prisonCandidates() : [];
+      },
+      /** 献祭结算；source 见 sim-config.sacrifice.sources，time: day/night/private */
+      prisonSacrifice: function (sel) {
+        if (typeof sim.prisonSacrifice !== "function") return { ok: false, msg: "引擎未提供献祭结算" };
+        var r = sim.prisonSacrifice(sel || {});
+        emit("prison", r, {});
         return r;
       },
 

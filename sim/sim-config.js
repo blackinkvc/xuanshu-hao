@@ -1014,7 +1014,7 @@
           { id: "og_pact", name: "古神契约", rarity: "legendary", need: { infectionMin: 30 }, choices: ["maw", "weaver", "star", "fecund"], ops: [], effectText: "与一位古神立约（4 选 1）", costText: "依神而定", followText: "永久写入 state.gods" },
           { id: "og_forbidden_lore", name: "禁忌知识", rarity: "rare", need: { infectionMin: 25 }, ops: [{ t: "tech", v: 0.05 }, { t: "queue", k: "W", v: 5, scope: "all" }, { t: "infect", v: 4 }], effectText: "科技 +0.05", costText: "不服 +5、感染 +4", followText: "—" },
           { id: "og_shelter", name: "眷属庇护", rarity: "common", need: { thrallsMin: 1 }, ops: [{ t: "garrison", k: "durability", v: 15 }, { t: "queue", k: "O", v: -3, scope: "all" }, { t: "infect", v: 2 }], effectText: "警备耐久 +15", costText: "服从 −3、感染 +2", followText: "—" },
-          { id: "og_sacrifice_prisoner", name: "献祭囚徒", rarity: "common", need: { popMin: 800 }, ops: [{ t: "godFavor", v: 10 }, { t: "order", v: 0.02 }, { t: "pop", group: "L4", v: -12 }], effectText: "神恩 +10、秩序 +2%", costText: "人口 −12", followText: "—" },
+          { id: "og_sacrifice", name: "献祭", rarity: "common", need: { godPact: true }, ops: [], effectText: "按来源献祭，神恩与秩序按对象结算", costText: "看来源（普通 / 贵族）", followText: "知情越多，服从掉得越多" },
           { id: "og_star_whisper", name: "群星低语", rarity: "epic", need: { infectionMin: 40 }, ops: [{ t: "intel", level: "high", weeks: 100 }, { t: "godFavor", v: 8 }, { t: "infect", v: 6 }, { t: "queue", k: "W", v: 3, scope: "all" }], effectText: "情报 +1 档 100 周、神恩 +8", costText: "感染 +6、不服 +3", followText: "—" },
           { id: "og_divine_birth", name: "神性孕育", rarity: "legendary", need: { infectionMin: 35, healthMin: 40 }, ops: [{ t: "birth", v: 40 }, { t: "player", k: "health", v: -15 }, { t: "thralls", v: 4 }, { t: "godFavor", v: 15 }, { t: "infect", v: 2 }], effectText: "怀孕必定成功、出生 +40", costText: "健康 −15、眷属 +4", followText: "新生儿感染 +10" }
         ],
@@ -1026,6 +1026,7 @@
           { id: "cr_meteor", name: "陨石雨", rarity: "common", need: {}, ops: [{ t: "wear", v: 0.06 }, { t: "stock", k: "metal", v: -15 }], effectText: "磨损 +0.06", costText: "金属 −15 吨", followText: "—" },
           { id: "cr_drought", name: "断水", rarity: "rare", need: {}, ops: [{ t: "stock", k: "water", v: -300 }, { t: "order", v: -0.02 }, { t: "stock", k: "metal", v: -20 }], effectText: "水 −300 吨", costText: "秩序 −2%、金属 −20 吨", followText: "—" },
           { id: "cr_pod_failure", name: "休眠舱故障", rarity: "rare", need: {}, ops: [{ t: "infra", k: "pods", v: -10 }, { t: "dormant", v: -10 }], effectText: "休眠舱 −10", costText: "舱里 −10 人", followText: "—" },
+          { id: "cr_captives", name: "俘虏押解", rarity: "common", need: {}, ops: [{ t: "captive", v: 6 }], effectText: "押回 6 名俘虏", costText: "监区要腾位置", followText: "俘虏可作献祭来源" },
           { id: "cr_blight", name: "农环病害", rarity: "common", need: {}, ops: [{ t: "stock", k: "food", v: -30 }, { t: "infra", k: "hydro", v: -5 }], effectText: "粮 −30 吨", costText: "水培 −5 单元", followText: "—" },
           { id: "cr_god_stir", name: "古神苏醒", rarity: "epic", need: { godPact: true }, ops: [{ t: "devour", v: 15 }, { t: "infect", v: 6 }, { t: "godFavor", v: -10 }], effectText: "神噬进度 +15", costText: "神恩 −10、感染 +6", followText: "—" },
           { id: "cr_blackout", name: "全船停电", rarity: "legendary", need: {}, ops: [{ t: "mod", key: "prodMul", v: 0.75, weeks: 8 }, { t: "order", v: -0.06 }, { t: "machine", k: "autonomy", v: 0.05 }], effectText: "产能 −25%（8 周）", costText: "秩序 −6%、机器自主 +0.05", followText: "—" }
@@ -1331,6 +1332,110 @@
       // 手动触发参数：mutinyWeeks 为余震周数，期间持续压制 O / 抬高 W
       trigger: { mutinyS: 0.62, mutinyO: 16, mutinyW: 76, mutinyWeeks: monthsToWeeks(18),
                  infectC: 92, infectSpreadC: 68, infectSpreadC2: 62 }
+    },
+
+    /* ---------------- 监狱与刑罚 -----------------
+       刑期以年计；刑罚年效果按年度钩子结算。常量供引擎与算法引擎页共用。 */
+    prison: {
+      enabled: true,
+      maxPerCrime: 8,           // 单次判罚上限，沿用「小队规模」约束
+      rosterCap: 60,
+      historyCap: 200,
+      autoRiotCoolWeeks: 26,    // 哗变 L2+ 自动抓捕冷却
+      captureRate: { 1: 0.25, 2: 0.40, 3: 0.55 },
+      crimes: {
+        sabotage: {
+          name: "破坏设备", prob: { 1: 0.55, 2: 0.72, 3: 0.88 },
+          years: { 1: [100, 160], 2: [120, 190], 3: [150, 220] },
+          pool: ["jail", "tattoo", "rad"]
+        },
+        riot: {
+          name: "参与叛乱", prob: { 1: 0.65, 2: 0.80, 3: 0.92 },
+          years: { 1: [120, 160], 2: [150, 190], 3: [180, 220] },
+          pool: ["jail", "strip", "tattoo"]
+        },
+        nobleRevolt: {
+          name: "贵族参与叛乱", prob: 0.85, min: 1, max: 3, lifeAt3: true,
+          years: { 1: [240, 320], 2: [360, 480], 3: [500, 600] },
+          pool: ["strip", "freeze", "wipe"]
+        },
+        embezzle: {
+          name: "截留物资", prob: { 1: 0.60, 2: 0.60, 3: 0.60 },
+          years: { 1: [100, 140], 2: [100, 140], 3: [100, 140] },
+          pool: ["tattoo", "jail"]
+        }
+      },
+      penalties: {
+        jail:   { name: "监禁", termMul: 1.00, hpPerYear: -0.6, mindPerYear: -0.8, willPerYear: -0.4,
+                  orderShift: 0, laborMetalPerYear: 0, spreadMul: 1.00,
+                  desc: "基准刑，知情传播最低" },
+        strip:  { name: "剥除意识", termMul: 1.30, hpPerYear: -1.6, mindPerYear: -3.0, nobleMindMul: 0.40,
+                  willFirstYear: -6, willPerYear: -0.5, orderShift: 0.008, laborMetalPerYear: 0.55, spreadMul: 1.00,
+                  desc: "贵族保留意识但减速 60%，身体去做义务劳动" },
+        tattoo: { name: "纹身刑", termMul: 1.00, hpPerYear: -0.3, mindPerYear: -1.2, willPerYear: -1.0,
+                  orderShift: -0.002, laborMetalPerYear: 0.45, spreadMul: 1.10,
+                  desc: "公开标记身份，旁观者也会不服" },
+        rad:    { name: "辐射刑", termMul: 0.90, hpPerYear: -4.0, mindPerYear: -1.5, willPerYear: -0.6,
+                  orderShift: 0.003, laborMetalPerYear: 0.30, spreadMul: 1.00, deathRiskK: 0.6,
+                  desc: "年死亡概率 = (100−健康)% × 0.6" },
+        freeze: { name: "冷冻刑", termMul: 1.20, hpPerYear: 0, mindPerYear: -0.5, willPerYear: 0,
+                  orderShift: 0, laborMetalPerYear: 0, spreadMul: 0.35,
+                  desc: "关押成本低，知情概率低" },
+        wipe:   { name: "记忆抹除", termMul: 1.00, hpPerYear: -0.5, mindPerYear: -0.4, willPerYear: 0,
+                  mindStart: -8, willStart: -3, orderShift: 0.06, laborMetalPerYear: 0.40, spreadMul: 1.00,
+                  desc: "一次性重创理智与意志，换取短期服从" },
+        public: { name: "公开处刑", termMul: 0, immediate: true, orderShift: 0.02, spreadMul: 1.00,
+                  witnessMul: 1.6, desc: "立即死亡，全船短期服从 +2%，不服 +1.5" }
+      }
+    },
+
+    /* ---------------- 献祭 ----------------
+       神恩实际值 = favor ×（主约 1.0 / 旁约 0.5）× 贵族 1.4；
+       知情与服从按来源、身份、时段、阶级权重折算。 */
+    sacrifice: {
+      nobleMul: 1.4,
+      sideMul: 0.5,
+      dormantExposedDropMul: 2.2,
+      dormantExposedOrder: -0.03,
+      classWeight: { L1: 1.5, L2: 1.25, L3: 1.0, L4: 0.75 },
+      timeSlots: { day: 1.0, night: 0.6, private: 0.35 },
+      sources: {
+        prisoner_normal: {
+          name: "囚徒·普通", noble: false, favor: 6, order: 0.01, infectionC: -1,
+          witness: 18, spread: 0.30, identityK: 1.0, sourceK: 1.0,
+          baseDrop: 8, baseUnrest: 6, discoverK: 0
+        },
+        prisoner_noble: {
+          name: "囚徒·贵族", noble: true, favor: 14, order: 0.03, devour: 0.5,
+          witness: 18, spread: 0.30, identityK: 1.8, sourceK: 1.0,
+          baseDrop: 11, baseUnrest: 8, discoverK: 0
+        },
+        crew_normal: {
+          name: "船员·普通", noble: false, favor: 5, order: -0.02, pop: -1,
+          witness: 24, spread: 0.34, identityK: 1.0, sourceK: 1.0,
+          baseDrop: 12, baseUnrest: 9, discoverK: 0
+        },
+        crew_noble: {
+          name: "船员·贵族", noble: true, favor: 16, order: -0.04, pop: -1,
+          witness: 24, spread: 0.34, identityK: 1.8, sourceK: 1.0,
+          baseDrop: 15, baseUnrest: 11, discoverK: 0
+        },
+        captive: {
+          name: "俘虏", noble: false, favor: 4, order: 0.01,
+          witness: 10, spread: 0.18, identityK: 0.7, sourceK: 1.0,
+          baseDrop: 5, baseUnrest: 4, discoverK: 0
+        },
+        dormant_normal: {
+          name: "休眠者·普通", noble: false, favor: 8, order: 0,
+          witness: 4, spread: 0.08, identityK: 1.0, sourceK: 0.5,
+          baseDrop: 18, baseUnrest: 16, discoverK: 0.35
+        },
+        dormant_noble: {
+          name: "休眠者·贵族", noble: true, favor: 12, order: 0,
+          witness: 4, spread: 0.08, identityK: 1.25, sourceK: 0.5,
+          baseDrop: 22, baseUnrest: 18, discoverK: 0.45
+        }
+      }
     },
 
     /* ---------------- 页面滑块定义 ---------------- */
