@@ -29,7 +29,7 @@
   function monthsToWeeks(m) { return Math.round(m * WEEKS_PER_YEAR / 12); }
 
   var CONFIG = {
-    version: "0.2.0",
+    version: "0.3.0",
     meta: {
       title: "玄枢号 · 舰务运行机制",
       subtitle: "简化模型 v0.2 · 周为单位 · 系数待校准",
@@ -180,6 +180,69 @@
       coverageGain: 0.65
     },
 
+    /* ---------------- 药剂（v6.29） ----------------
+       单位「份」，1 份按 doseCover 折算覆盖量；镇痛为批量装，1 份够 8 人·周。 */
+    med: {
+      init: { nutri: 80, rad: 80, mut: 40, dna: 30, pain: 160 },
+      prodPerWeek: { nutri: 18, rad: 22, mut: 9, dna: 6, pain: 30 },
+      cap: { nutri: 400, rad: 400, mut: 200, dna: 160, pain: 600 },
+      doseCover: { nutri: 0.30, rad: 0.06, mut: 0.015, dna: 0.020, pain: 8 },
+      mutThrallK: 0.05,       // 1 份变异修复压 0.05 名眷属当量
+      radSpeed: 0.050,        // 航速超过 0.050c 才开始累积辐射
+      radPerWeek: 0.050,      // 每周累积辐射度（0..1）
+      radDeathK: 0.020,       // 辐射满格时的额外年死亡率
+      dnaCourseWeeks: 26,     // DNA 修复一轮 26 周
+      dnaCourseDoses: 156     // 一轮总耗（6 份/周 × 26 周），神经损伤减半
+    },
+
+    /* ---------------- 成瘾（v6.29，见《成瘾与抵抗值》v1.0） ---------------- */
+    addict: {
+      newLightK: 0.020,       // 用药者每周转轻症比例
+      lightToMid: 0.012,
+      midToHeavy: 0.005,
+      quitLight: 0.020,
+      quitMid: 0.020,
+      quitHeavy: 0.010,       // 含成瘾致死
+      useBase: 0.066,         // 基础用药比例（醒态，对应变异 2% 时约 240 人）
+      usePerInfectPct: 0.0167,// 感染率每 +1 个百分点，用药比例 +1.67%
+      useCap: 0.35,
+      // 效果表：抵抗 / 体能惩罚 / 服从加成 / 寿命折损 / 出错率
+      resist: { light: 0.30, mid: 0.60, heavy: 0.90 },
+      fitPenalty: { light: 0.08, mid: 0.18, heavy: 0.32 },
+      obey: { light: 0.06, mid: 0.12, heavy: 0.18 },
+      deathMul: { light: 0.03, mid: 0.09, heavy: 0.20 },
+      errorK: { light: 0.05, mid: 0.12, heavy: 0.25 },
+      withdrawRoll: { light: 0.05, mid: 0.12, heavy: 0.25 },
+      withdrawOrderK: 0.0002, // 每名戒断者造成的秩序损失（单次上限 0.02）
+      withdrawLogWeeks: 8,
+      bliss: {
+        unlockHeavyShare: 0.02,
+        unlockLightMidShare: 0.12,
+        weeks: 8,
+        lightPerWeek: 0.02,   // 极乐期间每周新增轻症 = 现轻症 ×2%
+        orderGain: 0.12,
+        prodLoss: 0.15,
+        resistBonus: 0.15,
+        retryWeeks: 156       // 条件仍成立时，每 3 年复发一次
+      }
+    },
+
+    /* ---------------- 营养（v6.29，五维的四个可计算维） ---------------- */
+    nutrition: {
+      rationBase: 0.40,       // 配给从 1.0 降到 0.6 时三维下滑到下限的比例基数
+      proteinSlope: 0.45,
+      vitSlope: 0.35,
+      microSlope: 0.20,
+      neuroPerWeek: 0.004,    // 微量不足时每周神经损伤基数
+      neuroFloor: 0.85,       // 低于该值才开始累积
+      neuroSpan: 0.25,        // 从 0.85 掉到 0.60 为一整档
+      neuroHard: 0.30,        // 超过后永久 unfit
+      proteinBad: 0.70,
+      microBad: 0.80,
+      malWeeks: 26,           // 连续 26 周蛋白不足 → 营养不良闩锁
+      diseaseK: 0.60          // 免疫不足对疾病率的放大系数
+    },
+
     /* ---------------- 死亡 ---------------- */
     death: {
       malK: 0.30,               // 【推定】配给 0.5 → 额外 7.5%/年（年速率）
@@ -240,14 +303,15 @@
         "phase", "run", "loop",
         "encounter", "player_action", "action",
         "mutiny", "strike", "machine", "binge", "atrocity", "summon", "gods",
-        "build_hydro", "build_pods", "build_clone"
+        "build_hydro", "build_pods", "build_clone",
+        "addiction", "withdraw"
       ],
       keyLevels: { infection: ["眷属"] },
       routineTypes: [
         "maint_done", "maint_fault", "maint_cycle", "shift", "supply",
         "quarantine", "infection", "garrison",
         "food_low", "water_low", "fuel_low", "energy_low",
-        "education", "prod", "labor"
+        "education", "prod", "labor", "nutrition"
       ],
       routineRing: 40,     // 例行流水只留最近 40 条，供排障，不进历程页
       keyCap: 0            // 0 = 关键节点不封顶，保证长局从第 1 年可回看

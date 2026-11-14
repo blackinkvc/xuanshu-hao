@@ -236,15 +236,22 @@
     var resist = 0;
     var ad = state.addict;
     if (ad) {
-      var tot = nv(ad.light) + nv(ad.mid) + nv(ad.heavy);
-      if (tot > 0) {
-        resist = (0.30 * nv(ad.light) + 0.60 * nv(ad.mid) + 0.90 * nv(ad.heavy)) / tot;
+      if (ad.effects && isNum(ad.resistance)) {
+        resist = clamp(ad.resistance, 0, 0.95);
+      } else {
+        var tot = nv(ad.light) + nv(ad.mid) + nv(ad.heavy);
+        if (tot > 0) {
+          resist = (0.30 * nv(ad.light) + 0.60 * nv(ad.mid) + 0.90 * nv(ad.heavy)) / tot;
+        }
       }
     }
+    // 戒断：抵抗归零之外，梦中压力再 ×1.5（对应设计表「理智损失 ×1.5」）
+    var wTot = ad && ad.withdraw
+      ? nv(ad.withdraw.light) + nv(ad.withdraw.mid) + nv(ad.withdraw.heavy) : 0;
     var rate = h.dreamK * (1 + thralls * h.dreamThrallK) *
       (1 + corr * h.dreamWhisperK) *
       (1 - h.dreamDrugShield * clamp(medCoverage, 0, 1)) *
-      (1 - resist * 0.5);
+      (1 - resist * 0.5) * (wTot > 0 ? 1.5 : 1);
     state.dream.pressure += rate * dormant;
     if (state.dream.pressure < 1) return 0;
     var n = Math.min(Math.floor(state.dream.pressure), Math.floor(dormant));
@@ -275,6 +282,262 @@
     }
     return moved;
   }
+
+  /**
+   * 药剂 / 营养 / 成瘾（v0.3）
+   * ---------------------------------------------------------------------
+   * 顺序：药剂产能 → 营养四维 → 补剂/辐射/变异修复/DNA → 镇痛用药 → 三档成瘾
+   *      → 戒断与抵抗。所有数值直接写回 state，效果摘要放 state.addict.effects
+   *      与 state.vitals，供产出/秩序/死亡结算读取。
+   * 口径见《成瘾与抵抗值_20261114》与《药剂_成瘾_营养_设计表_20261113》。
+   */
+  function ensureVitals(state, cfg) {
+    var M = cfg.med || {}, A = cfg.addict || {};
+    if (!state.pools) state.pools = {};
+    if (!state.pools.med) state.pools.med = {};
+    ["nutri", "rad", "mut", "dna", "pain"].forEach(function (k) {
+      if (!isNum(state.pools.med[k])) {
+        state.pools.med[k] = (M.init && isNum(M.init[k])) ? M.init[k] : 0;
+      }
+    });
+    if (!state.addict) state.addict = {};
+    var ad = state.addict;
+    ["light", "mid", "heavy", "use", "useTarget", "blissWeeks"].forEach(function (k) {
+      if (!isNum(ad[k])) ad[k] = 0;
+    });
+    if (!ad.withdraw) ad.withdraw = { light: 0, mid: 0, heavy: 0 };
+    if (!isNum(ad.resistance)) ad.resistance = 0;
+    if (!isNum(ad.blissNext)) ad.blissNext = 0;
+    if (!isNum(ad.lastWithdrawLog)) ad.lastWithdrawLog = -99;
+    if (!state.nutrition) state.nutrition = {};
+    var nu = state.nutrition;
+    ["kcal", "protein", "vit", "micro"].forEach(function (k) {
+      if (!isNum(nu[k])) nu[k] = 1;
+    });
+    ["neuro", "maln", "badProtein", "badMicro"].forEach(function (k) {
+      if (!isNum(nu[k])) nu[k] = 0;
+    });
+    if (!state.health) state.health = { rad: 0 };
+    if (!isNum(state.health.rad)) state.health.rad = 0;
+    return state;
+  }
+
+  function stepVitals(state, cfg, t0, medCoverage, soc) {
+    ensureVitals(state, cfg);
+    var M = cfg.med, A = cfg.addict, N = cfg.nutrition;
+    var ad = state.addict, nu = state.nutrition, pools = state.pools.med;
+    var r2 = function (v) { return Math.round(v * 100) / 100; };
+    var r3 = function (v) { return Math.round(v * 1000) / 1000; };
+
+    // 1) 药剂产能：医疗覆盖越高，合成线越稳
+    Object.keys(M.prodPerWeek).forEach(function (k) {
+      pools[k] = clamp(num0(pools[k]) + M.prodPerWeek[k] * (0.85 + 0.15 * clamp(medCoverage, 0, 1)),
+        0, M.cap[k]);
+    });
+
+    // 2) 营养四维：配给只动热量，其余三维按缺口非线性下滑
+    var ration = clamp(num0(state.last && state.last.rationActual, 1), 0, 1.2);
+    var gap = clamp((1 - Math.min(1, ration)) / N.rationBase, 0, 1);
+    nu.kcal = Math.min(1, ration);
+    nu.protein = 1 - N.proteinSlope * gap;
+    nu.vit = 1 - N.vitSlope * gap;
+    nu.micro = 1 - N.microSlope * gap;
+    nu.imm = clamp(0.50 + 0.50 * Math.min(nu.vit, nu.micro) -
+      0.40 * Math.max(0, 0.80 - nu.protein), 0, 1.6);
+    nu.fit = clamp(0.70 + 0.30 * nu.protein - 0.20 * (1 - nu.micro), 0.5, 1);
+
+    // 3) 营养补剂：只补缺口，不替代产能
+    var deficit = ((1 - nu.protein) + (1 - nu.vit) + (1 - nu.micro)) / 3;
+    var nutriNeed = t0.awake > 0 ? t0.awake * deficit / Math.max(0.01, M.doseCover.nutri) : 0;
+    var nutriUse = Math.min(pools.nutri, nutriNeed);
+    pools.nutri = Math.max(0, pools.nutri - nutriUse);
+    if (nutriUse > 0 && t0.awake > 0) {
+      var lift = nutriUse * M.doseCover.nutri / t0.awake;
+      nu.protein = Math.min(1, nu.protein + lift);
+      nu.vit = Math.min(1, nu.vit + lift);
+      nu.micro = Math.min(1, nu.micro + lift);
+    }
+
+    // 4) 神经损伤：微量长期不足的不可逆累积
+    if (nu.micro < N.neuroFloor) {
+      nu.neuro = clamp(nu.neuro + N.neuroPerWeek *
+        clamp((N.neuroFloor - nu.micro) / N.neuroSpan, 0, 1), 0, 1);
+    }
+    nu.unfit = nu.neuro > N.neuroHard ? 0.80 : 1;
+
+    // 5) 连续不足闩锁
+    nu.badProtein = nu.protein < N.proteinBad ? nu.badProtein + 1 : 0;
+    nu.badMicro = nu.micro < N.microBad ? nu.badMicro + 1 : 0;
+    if (nu.badProtein >= N.malWeeks && nu.maln <= 0) {
+      nu.maln = N.malWeeks;
+      pushEvent(state, cfg, "nutrition", "营养", "营养不良已成常态",
+        "连续 " + N.malWeeks + " 周蛋白低于 " + N.proteinBad + "，进入营养不良状态",
+        "蛋白 " + r2(nu.protein) + " · 维矿 " + r2(nu.vit) + " · 微量 " + r2(nu.micro), true,
+        null, "长期吃不饱，伤病恢复与免疫一起往下掉");
+    }
+    if (nu.maln > 0) nu.maln--;
+
+    // 6) 防辐射：高速航行才累积，药剂只压得住一部分
+    var radOn = !!(state.ship && state.ship.speedC > M.radSpeed);
+    if (radOn) {
+      state.health.rad = clamp(state.health.rad + M.radPerWeek *
+        (1 - 0.30 * clamp(medCoverage, 0, 1)), 0, 1);
+    } else {
+      state.health.rad = Math.max(0, state.health.rad - 0.004);
+    }
+    var radNeed = radOn ? t0.awake * 0.002 * state.health.rad * 4 : 0;
+    var radUse = Math.min(pools.rad, radNeed);
+    pools.rad = Math.max(0, pools.rad - radUse);
+    state.health.rad = Math.max(0, state.health.rad - radUse * M.doseCover.rad);
+
+    // 7) 变异修复：眷属密度（含 bonus）超过 20% 才开，压眷属转化
+    var thrallN = soc && soc.infection ? num0(soc.infection.thralls) : 0;
+    var infectDensity = clamp(thrallN / Math.max(1, t0.awake), 0, 1);
+    var mutNeed = infectDensity > 0.20 ? t0.awake * (infectDensity - 0.20) * 0.02 : 0;
+    var mutUse = Math.min(pools.mut, mutNeed);
+    pools.mut = Math.max(0, pools.mut - mutUse);
+    if (mutUse > 0 && soc && soc.infection && num0(soc.infection.thralls) > 0) {
+      var cut = Math.min(soc.infection.thralls, mutUse * M.mutThrallK);
+      soc.infection.thralls = Math.max(0, soc.infection.thralls - cut);
+      soc.infection.bonus = Math.max(0, num0(soc.infection.bonus) - cut);
+    }
+
+    // 8) DNA 修复：每 26 周一轮，神经损伤减半
+    var dnaUse = 0;
+    if (nu.neuro > 0.02 && state.weeks % M.dnaCourseWeeks === 0 && pools.dna >= M.dnaCourseDoses) {
+      pools.dna -= M.dnaCourseDoses;
+      dnaUse = M.dnaCourseDoses;
+      nu.neuro = nu.neuro * 0.5;
+    }
+
+    // 9) 镇痛用药：眷属密度越高用得越多，供给不足的缺口进入戒断
+    var infectPct = infectDensity * 100;
+    ad.useTarget = t0.awake * clamp(A.useBase + A.usePerInfectPct * infectPct, 0, A.useCap);
+    var painCap = pools.pain * M.doseCover.pain;
+    ad.use = Math.min(ad.useTarget, painCap);
+    pools.pain = Math.max(0, pools.pain - ad.use / M.doseCover.pain);
+    var supplyRatio = ad.useTarget > 0 ? clamp(ad.use / ad.useTarget, 0, 1) : 1;
+
+    // 10) 三档成瘾转化（人数为小数，显示时取整）
+    var nAdd = Math.max(1, t0.awake);
+    var newLight = A.newLightK * ad.use * (1 - Math.min(0.95, (ad.light + ad.mid + ad.heavy) / nAdd));
+    var l2m = A.lightToMid * ad.light;
+    var m2h = A.midToHeavy * ad.mid;
+    ad.light = Math.max(0, ad.light + newLight - l2m - A.quitLight * ad.light);
+    ad.mid = Math.max(0, ad.mid + l2m - m2h - A.quitMid * ad.mid);
+    ad.heavy = Math.max(0, ad.heavy + m2h - A.quitHeavy * ad.heavy);
+
+    // 11) 化学极乐：条件成立后社会自发进入，8 周一轮
+    var heavyShare = ad.heavy / nAdd;
+    var lmShare = (ad.light + ad.mid) / nAdd;
+    if (!ad.blissUnlocked &&
+        (heavyShare >= A.bliss.unlockHeavyShare || lmShare >= A.bliss.unlockLightMidShare)) {
+      ad.blissUnlocked = true;
+      pushEvent(state, cfg, "addiction", "成瘾", "化学极乐具备条件",
+        "重度 " + (heavyShare * 100).toFixed(1) + "%、轻中合计 " + (lmShare * 100).toFixed(1) +
+        "%，社会开始自行组织化学极乐",
+        "解锁线：重度 ≥ 2% 醒态，或轻+中 ≥ 12%", true, null,
+        "短期秩序好看，长期成瘾与出错率一起涨");
+    }
+    if (ad.blissWeeks > 0) {
+      ad.blissWeeks--;
+      ad.light += ad.light * A.bliss.lightPerWeek;
+    } else if (ad.blissUnlocked && heavyShare >= A.bliss.unlockHeavyShare &&
+               state.weeks >= ad.blissNext) {
+      ad.blissWeeks = A.bliss.weeks;
+      ad.blissNext = state.weeks + A.bliss.retryWeeks;
+      pushEvent(state, cfg, "addiction", "成瘾", "化学极乐开始了",
+        "接下来 " + A.bliss.weeks + " 周：秩序 +" + (A.bliss.orderGain * 100).toFixed(0) +
+        "%、产出 −" + (A.bliss.prodLoss * 100).toFixed(0) + "%，轻症每周 +2%",
+        "重度占比 " + (heavyShare * 100).toFixed(1) + "% ≥ 2%，触发社会自发极乐",
+        true, { "秩序": Math.round(A.bliss.orderGain * 100) }, "这个秩序红利是借来的");
+    }
+
+    // 12) 戒断：供药不足时按档位触发，抵抗归零
+    var shortfall = clamp(1 - supplyRatio, 0, 1);
+    ad.withdraw.light = ad.light * A.withdrawRoll.light * shortfall;
+    ad.withdraw.mid = ad.mid * A.withdrawRoll.mid * shortfall;
+    ad.withdraw.heavy = ad.heavy * A.withdrawRoll.heavy * shortfall;
+    var wTot = ad.withdraw.light + ad.withdraw.mid + ad.withdraw.heavy;
+
+    // 13) 抵抗值与效果摘要
+    var tot = ad.light + ad.mid + ad.heavy;
+    var resist = tot > 0
+      ? (A.resist.light * ad.light + A.resist.mid * ad.mid + A.resist.heavy * ad.heavy) / tot
+      : 0;
+    if (ad.blissWeeks > 0) resist = Math.min(0.95, resist + A.bliss.resistBonus);
+    if (wTot > 0) resist = 0;
+    ad.resistance = r3(resist);
+    var fitPen = tot > 0
+      ? (A.fitPenalty.light * ad.light + A.fitPenalty.mid * ad.mid + A.fitPenalty.heavy * ad.heavy) / nAdd
+      : 0;
+    var obey = tot > 0
+      ? (A.obey.light * ad.light + A.obey.mid * ad.mid + A.obey.heavy * ad.heavy) / nAdd
+      : 0;
+    var errK = tot > 0
+      ? (A.errorK.light * ad.light + A.errorK.mid * ad.mid + A.errorK.heavy * ad.heavy) / nAdd
+      : 0;
+    var dMul = tot > 0
+      ? (A.deathMul.light * ad.light + A.deathMul.mid * ad.mid + A.deathMul.heavy * ad.heavy) / nAdd
+      : 0;
+    ad.effects = {
+      fitMul: clamp(1 - fitPen, 0.55, 1),
+      obey: clamp(obey, 0, 0.18),
+      errorK: errK,
+      deathMul: dMul,
+      resist: ad.resistance,
+      bliss: ad.blissWeeks > 0
+    };
+
+    // 14) 戒断破坏事件：归因到人数最多的舱段（按醒态比例摊，取最大舱段）
+    if (wTot >= 1 && state.weeks - ad.lastWithdrawLog >= A.withdrawLogWeeks) {
+      ad.lastWithdrawLog = state.weeks;
+      var zname = "居住环";
+      if (global.XuanShuPeople && state.people) {
+        var br = global.XuanShuPeople.brief(state, cfg);
+        var zlist = (br && br.zones) || [];
+        var top = null;
+        zlist.forEach(function (z) { if (!top || z.total > top.total) top = z; });
+        if (top) zname = top.name;
+      }
+      var dmg = Math.min(0.02, A.withdrawOrderK * wTot);
+      state.order = clamp(state.order - dmg, 0.05, 1);
+      pushEvent(state, cfg, "withdraw", "事件", "戒断暴动 · " + zname,
+        "缺药，本周 " + Math.round(wTot) + " 人进入戒断，" + zname +
+        "发生破坏事件（破坏设备/斗殴），秩序 −" + (dmg * 100).toFixed(1) + "%",
+        "供药率 " + Math.round(supplyRatio * 100) + "%，戒断触发 轻 5% / 中 12% / 重 25%",
+        true, { "秩序": -Math.round(dmg * 1000) / 10 },
+        "戒断期间抵抗归零，休眠舱的梦中压力反而更大");
+    }
+
+    // 15) 年度台账：一周一行太吵，满一年记一条
+    state.vitals = {
+      week: state.weeks,
+      ration: r2(ration),
+      protein: r2(nu.protein), vit: r2(nu.vit), micro: r2(nu.micro),
+      imm: r2(nu.imm), fit: r2(nu.fit), neuro: r3(nu.neuro), maln: nu.maln > 0,
+      rad: r3(state.health.rad),
+      use: Math.round(ad.use), useTarget: Math.round(ad.useTarget),
+      light: Math.round(ad.light), mid: Math.round(ad.mid), heavy: Math.round(ad.heavy),
+      withdraw: Math.round(wTot), resist: ad.resistance,
+      blissWeeks: ad.blissWeeks,
+      dnaUse: dnaUse, nutriUse: r2(nutriUse), radUse: r2(radUse), mutUse: r2(mutUse)
+    };
+    if (state.weeks % cfg.time.weeksPerYear === 0) {
+      pushEvent(state, cfg, "addiction", "成瘾", "药剂与成瘾台账",
+        "成瘾 轻 " + Math.round(ad.light) + " / 中 " + Math.round(ad.mid) +
+        " / 重 " + Math.round(ad.heavy) + "，用药 " + Math.round(ad.use) + " 人",
+        "抵抗 " + ad.resistance.toFixed(2) + " · 营养 蛋白 " + r2(nu.protein) +
+        " / 维矿 " + r2(nu.vit) + " / 微量 " + r2(nu.micro) + " · 神经损伤 " + r3(nu.neuro) +
+        (ad.blissWeeks > 0 ? " · 化学极乐剩 " + ad.blissWeeks + " 周" : ""),
+        false, null, "药剂池：镇痛 " + Math.round(pools.pain) + " · 营养 " +
+        Math.round(pools.nutri) + " · 防辐射 " + Math.round(pools.rad) + " · 变异 " +
+        Math.round(pools.mut) + " · DNA " + Math.round(pools.dna) + " 份");
+    }
+    return state.vitals;
+  }
+
+  function num0(v, d) { return isNum(v) ? v : (isNum(d) ? d : 0); }
 
   function killProportional(state, cfg, fraction) {
     var n = 0;
@@ -373,6 +636,9 @@
     state.dream = { pressure: 0, infected: 0, lastLog: -99 };
     state.wellbeing = null;
     state.maintFund = { week: 0, need: 0, budget: 0, fromStock: 0, spend: 0 };
+    // 药剂池 / 营养 / 成瘾 / 辐射：旧档缺字段时由 ensureVitals 补默认
+    ensureVitals(state, cfg);
+    state.vitals = null;
     state.last = {
       rationActual: 1,
       energy: cfg.energy.baseMW,
@@ -466,7 +732,13 @@
       phase: state.phase,
       ration: state.last.rationActual,
       energy: state.last.energy,
-      medCoverage: state.last.medCoverage
+      medCoverage: state.last.medCoverage,
+      // 药剂 / 成瘾 / 营养：年度曲线直接可画
+      addict: state.addict ? Math.round(state.addict.light + state.addict.mid + state.addict.heavy) : 0,
+      addictHeavy: state.addict ? Math.round(state.addict.heavy) : 0,
+      resist: state.addict ? state.addict.resistance : 0,
+      protein: state.nutrition ? state.nutrition.protein : 1,
+      neuro: state.nutrition ? state.nutrition.neuro : 0
     });
     if (state.series.length > cfg.time.seriesCap) state.series.shift();
   }
@@ -693,6 +965,10 @@
     var maintYield = stepMaintenance(state, cfg);
     var soc = state.society;
 
+    // 药剂 / 营养 / 成瘾：先结算本周的用药与成瘾，再让产出、秩序、死亡吃它的反馈
+    stepVitals(state, cfg, t0, medCoverage, soc);
+    var AD = state.addict.effects || { fitMul: 1, obey: 0, errorK: 0, deathMul: 0, resist: 0, bliss: false };
+
     // 梦中侵染：眷属与低语把休眠者拖出梦境；医疗覆盖取上一周值
     stepDream(state, cfg, soc, state.last ? state.last.medCoverage : 0.5);
 
@@ -717,6 +993,12 @@
         (soc.effects.prodMul || 1) * gMul("prodMul", 1);
     }
     production *= maintYield;
+    // 营养（体能 fit、神经损伤）与成瘾（三档体能惩罚、化学极乐）对出力的折损
+    if (state.nutrition) {
+      production *= clamp(state.nutrition.fit * (state.nutrition.unfit || 1), 0.5, 1);
+    }
+    production *= AD.fitMul;
+    if (AD.bliss) production *= (1 - cfg.addict.bliss.prodLoss);
     // v1.2 长期折损：年份不可逆衰减 + 农环老化 + 人口结构 + 船况磨损
     // 四项独立相乘；只作用于水培产出，行星来货仍按 planetTpy 恒定。
     var FD = cfg.food.decay;
@@ -764,17 +1046,24 @@
     // 死亡修正
     var extremeActive = !!I.extreme && state.phase >= 3;
     var mal = cfg.death.malK * Math.pow(1 - Math.min(1, rationActual), 2) * (extremeActive ? 0.85 : 1);
-    var disease = cfg.death.diseaseK * (1 - medCoverage) * (1 + 1.5 * Math.max(0, 1 - rationActual));
+    // 免疫不足放大疾病：imm=1.0 时系数 1.0，营养不良再叠 25%
+    var NU = state.nutrition || {};
+    var imm = isNum(NU.imm) ? NU.imm : 1;
+    var nutriDisease = clamp(1 + cfg.nutrition.diseaseK * (1 - imm), 0.70, 1.80) *
+      (NU.maln > 0 ? 1.25 : 1);
+    var disease = cfg.death.diseaseK * (1 - medCoverage) * (1 + 1.5 * Math.max(0, 1 - rationActual)) *
+      nutriDisease;
     var conflict = state.order < 0.45
       ? cfg.death.conflictK * Math.pow((0.45 - state.order) / 0.45, 2) : 0;
     var accident = cfg.death.accidentBase + cfg.death.accidentWear * state.wear;
-    var extra = mal + disease + conflict + accident;
+    var radDeath = cfg.med.radDeathK * clamp(state.health ? state.health.rad : 0, 0, 1);
+    var extra = mal + disease + conflict + accident + radDeath;
 
     // 死亡
     var weekDeaths = 0;
     cfg.population.groups.forEach(function (g) {
       var s = state.groups[g.id];
-      var rate = g.mortality;
+      var rate = g.mortality * (1 + (AD.deathMul || 0));
       if (g.clone) rate = g.mortality / clamp(rationActual, 0.35, 1);
       var d = Math.min(s.awake, s.awake * (rate + extra) * dt * noise(0.08));
       s.awake -= d;
@@ -923,7 +1212,8 @@
     // 失序与感染会拖垮维修效率：金属花了，活没干完
     if (soc) {
       maintGap = clamp(maintGap + 0.30 * (soc.mutiny.level / 5) +
-        0.15 * clamp(soc.infection.share || 0, 0, 1), 0, 1);
+        0.15 * clamp(soc.infection.share || 0, 0, 1) +
+        0.50 * clamp(AD.errorK || 0, 0, 0.25), 0, 1);
     }
     // 磨损恶化项随航速放大：跑得越快，同样的维修缺口磨得更狠（r=1 时与旧版一致）
     var wearSpeedK = 1 + (((cfg.ship && cfg.ship.wearK) || 0)) *
@@ -998,6 +1288,13 @@
       orderEq -= cfg.society.ladder.orderPerLevel * soc.mutiny.level;
       orderEq -= 0.10 * clamp(soc.infection.share || 0, 0, 1);
       orderEq -= 0.08 * (1 - clamp(soc.garrison.durability / 100, 0, 1));
+    }
+    // 成瘾：服从性加成（三档加权），化学极乐额外 +12%；戒断人数按醒态占比扣秩序
+    orderEq += clamp(AD.obey || 0, 0, 0.18);
+    if (AD.bliss) orderEq += cfg.addict.bliss.orderGain;
+    if (state.addict.withdraw) {
+      var wNow = state.addict.withdraw.light + state.addict.withdraw.mid + state.addict.withdraw.heavy;
+      orderEq -= 0.10 * clamp(wNow / Math.max(1, t3.awake), 0, 1);
     }
     state.order = clamp(state.order + (orderEq - state.order) * cfg.order.relax * dt, 0.05, 1);
 
@@ -1227,6 +1524,13 @@
     state.flowCarry = fresh.flowCarry;
     state.maint = fresh.maint;
     state.last = fresh.last;
+    // 药剂 / 营养 / 成瘾 / 辐射是舰务层，回滚时一并归零
+    state.pools = fresh.pools;
+    state.addict = fresh.addict;
+    state.nutrition = fresh.nutrition;
+    state.health = fresh.health;
+    state.dream = fresh.dream;
+    state.vitals = null;
     if (global.XuanShuSociety) state.society = global.XuanShuSociety.create(cfg);
     if (global.XuanShuPeople) state.people = global.XuanShuPeople.create(cfg);
     // 玩家身份是跨轮长期状态：健康、年龄、权限、动作冷却、契约都保留
@@ -1414,6 +1718,16 @@
             ? global.XuanShuPeople.wellbeing(state, cfg) : null),
           // 梦里侵染：压力、累计感染、最近日志周
           dream: state.dream ? clone(state.dream) : null,
+          // 药剂池 / 营养四维 / 成瘾三档 / 辐射（v6.29）
+          med: {
+            pools: clone(state.pools.med),
+            prodPerWeek: clone(cfg.med.prodPerWeek),
+            cap: clone(cfg.med.cap)
+          },
+          nutrition: state.nutrition ? clone(state.nutrition) : null,
+          addict: state.addict ? clone(state.addict) : null,
+          health: state.health ? clone(state.health) : null,
+          vitals: state.vitals ? clone(state.vitals) : null,
           births: state.last.births,
           deaths: state.last.deaths,
           cloneOut: state.last.cloneOut,
@@ -1623,6 +1937,7 @@
         state = clone(obj);
         ensureGroups(state, cfg);
         ensurePods(state, cfg);
+        ensureVitals(state, cfg);
         if (global.XuanShuPlayer) global.XuanShuPlayer.ensure(state, cfg);
         if (global.XuanShuEncounter) global.XuanShuEncounter.ensure(state, cfg);
         if (global.XuanShuGods) global.XuanShuGods.ensure(state, cfg);
@@ -1644,6 +1959,7 @@
         }
         ensureGroups(state, cfg);
         ensurePods(state, cfg);
+        ensureVitals(state, cfg);
         if (global.XuanShuPlayer) global.XuanShuPlayer.ensure(state, cfg);
         if (global.XuanShuEncounter) global.XuanShuEncounter.ensure(state, cfg);
         if (global.XuanShuGods) global.XuanShuGods.ensure(state, cfg);
