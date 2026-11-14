@@ -160,7 +160,7 @@
     g.endedYear = Math.round(absYear(state, cfg) * 100) / 100;
     g.history.push({ year: g.endedYear, type: "lose", id: id, reason: reason });
     pushEvent(state, cfg, "终局", "失败了 · " + (FAILS.filter(function (f) { return f.id === id; })[0] || {}).label,
-      reason, "触发顺序 " + (FAILS.map(function (f) { return f.id; }).indexOf(id) + 1) + "/7",
+      reason, "触发顺序 " + (FAILS.map(function (f) { return f.id; }).indexOf(id) + 1) + "/" + FAILS.length,
       null, reason);
     return g;
   }
