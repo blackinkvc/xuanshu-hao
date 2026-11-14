@@ -246,7 +246,9 @@
   function resolve(state, cfg, mode) {
     var g = ensure(state, cfg);
     if (!g.pendingNode) return { ok: false, msg: "当前没有待决的千年节点" };
-    var m = mode === "auto" ? "auto" : "manual";
+    // 只有玩家显式选择才结算：其余调用（含漏传参数）一律不改 run.auto
+    if (mode !== "auto" && mode !== "manual") return { ok: false, msg: "请先选择走法" };
+    var m = mode;
     var node = g.pendingNode;
     g.pendingNode = null;
     g.auto = m === "auto";
