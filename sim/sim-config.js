@@ -82,20 +82,83 @@
       birthQuota: 40            // 【推定】人/年，见文档 §11.1
     },
 
+    /* ---------------- 体积 / 仓位（v6.63 存粮口径） ----------------
+       舱室表逐行求和（唯一可复核的原始数）：全舰加压 1,641 间 × 3.3 m = 756,000 m³。
+       档案里另有一套 0.92×10⁶，只标注差异，不改档案、不参与结算。
+       干货：名称含仓/库/储的 58 间 38,668 m³ + 主粮库 3 间 11,532 m³ = 50,200 m³；
+       冷库 + 干货库 1,951 m³ 属上述 58 间之内，作为药剂/DNA 的温控配额单独记账。
+       水舱 6,900 m³、金属料场 8,640 m³ 按各自上限反算，不与干货池混用。 */
+    cargo: {
+      pressurizedM3: 756000,
+      archivePressureM3: 920000,     // 仅作差异标注
+      dryM3: 50200,
+      coldM3: 1951,
+      tankM3: 6900,
+      yardM3: 8640,
+      densities: {
+        food:  { tPerM3: 0.75, pack: 1.35, m3PerT: 1.80, label: "粮" },
+        water: { tPerM3: 1.00, pack: 1.15, m3PerT: 1.15, label: "水" },
+        metal: { tPerM3: 2.50, pack: 1.80, m3PerT: 0.72, label: "金属" },
+        drug:  { m3PerUnit: 0.001, label: "药剂" },   // 0.5 L/份 × 托盘 2
+        dna:   { m3PerUnit: 0.0002, label: "DNA" }     // 0.2 L/剂
+      }
+    },
+
+    /* ---------------- 闭合预算（v6.63） ----------------
+       体积：舱室表 1,641 间逐行求和 721,886 m³，加 34,114 m³ 通道/竖井 = 756,000 m³。
+       分项（按房间名/用途关键字聚合，public/rooms.json）：休憩 112,643、休眠 7,220、
+       医疗 20,603、农环 94,881、工业 51,206、仓储 50,200、指挥 9,903、实验 786、公共 401,375。
+       质量：设计册 §1.2 空载 3.6×10⁶ t = 结构 0.62 Mt + 屏蔽 2.0 Mt + 设备与储备 0.98 Mt；
+       结构强度 0.82 t/m³（620,000 / 756,000），屏蔽 10 t/m²，电负荷 68 MW（农环 30 / 工业 22 / 人居 16）。 */
+    budget: {
+      volume: {
+        totalM3: 756000,
+        circulationM3: 34114,
+        fixedM3: 100000,          // 工业/指挥/实验/反应堆/推进等不随人口变的固定系统【推定拆分】
+        perPersonM3: 132.4,       // (休憩 112,643 + 医疗 20,603 + 农环 94,881 + 公共 401,375 − 固定 100,000) / 4,000
+        hiberPerPersonM3: 4.5,    // 休眠 7,220 m³ / 1,600 人
+        habitableDeckM: 3.3       // 屏蔽面积按 体积 / 3.3 m 层高折算
+      },
+      mass: {
+        structPerM3: 0.82,        // 620,000 t / 756,000 m³（设计册口径）
+        shieldPerM2: 10,          // 居住区 10 t/m²（设计册口径）
+        equipPerM3: 0.10,         // 罐体/托盘货架/温控等装粮设备【推定】
+        fixedMassT: 1321000,      // 反应堆/推进/装甲/武器等固定系统【推定拆分，使基线回到 3.6 Mt】
+        lifeEquipTPerPerson: 0.08,
+        emptyRefT: 3600000,
+        massRatio: 1.92,          // 满载 6.9 Mt / 空载 3.6 Mt
+        propellantRefT: 3100000,
+        propellantM3PerT: 11.61   // 3.6×10⁷ m³ / 3.1×10⁶ t
+      },
+      life: {
+        habitatKWPerPerson: 6.67,     // 16 MW / 2,400 醒态
+        agriKWPerPerson: 7.5,         // 30 MW / 4,000
+        indKWPerPerson: 5.5,          // 22 MW / 4,000
+        cargoKWPerM3: 0.05,           // 干货舱环控【推定】
+        coldKWPerM3: 0.15,            // 冷库温控【推定】
+        supplyTPerPersonYear: 0.62    // 氧 0.306 + 粮 0.226 + 净水/废物 0.088【推定】
+      }
+    },
+
     /* ---------------- 粮食 ---------------- */
     food: {
       perCapitaTpy: 0.2263,     // 【档案】0.62 kg/人·日 × 365（年量，未换周）
       dormantFactor: 0.05,      // 【推定】休眠低耗
-      unitYieldTpy: 3.55,       // v6.52：水培单产校准（原 2.52）——让基线产出 567 t/年 覆盖 561 t/年 需求       // 【推定】1 单元 = 1000 m² 等效栽培面（年量）
+      unitYieldTpy: 3.53,       // v6.63：3.55 → 3.53，配合 +4 t/年组织回收，把总续航钉在 200 年
       hydroInit: 191,           // 【档案】191,388 m² 等效
       hydroMax: 600,
       agriMWFull: 30,           // 【档案】农环 30 MW
       planetTpy: 84,            // 【推定】补足 86% 自给之外（年量）
+      planetYears: 10,          // v6.63：行星补给只覆盖离港前 10 年，之后靠船上产线 + 回收
       waterBuffer: 600,         // 【推定】水储备低于 600 t 开始限产
-      stockInit: 112245,        // v6.52：初始存粮 = 200 年口粮（年需求 561.2 t × 200）
-      cap: 0,                   // v1.2：0 = 不设上限（原 400 t 天花板已拆）
+      // v6.63：初始存粮由舱容决定——干货池 50,200 m³ ÷ 1.80 m³/t ≈ 27,887 t。
+      // 纯吃库存 27,887 / 561.2 ≈ 49.7 年；产线 + 回收把总续航推到 200 年。
+      stockInit: 27887,
+      cap: 27887,               // v6.63：不再是 0（无上限），由舱容反算
+      recycleTpy: 4,            // v6.63：组织回收（残渣/废弃物再处理）年量
       spoilagePerYear: 0.015,   // v6.53：按深仓分层（真空/惰性气体密封舱）口径重取 1.5%；
                                 // 原 4% 会让「200 年存粮」实际 80 年见底，与设定自相矛盾
+
       // v1.2：产出冗余随年份与船况衰减，在既有能源/水/人力/社会反馈系数之上
       // 再叠一层长期折损。年份+农环受 maxLoss 封顶，磨损/人口结构按当期实际值另算。
       decay: {
@@ -1160,19 +1223,19 @@
       categories: ["explore", "tech", "resource", "society", "oldgod", "crisis", "trade"],
       cards: {
         explore: [
-          { id: "ex_metal_asteroid", name: "富金属小行星", rarity: "common", need: { techMin: 0.30 }, ops: [{ t: "stock", k: "metal", v: 90 }, { t: "wear", v: 0.03 }], follow: [{ key: "encounter.crisis", v: 0.10, weeks: 520 }], effectText: "金属 +90 吨", costText: "磨损 +0.03，占用 8 周", followText: "10 年内危机权重 +0.10" },
-          { id: "ex_ice_asteroid", name: "冰质小行星", rarity: "common", need: { techMin: 0.25 }, ops: [{ t: "stock", k: "water", v: 400 }, { t: "stock", k: "metal", v: -10 }], effectText: "水 +400 吨", costText: "金属 −10 吨，占用 6 周", followText: "—" },
-          { id: "ex_derelict", name: "废弃殖民舰", rarity: "rare", need: { techMin: 0.40 }, ops: [], effectText: "七选项：探索 / 回收物资 / 回收蛋白质 / 苏醒全部 / 带走部分 / 带走全部 / 留下基因", costText: "工质与伤亡按勾选结算", followText: "带走的人要占本舰休眠余位" },
+          { id: "ex_metal_asteroid", name: "富金属小行星", rarity: "common", need: { techMin: 0.30, cat: "eng" }, ops: [{ t: "stock", k: "metal", v: 90 }, { t: "wear", v: 0.03 }], follow: [{ key: "encounter.crisis", v: 0.10, weeks: 520 }], effectText: "金属 +90 吨", costText: "磨损 +0.03，占用 8 周", followText: "10 年内危机权重 +0.10" },
+          { id: "ex_ice_asteroid", name: "冰质小行星", rarity: "common", need: { techMin: 0.25, cat: "eng" }, ops: [{ t: "stock", k: "water", v: 400 }, { t: "stock", k: "metal", v: -10 }], effectText: "水 +400 吨", costText: "金属 −10 吨，占用 6 周", followText: "—" },
+          { id: "ex_derelict", name: "废弃殖民舰", rarity: "rare", need: { techMin: 0.40, cat: "eng" }, ops: [], effectText: "七选项：探索 / 回收物资 / 回收蛋白质 / 苏醒全部 / 带走部分 / 带走全部 / 留下基因", costText: "工质与伤亡按勾选结算", followText: "带走的人要占本舰休眠余位" },
           { id: "ex_ruins", name: "远古遗迹", rarity: "epic", gap: "ruins", ops: [{ t: "gapReward", type: "ruins" }], follow: [{ key: "encounter.oldgod", v: 0.30, weeks: 5200 }], effectText: "按科技差结算", costText: "探索失败：全船感染 +6", followText: "100 年内古神权重 ×1.3" },
           { id: "ex_colony", name: "前人类殖民地", rarity: "rare", gap: "colony", ops: [{ t: "gapReward", type: "colony" }], effectText: "按科技差结算", costText: "探索失败：全船感染 +3", followText: "—" },
           { id: "ex_wreck", name: "遗弃船", rarity: "rare", gap: "wreck", ops: [{ t: "gapReward", type: "wreck" }], effectText: "按科技差结算", costText: "探索失败：磨损 +0.04", followText: "—" },
           { id: "ex_alien", name: "外星文明", rarity: "legendary", gap: "alien", ops: [{ t: "gapReward", type: "alien" }], effectText: "按科技差结算", costText: "探索失败：全船感染 +8", followText: "—" },
-          { id: "ex_ring_sample", name: "行星环采样", rarity: "common", need: { techMin: 0.30 }, ops: [{ t: "tech", v: 0.02 }, { t: "stock", k: "metal", v: 30 }, { t: "wear", v: 0.02 }], effectText: "科技 +2 点、金属 +30 吨", costText: "磨损 +0.02", followText: "—" },
-          { id: "ex_beacon", name: "深空信标", rarity: "rare", need: { techMin: 0.45 }, ops: [{ t: "stock", k: "metal", v: -25 }, { t: "intel", level: "high", weeks: 200 }, { t: "mod", key: "encounter.explore", v: 0.20, weeks: 2600 }], effectText: "情报 +1 档 200 周", costText: "金属 −25 吨", followText: "50 年探索权重 +0.20" },
-          { id: "ex_pod_drift", name: "漂流休眠舱", rarity: "rare", need: { techMin: 0.35 }, ops: [{ t: "dormant", v: 24 }, { t: "stock", k: "drug", v: 40 }, { t: "stock", k: "metal", v: -15 }, { t: "randomInfect", p: 0.30, v: 5 }], effectText: "舱里 +24 人、药剂 +40", costText: "金属 −15 吨", followText: "30% 概率舱内感染 +5" },
-          { id: "ex_debris", name: "陨石残骸", rarity: "common", need: { techMin: 0.20 }, ops: [{ t: "stock", k: "metal", v: 45 }, { t: "wear", v: 0.05 }], effectText: "金属 +45 吨", costText: "磨损 +0.05", followText: "—" },
-          { id: "ex_garden_world", name: "宜居行星", rarity: "epic", need: { techMin: 0.50 }, ops: [{ t: "stock", k: "food", v: 120 }, { t: "stock", k: "water", v: 200 }, { t: "pop", group: "undecided", v: 30 }, { t: "mod", key: "encounter.explore", v: 0.40, weeks: 520 }, { t: "mod", key: "encounter.crisis", v: 0.15, weeks: 520 }], effectText: "粮 +120 吨、水 +200 吨、人口 +30", costText: "10 年探索权重 ×1.4", followText: "危机权重 +0.15（10 年）" },
-          { id: "ex_signal", name: "未知信号源", rarity: "legendary", need: { techMin: 0.60 }, choices: ["tech", "god", "thralls"], ops: [{ t: "infect", v: 8 }, { t: "machine", k: "autonomy", v: 0.05 }], effectText: "三选一：科技 +10 点 / 随机古神契约 / 眷属 +3", costText: "感染 +8、机器自主 +0.05", followText: "机器哗变风险上升" }
+          { id: "ex_ring_sample", name: "行星环采样", rarity: "common", need: { techMin: 0.30, cat: "eng" }, ops: [{ t: "tech", v: 0.02 }, { t: "stock", k: "metal", v: 30 }, { t: "wear", v: 0.02 }], effectText: "科技 +2 点、金属 +30 吨", costText: "磨损 +0.02", followText: "—" },
+          { id: "ex_beacon", name: "深空信标", rarity: "rare", need: { techMin: 0.45, cat: "eng" }, ops: [{ t: "stock", k: "metal", v: -25 }, { t: "intel", level: "high", weeks: 200 }, { t: "mod", key: "encounter.explore", v: 0.20, weeks: 2600 }], effectText: "情报 +1 档 200 周", costText: "金属 −25 吨", followText: "50 年探索权重 +0.20" },
+          { id: "ex_pod_drift", name: "漂流休眠舱", rarity: "rare", need: { techMin: 0.35, cat: "bio" }, ops: [{ t: "dormant", v: 24 }, { t: "stock", k: "drug", v: 40 }, { t: "stock", k: "metal", v: -15 }, { t: "randomInfect", p: 0.30, v: 5 }], effectText: "舱里 +24 人、药剂 +40", costText: "金属 −15 吨", followText: "30% 概率舱内感染 +5" },
+          { id: "ex_debris", name: "陨石残骸", rarity: "common", need: { techMin: 0.20, cat: "eng" }, ops: [{ t: "stock", k: "metal", v: 45 }, { t: "wear", v: 0.05 }], effectText: "金属 +45 吨", costText: "磨损 +0.05", followText: "—" },
+          { id: "ex_garden_world", name: "宜居行星", rarity: "epic", need: { techMin: 0.50, cat: "bio" }, ops: [{ t: "stock", k: "food", v: 120 }, { t: "stock", k: "water", v: 200 }, { t: "pop", group: "undecided", v: 30 }, { t: "mod", key: "encounter.explore", v: 0.40, weeks: 520 }, { t: "mod", key: "encounter.crisis", v: 0.15, weeks: 520 }], effectText: "粮 +120 吨、水 +200 吨、人口 +30", costText: "10 年探索权重 ×1.4", followText: "危机权重 +0.15（10 年）" },
+          { id: "ex_signal", name: "未知信号源", rarity: "legendary", need: { techMin: 0.60, cat: "soc" }, choices: ["tech", "god", "thralls"], ops: [{ t: "infect", v: 8 }, { t: "machine", k: "autonomy", v: 0.05 }], effectText: "三选一：科技 +10 点 / 随机古神契约 / 眷属 +3", costText: "感染 +8、机器自主 +0.05", followText: "机器哗变风险上升" }
         ],
         tech: [
           { id: "te_hydro_gene", name: "水培基因改良", rarity: "common", need: { techMin: 0.20 }, ops: [{ t: "infra", k: "hydro", v: 12 }, { t: "stock", k: "drug", v: -15 }], effectText: "水培 +12 单元", costText: "药剂 −15", followText: "—" },
@@ -1260,10 +1323,10 @@
        D 高出 high：不可探，文案「科技相差甚远，无法探索」。 */
     exploreGap: {
       types: {
-        ruins:  { label: "遗迹",     targetTech: 0.55, lowMin: -0.12, low: 0.08, high: 0.22, matBase: 60, fail: { infect: 6 }, success: { A: 0.90, B: 0.80, C: 0.45 } },
-        colony: { label: "殖民地",   targetTech: 0.45, lowMin: -0.15, low: 0.10, high: 0.20, matBase: 70, fail: { infect: 3 }, success: { A: 0.90, B: 0.80, C: 0.45 } },
-        wreck:  { label: "遗弃船",   targetTech: 0.40, lowMin: -0.15, low: 0.10, high: 0.28, matBase: 80, fail: { wear: 0.04 }, success: { A: 0.90, B: 0.80, C: 0.45 } },
-        alien:  { label: "外星文明", targetTech: 0.65, lowMin: -0.10, low: 0.06, high: 0.16, matBase: 60, fail: { infect: 8 }, success: { A: 0.85, B: 0.75, C: 0.35 } }
+        ruins:  { label: "遗迹",     cat: "soc", targetTech: 0.55, lowMin: -0.12, low: 0.08, high: 0.22, matBase: 60, fail: { infect: 6 }, success: { A: 0.90, B: 0.80, C: 0.45 } },
+        colony: { label: "殖民地",   cat: "bio", targetTech: 0.45, lowMin: -0.15, low: 0.10, high: 0.20, matBase: 70, fail: { infect: 3 }, success: { A: 0.90, B: 0.80, C: 0.45 } },
+        wreck:  { label: "遗弃船",   cat: "eng", targetTech: 0.40, lowMin: -0.15, low: 0.10, high: 0.28, matBase: 80, fail: { wear: 0.04 }, success: { A: 0.90, B: 0.80, C: 0.45 } },
+        alien:  { label: "外星文明", cat: "pow", targetTech: 0.65, lowMin: -0.10, low: 0.06, high: 0.16, matBase: 60, fail: { infect: 8 }, success: { A: 0.85, B: 0.75, C: 0.35 } }
       }
     },
 
@@ -1533,6 +1596,14 @@
       // 机器哗变：连锁数由科技等级决定
       machine: {
         techHydro: 0.55, techClone: 0.25, techMed: 0.20,
+        // v6.62 科技分类：core 为原有基线，五类 = core + k×(方向覆盖 − 0.5) + catBonus。
+        // 偏离系数 0.30 让分类落在基线 ±0.15 内，既有门槛数值（0.20–0.75）不必重调。
+        cat: {
+          k: 0.30,
+          weights: { bio: 0.28, eng: 0.24, pow: 0.16, med: 0.20, soc: 0.12 },
+          bonusFloor: -0.30,
+          energyCvRef: 0.20            // 能量变异系数 0.20 视为完全不稳
+        },
         at: 0.65, weeks: monthsToWeeks(2), oLow: 45,
         secondAt: 0.72, secondMaint: 0.55, secondEnergy: 0.12,
         thirdAt: 0.80,

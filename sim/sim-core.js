@@ -107,34 +107,170 @@
     return demand > 0 ? state.stocks.food / (demand / 365) : 9999;
   }
 
-  // v6.52：存粮年数 + 两百年内新增/回收折算的额外年数（只做预估，不改结算）
+  // v6.63：存粮口径改为「吨位 + 舱容」。
+  // 库存受干货舱容约束；按一阶损耗 dS/dt = A − k·S 精确积分算归零时间，
+  // A = 产 + 回收 − 需求（吨/年），k = 年损耗率。A ≥ 0 时库存不再下降。
   function foodYears(state, cfg, t) {
     var demand = t.awake * cfg.food.perCapitaTpy +
       t.dormant * cfg.food.perCapitaTpy * cfg.food.dormantFactor;
     var need = demand * num(state.inputs && state.inputs.ration, 1);
     if (!(need > 0)) return null;
-    var baseYears = num(state.stocks.food, 0) / need;
+    var stock = num(state.stocks.food, 0);
+    // 行星补给只覆盖离港前窗口，不计入长期续航；单独作为 planetTpy 展示
     var prod = num(state.last && state.last.production, 0);
-    var growthYears = Math.max(0, prod - need) * 200 / need;
-    var ry = num(cfg.famine && cfg.famine.recycleYield, 0.55) * cfg.food.perCapitaTpy;
-    var recyclable = 0;
-    if (state.run && state.run.famine && Array.isArray(state.run.famine.layerPops)) {
-      state.run.famine.layerPops.forEach(function (l) {
-        if (l && (l.id === "L4" || l.id === "L3" || l.id === "L2")) recyclable += num(l.pop, 0);
-      });
-    }
-    if (!recyclable) recyclable = t.awake * 0.7;
-    var recycleYears = recyclable * ry / need;
+    var planetNow = state.last ? num(state.last.planetTpy, 0) : 0;
+    var rec = num(cfg.food.recycleTpy, 0);
+    var k = num(cfg.food.spoilagePerYear, 0);
+    var spoilTpy = stock * k;            // 当前库存下的年损耗，随库存下降而变小
+    var inflow = prod + rec - need;      // 未计损耗的年净流入（t/年）
+    var net = inflow - spoilTpy;
+    var years;
+    if (inflow >= 0) years = 999;        // 收敛到 inflow/k，不会见底
+    else if (k <= 0) years = stock / (-inflow);
+    else years = Math.log(1 + k * stock / (-inflow)) / k;
     var r1 = function (v) { return Math.round(v * 10) / 10; };
+    var baseYears = stock / need;
     return {
+      stockT: Math.round(stock),
+      capT: Math.round(num(cfg.food.cap, 0)),
+      productionTpy: Math.round(prod),
+      planetTpy: Math.round(planetNow),
+      recycleTpy: r1(rec),
       needTpy: Math.round(need),
+      spoilTpy: Math.round(spoilTpy),
+      netTpy: Math.round(net),
+      years: r1(Math.min(years, 999)),
+      // 兼容旧字段
       baseYears: r1(baseYears),
-      growthYears: r1(growthYears),
-      recycleYears: r1(recycleYears),
-      extraYears: r1(growthYears + recycleYears),
-      totalYears: r1(baseYears + growthYears + recycleYears)
+      growthYears: r1(Math.max(0, years - baseYears)),
+      recycleYears: 0,
+      extraYears: r1(Math.max(0, years - baseYears)),
+      totalYears: r1(Math.min(years, 999))
     };
   }
+
+  /* ---------------- 闭合预算：容积 → 结构质量 → 工质 → 生保 ---------------- */
+
+  // v6.63：一份总账，不是各算一段。
+  // 容积：固定系统 + 每人居住/医疗/农环/公共 + 休眠位 + 实际货物体积；
+  // 质量：结构（0.82 t/m³）+ 屏蔽（10 t/m² 居住甲板）+ 装粮设备（0.10 t/m³ 货舱）+ 固定系统；
+  // 工质：按满载比 1.92 得总工质，年耗按质量比对空载基准线性放大；
+  // 生保：人居 + 农环 + 工业 + 货舱环控 + 冷库温控。
+  function budgetStats(state, cfg) {
+    var B = cfg.budget || {}, V = B.volume || {}, M = B.mass || {}, L = B.life || {};
+    var C = cfg.cargo || {};
+    var cargo = cargoStats(state, cfg);
+    var t = totals(state, cfg);
+    var n = Math.max(1, t.total), awake = t.awake, dormant = t.dormant;
+    var dormShare = dormant / n;
+
+    var cargoVol = cargo.usedM3;
+    var perPersonHiber = num(V.hiberPerPersonM3, 0) * dormShare;
+    var perPersonVol = num(V.perPersonM3, 0) + perPersonHiber;
+    var vReq = num(V.fixedM3, 0) + num(V.perPersonM3, 0) * n + num(V.hiberPerPersonM3, 0) * dormant + cargoVol;
+    var totalV = num(V.totalM3, 0);
+    var deckM2 = num(V.perPersonM3, 0) * n / num(V.habitableDeckM, 3.3);
+
+    var structT = num(M.structPerM3, 0) * vReq;
+    var shieldT = num(M.shieldPerM2, 0) * deckM2;
+    var equipT = num(M.equipPerM3, 0) * cargoVol;
+    var lifeEquipT = num(M.lifeEquipTPerPerson, 0) * n;
+    var emptyT = num(M.fixedMassT, 0) + structT + shieldT + equipT + lifeEquipT;
+    var propT = emptyT * (num(M.massRatio, 1.92) - 1);
+    var sp = (cfg.ship && cfg.ship.propellant) || {};
+    var propBaseTpy = num(sp.perWeekBase, 0.28) * 52;
+    var propTpy = propBaseTpy * emptyT / num(M.emptyRefT, 3600000);
+
+    var habitatMW = num(L.habitatKWPerPerson, 0) * awake / 1000;
+    var agriMW = num(L.agriKWPerPerson, 0) * n / 1000;
+    var indMW = num(L.indKWPerPerson, 0) * n / 1000;
+    var cargoMW = num(L.cargoKWPerM3, 0) * cargo.m3.food / 1000;
+    var coldMW = num(L.coldKWPerM3, 0) * num(C.coldM3, 0) / 1000;
+    var powerMW = habitatMW + agriMW + indMW + cargoMW + coldMW;
+    var supplyTpy = num(L.supplyTPerPersonYear, 0) * n;
+
+    var room = totalV - num(V.fixedM3, 0) - num(V.circulationM3, 0) - cargoVol;
+    var nMaxV = perPersonVol > 0 ? room / perPersonVol : 0;
+    var r0 = function (v) { return Math.round(v); };
+    var r1 = function (v) { return Math.round(v * 10) / 10; };
+
+    return {
+      pop: r0(n), awake: r0(awake), dormant: r0(dormant),
+      nMaxV: r0(nMaxV), fitsVolume: n <= nMaxV, cut: 0,
+      volume: {
+        requiredM3: r0(vReq), totalM3: r0(totalV), usedPct: totalV > 0 ? r1(vReq / totalV * 100) : 0,
+        fixedM3: r0(num(V.fixedM3, 0)), perPersonM3: r1(num(V.perPersonM3, 0)),
+        hiberM3: r0(num(V.hiberPerPersonM3, 0) * dormant), cargoM3: r0(cargoVol),
+        circulationM3: r0(num(V.circulationM3, 0)), freeM3: r0(totalV - vReq - num(V.circulationM3, 0))
+      },
+      mass: {
+        emptyT: r0(emptyT), structT: r0(structT), shieldT: r0(shieldT), equipT: r0(equipT),
+        fixedT: r0(num(M.fixedMassT, 0)), lifeEquipT: r0(lifeEquipT),
+        loadedT: r0(emptyT * num(M.massRatio, 1.92)),
+        propellantT: r0(propT), propellantM3: r0(propT * num(M.propellantM3PerT, 0)),
+        propellantTpy: r1(propTpy)
+      },
+      life: {
+        powerMW: r1(powerMW), habitatMW: r1(habitatMW), agriMW: r1(agriMW),
+        indMW: r1(indMW), cargoMW: r1(cargoMW), coldMW: r1(coldMW), supplyTpy: r0(supplyTpy)
+      },
+      perPerson: {
+        volumeM3: r1(perPersonVol),
+        massT: r1(num(M.structPerM3, 0) * perPersonVol + num(M.shieldPerM2, 0) * num(V.perPersonM3, 0) / num(V.habitableDeckM, 3.3) + num(M.lifeEquipTPerPerson, 0)),
+        propellantT: r1((num(M.structPerM3, 0) * perPersonVol + num(M.shieldPerM2, 0) * num(V.perPersonM3, 0) / num(V.habitableDeckM, 3.3) + num(M.lifeEquipTPerPerson, 0)) * (num(M.massRatio, 1.92) - 1)),
+        propellantTpy: 0,
+        lifeKW: r1(num(L.habitatKWPerPerson, 0) * awake / n + num(L.agriKWPerPerson, 0) + num(L.indKWPerPerson, 0)),
+        supplyTpy: r1(num(L.supplyTPerPersonYear, 0))
+      }
+    };
+  }
+
+  // 人口 = 舱容推出来的结果：超容才按比例减人，并记录减了多少
+  function applyBudgetCap(state, cfg) {
+    var b = budgetStats(state, cfg);
+    var t = totals(state, cfg);
+    if (!(b.nMaxV > 0) || t.total <= b.nMaxV) { b.derivedPop = t.total; return b; }
+    var factor = b.nMaxV / t.total;
+    var groups = state.groups || {};
+    Object.keys(groups).forEach(function (k) {
+      var g = groups[k];
+      if (!g) return;
+      if (isNum(g.awake)) g.awake = Math.max(0, Math.round(g.awake * factor));
+      if (isNum(g.dormant)) g.dormant = Math.max(0, Math.round(g.dormant * factor));
+    });
+    b.cut = Math.round(t.total - b.nMaxV);
+    b.derivedPop = Math.round(b.nMaxV);
+    b.fitsVolume = true;
+    return b;
+  }
+
+
+  function cargoStats(state, cfg) {
+    var C = cfg.cargo || {}, D = C.densities || {};
+    function m3Of(k) {
+      var d = D[k] || {}, q = num(state.stocks && state.stocks[k], 0);
+      return d.m3PerUnit != null ? q * d.m3PerUnit : q * num(d.m3PerT, 1);
+    }
+    var m3 = { food: m3Of("food"), water: m3Of("water"), metal: m3Of("metal"), drug: m3Of("drug"), dna: m3Of("dna") };
+    var r1 = function (v) { return Math.round(v * 10) / 10; };
+    var used = m3.food + m3.water + m3.metal + m3.drug + m3.dna;
+    var dryUsed = m3.food + m3.drug + m3.dna;
+    return {
+      m3: { food: Math.round(m3.food), water: Math.round(m3.water), metal: Math.round(m3.metal),
+        drug: r1(m3.drug), dna: r1(m3.dna) },
+      holds: {
+        dry: num(C.dryM3, 0), cold: num(C.coldM3, 0), tank: num(C.tankM3, 0),
+        yard: num(C.yardM3, 0), pressurized: num(C.pressurizedM3, 0),
+        archivePressurized: num(C.archivePressureM3, 0)
+      },
+      dryUsedM3: Math.round(dryUsed),
+      dryFreeM3: Math.round(num(C.dryM3, 0) - dryUsed),
+      usedM3: Math.round(used),
+      usedPctOfPressurized: num(C.pressurizedM3, 0) > 0
+        ? Math.round(used / C.pressurizedM3 * 1000) / 10 : 0
+    };
+  }
+
 
   function waterDays(state, cfg, t) {
     var throughput = t.awake * cfg.water.perCapitaAwake + t.dormant * cfg.water.perCapitaDormant;
@@ -1410,6 +1546,9 @@
       production *= global.XuanShuCrisis.prodMul(state, cfg);
     }
     var planet = I.planetCut ? 0 : (cfg.food.planetTpy + mAdd("foodPerYear", 0));
+    // v6.63：行星补给只覆盖离港前的窗口（planetYears），之后全靠船上产线 + 回收
+    var absYear = (state.loop - 1) * cfg.time.loopYears + state.weeks / cfg.time.weeksPerYear;
+    if (absYear > num(cfg.food.planetYears, 10)) planet = 0;
 
     // 粮食结算：库存永不为负。行动状态给出逐人口粮乘数（休眠 0.02 等）
     var baseDemand = act
@@ -1421,11 +1560,13 @@
     // v1.2 储备自然损耗：按现存库存的年率折损，库存越高损耗越多
     var spoil = cfg.food.spoilagePerYear || 0;
     if (spoil > 0) state.stocks.food *= Math.max(0, 1 - spoil * dt);
-    var available = state.stocks.food + (production + planet) * dt;
+    // v6.63：组织回收（残渣/废弃物再处理）并入年产，与产线一起计入续航
+    var recycleY = num(cfg.food.recycleTpy, 0);
+    var available = state.stocks.food + (production + planet + recycleY) * dt;
     var consumed = Math.min(need, available);
     var rationActual = standardNeed > 0 ? clamp(consumed / standardNeed, 0, 1.2) : 1;
     state.stocks.food = Math.max(0, available - consumed);
-    // cap > 0 才封顶；v1.2 默认 cap=0，天花板已拆，由损耗而非硬上限约束库存
+    // cap > 0 才封顶；v6.63 起重粮改由干货舱容反算（27,887 t），满了不再入库
     if (cfg.food.cap > 0) state.stocks.food = Math.min(state.stocks.food, cfg.food.cap);
     var shortfall = need - consumed;
 
@@ -1843,6 +1984,8 @@
       indMW: indMW,
       medCoverage: medCoverage,
       production: production,
+      planetTpy: planet,
+      recycleTpy: recycleY,
       consumption: consumed / dt,
       shortfall: shortfall / dt,
       entries: entries,
@@ -2017,6 +2160,8 @@
     var cfg = deepMerge(base, options.config || {});
     var seed = isNum(options.seed) ? options.seed : 20261111;
     var state = ensureGroups(createState(cfg, seed), cfg);
+    // v6.63：人口由舱容推导——超容则按比例减人，减多少写进 state.budget
+    state.budget = applyBudgetCap(state, cfg);
 
     var api = {
       version: cfg.version,
@@ -2154,6 +2299,9 @@
           phaseName: cfg.phase.names[state.phase],
           foodDays: days,
           foodYears: foodYears(state, cfg, t),
+          foodCap: num(cfg.food.cap, 0),
+          cargo: cargoStats(state, cfg),
+          budget: budgetStats(state, cfg),
           waterDays: waterDays(state, cfg, t),
           cloneShare: cshare,
           inputs: clone(state.inputs),
