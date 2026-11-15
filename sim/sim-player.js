@@ -114,7 +114,9 @@
         stock: { calm: 2, stim: 2, suppress: 2, deep: 2 },
         active: null, leisure: null, genes: {}, repairs: 0,
         hpBonus: 0, mindBonus: 0, spiritBonus: 0, willBonus: 0,
-        infectResist: 0, leisureWeek: -1
+        infectResist: 0, leisureWeek: -1,
+        self: { medical: false, nutrition: false, rest: false },
+        selfMiss: {}
       },
       confinedUntil: -1, interrogatedUntil: -1, hiddenUntil: -1,
       alive: true
@@ -170,6 +172,9 @@
     if (typeof p.pc.geneDamage !== "number") p.pc.geneDamage = 18;
     if (typeof p.pc.addiction !== "number") p.pc.addiction = 0;
     if (!c.genes || typeof c.genes !== "object") c.genes = {};
+    // v6.59 三条主角养护通道：老存档补开关与空转标记
+    if (!c.self || typeof c.self !== "object") c.self = { medical: false, nutrition: false, rest: false };
+    if (!c.selfMiss || typeof c.selfMiss !== "object") c.selfMiss = {};
     if (!p.actionCd || typeof p.actionCd !== "object") p.actionCd = {};
     if (!p.scope) p.scope = { zones: [], depts: [] };
     if (!p.history) p.history = [];
@@ -373,10 +378,11 @@
       // 理智：眷属侵染越深，精神状态越差（个体口径，不是群体聚合）
       mind: clamp(Math.round(100 - num(p.pc.stage) * 18 - num(p.pc.infectionC) * 0.35 +
         num(p.pc.care && p.pc.care.mindBonus, 0) + num(p.pc.care && p.pc.care.mindPenalty, 0) +
-        careBuffSum(p.pc.care, "mind")), 0, 100),
+        num(p.pc.selfMind, 0) + careBuffSum(p.pc.care, "mind")), 0, 100),
       // 活跃精神：意志 + 场上加成
       spirit: clamp(Math.round(num(p.pc.will) + num(p.pc.willBonus) + num(p.pc.complianceBonus) * 0.5 +
-        num(p.pc.care && p.pc.care.spiritBonus, 0) + careBuffSum(p.pc.care, "spirit")), 0, 100),
+        num(p.pc.care && p.pc.care.spiritBonus, 0) + num(p.pc.selfSpirit, 0) +
+        careBuffSum(p.pc.care, "spirit")), 0, 100),
       addiction: clamp(Math.round(num(p.pc.addiction, 0)), 0, 100),
       // 魅力值：个体向的派系资本（0–100），协商 / 安抚 / 公开账目吃这个数
       charm: clamp(Math.round(num(p.pc.charm, 52) + num(p.pc.will) * 0.15), 0, 100),
@@ -954,6 +960,31 @@
       c.mindPenalty = 0;
     }
     if (!c.active) pc.addiction = clamp(num(pc.addiction, 0) - 0.02, 0, 100);
+    // v6.59 三条个人养护通道：只结算主角本人，不读全船配给/医疗覆盖
+    var sc = k.selfCare || {};
+    c.self = c.self || { medical: false, nutrition: false, rest: false };
+    c.selfMiss = c.selfMiss || {};
+    pc.selfMind = 0;
+    pc.selfSpirit = 0;
+    Object.keys(sc).forEach(function (id) {
+      var d = sc[id];
+      c.selfMiss[id] = false;
+      if (!c.self[id]) return;
+      var needDrug = num(d.drug, 0), needFood = num(d.food, 0);
+      if (num(state.stocks && state.stocks.drug, 0) < needDrug ||
+          num(state.stocks && state.stocks.food, 0) < needFood) {
+        c.selfMiss[id] = true;
+        return;
+      }
+      if (needDrug > 0) state.stocks.drug = Math.max(0, num(state.stocks.drug, 0) - needDrug);
+      if (needFood > 0) state.stocks.food = Math.max(0, num(state.stocks.food, 0) - needFood);
+      pc.health = clamp(num(pc.health, 0) + num(d.hp, 0), 0, 100);
+      pc.selfMind += num(d.mind, 0);
+      pc.selfSpirit += num(d.spirit, 0);
+      if (num(d.infectRelief, 0) > 0) {
+        pc.infectionC = Math.max(0, num(pc.infectionC, 0) - num(d.infectRelief, 0));
+      }
+    });
     // 寿命：超过上限后每周掉健康
     var life = lifespanOf(cfg, pc.geneDamage);
     if (num(pc.age, 0) >= life) {
@@ -1038,6 +1069,15 @@
       drugs: drugs,
       genes: genes,
       leisure: leisure,
+      selfCare: Object.keys(k.selfCare || {}).map(function (id) {
+        var d = k.selfCare[id];
+        return {
+          id: id, name: d.name, text: d.text,
+          drug: num(d.drug, 0), food: num(d.food, 0),
+          on: !!(c.self && c.self[id]),
+          miss: !!(c.selfMiss && c.selfMiss[id])
+        };
+      }),
       activeLeisure: c.leisure ? c.leisure.id : "",
       buffs: (c.buffs || []).map(function (b) { return { k: b.k, v: b.v, left: b.left }; })
     };
@@ -1131,6 +1171,20 @@
         l.text + (chaos ? "；现场闹出了事：秩序 −2%。" : "。"), null,
         "娱乐事件频率 ×" + num(l.freq, 1).toFixed(2));
       return { ok: true, msg: "已安排「" + l.name + "」" + (chaos ? "，现场闹事：秩序 −2%" : ""), care: careBrief(state, cfg) };
+    }
+
+    if (id === "selfcare") {
+      var s = k.selfCare && k.selfCare[key];
+      if (!s) return { ok: false, msg: "没有这条养护通道" };
+      c.self = c.self || { medical: false, nutrition: false, rest: false };
+      c.self[key] = !c.self[key];
+      return {
+        ok: true,
+        msg: c.self[key]
+          ? "已开启「" + s.name + "」：" + s.text + "（每周从库存直接扣，不够就空转）"
+          : "已关闭「" + s.name + "」",
+        care: careBrief(state, cfg)
+      };
     }
 
     return { ok: false, msg: "未知养护操作：" + id };

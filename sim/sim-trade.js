@@ -304,6 +304,38 @@
     var t = ensure(state);
     if (num(t.statues, 0) < 1) return { ok: false, msg: "没有古神雕像" };
     var use = (p && p.use) || "tech";
+    if (use === "enshrine") {
+      // 供奉：按累计供奉座数分低/中/高三档，效果随档递增
+      var TIERS = [
+        { name: "低档", infect: 2, order: 0.01, god: 0.08, tech: 0 },
+        { name: "中档", infect: 4, order: 0.02, god: 0.14, tech: 0 },
+        { name: "高档", infect: 6, order: 0.03, god: 0.20, tech: 0.02 }
+      ];
+      var tier = Math.min(3, num(t.enshrined, 0) + 1);
+      var D = TIERS[tier - 1];
+      t.statues = num(t.statues, 0) - 1;
+      t.enshrined = tier;
+      t.statueTier = tier;
+      t.statueTierName = D.name;
+      if (state.society && state.society.infection) {
+        state.society.infection.share = Math.max(0, num(state.society.infection.share, 0) - D.infect / 100);
+      }
+      state.order = clamp(num(state.order, 1) + D.order, 0, 1);
+      if (D.tech > 0 && state.society && state.society.machine) {
+        state.society.machine.tech = num(state.society.machine.tech, 0) + D.tech;
+      }
+      if (!state.encounter) state.encounter = { mods: [] };
+      if (!state.encounter.mods) state.encounter.mods = [];
+      state.encounter.mods.push({
+        key: "encounter.oldgod", v: D.god, until: state.weeks + 5200, weeks: 5200,
+        mul: false, cardId: "statue"
+      });
+      var le = "供奉 1 座古神雕像（" + D.name + "）：感染 −" + D.infect + "、秩序 +" +
+        Math.round(D.order * 100) + "%" + (D.tech ? "、科技 +" + Math.round(D.tech * 100) + " 点" : "") +
+        "，100 年内遇古神概率 +" + D.god.toFixed(2);
+      pushLine(t, le);
+      return { ok: true, msg: le, lines: t.lines.slice() };
+    }
     t.statues = num(t.statues, 0) - 1;
     if (use === "tech") {
       if (state.society && state.society.machine) {
@@ -326,6 +358,9 @@
       rep: Math.round(num(t.rep, 50)),
       heat: Math.round(num(t.heat, 0)),
       statues: Math.round(num(t.statues, 0)),
+      enshrined: Math.round(num(t.enshrined, 0)),
+      statueTier: Math.round(num(t.statueTier, 0)),
+      statueTierName: t.statueTierName || "",
       visits: Math.round(num(t.visits, 0)),
       offer: t.offer,
       lines: t.lines.slice(),

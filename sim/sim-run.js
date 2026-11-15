@@ -353,8 +353,20 @@
     // 三门槛之一：药剂份数（入舱每人 1 份）
     var per = Math.max(1, num(cfg.hibernation && cfg.hibernation.drugPerEntry, 1));
     var drugFree = Math.floor(num(state.stocks && state.stocks.drug, 0) / per);
+    // 另两项硬门槛：科技（镇静/复温协议）与主角统御力；道德在粮食卡入口另判
+    var G = (cfg.hibernation && cfg.hibernation.gates) || {};
+    var tech = clamp(num(state.society && state.society.machine && state.society.machine.tech, 0), 0, 1);
+    var pc = state.player && state.player.pc;
+    var dom = num(pc && pc.dominion, 0);
+    var moral = num(state.morality, 60);
+    var techMin = num(G.techMin, 0.06);
+    var domMin = num(G.dominionMin, 30);
+    var moralMin = num(G.moralMin, 30);
+    var techOk = tech >= techMin;
+    var domOk = dom >= domMin;
+    var moralOk = moral >= moralMin;
     var want = wantAll ? Math.round(awakeTotal) : Math.max(0, Math.round(num(wantAll)));
-    var can = Math.min(want, free, drugFree);
+    var can = (techOk && domOk && moralOk) ? Math.min(want, free, drugFree) : 0;
     var left = can;
     ids.forEach(function (id) {
       if (left <= 0) return;
@@ -370,7 +382,13 @@
       state.stocks.drug = Math.max(0, num(state.stocks.drug, 0) - done * per);
     }
     if (want > can) fam.sleepBlocked = num(fam.sleepBlocked, 0) + (want - can);
-    fam.sleepGates = { pods: free, drug: drugFree, per: per, moral: Math.round(num(state.morality, 60)) };
+    fam.sleepGates = {
+      pods: free, drug: drugFree, per: per,
+      moral: Math.round(moral), moralMin: moralMin, moralOk: moralOk,
+      tech: Math.round(tech * 1000) / 10, techMin: Math.round(techMin * 1000) / 10, techOk: techOk,
+      dominion: Math.round(dom), dominionMin: domMin, dominionOk: domOk,
+      ok: techOk && domOk && moralOk
+    };
     return done;
   }
 
@@ -538,6 +556,9 @@
         }
         if (want > can) {
           var why = [];
+          var gx = fam.sleepGates || {};
+          if (gx.techOk === false) why.push("科技 " + gx.tech + " 低于门槛 " + gx.techMin + "（没有镇静与复温协议）");
+          if (gx.dominionOk === false) why.push("统御 " + gx.dominion + " 低于门槛 " + gx.dominionMin + "（压不住人）");
           if (free <= 0) why.push("舱位余量 0");
           if (drugFree < want) why.push("药剂只够 " + drugFree + " 人（" + Math.round(num(state.stocks.drug)) + " 份）");
           if (!why.length && free < want) why.push("舱位余量 " + free);
@@ -789,12 +810,24 @@
           harvestGain: Math.round(num(state.production, 0) * 0.02),
           harvestUsed: !!g.famine.harvested,
           morality: Math.round(num(state.morality, 60)),
-          sleepGates: {
-            pods: free,
-            drug: Math.floor(num(state.stocks && state.stocks.drug, 0) /
-              Math.max(1, num(cfg.hibernation && cfg.hibernation.drugPerEntry, 1))),
-            moral: Math.round(num(state.morality, 60)) >= 30
-          },
+          sleepGates: (function () {
+            var G = (cfg.hibernation && cfg.hibernation.gates) || {};
+            var tech = clamp(num(state.society && state.society.machine && state.society.machine.tech, 0), 0, 1);
+            var pc = state.player && state.player.pc;
+            var dom = num(pc && pc.dominion, 0);
+            var moral = num(state.morality, 60);
+            var techMin = num(G.techMin, 0.06), domMin = num(G.dominionMin, 30), moralMin = num(G.moralMin, 30);
+            return {
+              pods: free,
+              drug: Math.floor(num(state.stocks && state.stocks.drug, 0) /
+                Math.max(1, num(cfg.hibernation && cfg.hibernation.drugPerEntry, 1))),
+              moral: Math.round(moral), moralMin: moralMin, moralOk: moral >= moralMin,
+              tech: Math.round(tech * 1000) / 10, techMin: Math.round(techMin * 1000) / 10, techOk: tech >= techMin,
+              dominion: Math.round(dom), dominionMin: domMin, dominionOk: dom >= domMin,
+              ok: tech >= techMin && dom >= domMin && moral >= moralMin
+            };
+          })(),
+          sleepBlocked: num(g.famine.sleepBlocked, 0),
           layerFavor: order.map(function (L) {
             var qs = queuesOf(state, L), s = 0, n = 0;
             qs.forEach(function (q) { s += num(q.O, 50) * num(q.n); n += num(q.n); });

@@ -140,7 +140,13 @@
       dreamThrallK: 0.02,       // 每 1 名眷属 +2%
       dreamWhisperK: 0.15,      // 每 1 点 meanC +15%
       dreamDrugShield: 0.40,    // 医疗覆盖最多压制 40%
-      dreamLogWeeks: 8          // 同一类梦中侵染日志至少间隔 8 周
+      dreamLogWeeks: 8,         // 同一类梦中侵染日志至少间隔 8 周
+      // 强制沉睡的硬门槛：舱位/药剂之外，科技、统御、道德三项都要过
+      gates: {
+        techMin: 0.06,          // 科技点 ≥6：有镇静与复温协议才敢批量入舱
+        dominionMin: 30,        // 主角统御力：低于此号令不动别人进舱
+        moralMin: 30            // 道德：低于此没人愿意配合
+      }
     },
 
     /* ---------------- 克隆 ---------------- */
@@ -633,6 +639,28 @@
                    freq: 1.25, risk: 0.05, text: "活跃精神 +10、理智 +4、秩序 +1%" },
           retreat: { name: "静修与独处", weeks: 6, food: 0, spirit: -2, mind: 8, freq: 0.80,
                      text: "活跃精神 −2、理智 +8" }
+        },
+        // v6.59 主角三条独立养护通道：只作用主角本人，不与全船配给/医疗覆盖共用口径。
+        // 每周结算，按下面的单价直接从库存扣；库存不够则该通道当周空转（miss=true）。
+        selfCare: {
+          medical: {
+            name: "个人医疗",
+            drug: 0.06, food: 0, hp: 0.55, mind: 0.05, spirit: 0,
+            infectRelief: 0.004,
+            text: "每周 0.06 份药剂：健康 +0.55、理智 +0.05、感染累积 −0.4%"
+          },
+          nutrition: {
+            name: "个人营养",
+            drug: 0, food: 0.16, hp: 0.28, mind: 0.1, spirit: 0.05,
+            infectRelief: 0,
+            text: "每周 0.16 吨粮：健康 +0.28、理智 +0.1、活跃精神 +0.05"
+          },
+          rest: {
+            name: "个人休养",
+            drug: 0, food: 0.05, hp: 0.32, mind: 0.06, spirit: 0.12,
+            infectRelief: 0,
+            text: "每周 0.05 吨粮：健康 +0.32、理智 +0.06、活跃精神 +0.12"
+          }
         }
       },
       // 玩家风险判定：fired = 动作成功；未成立 = 失败后果

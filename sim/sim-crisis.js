@@ -381,6 +381,7 @@
     var defs = defsOf(cfg);
     return {
       version: VERSION,
+      weeks: state.weeks,
       resolved: C.resolved,
       active: C.active.map(function (a) {
         var d = findDef(cfg, a.id);
