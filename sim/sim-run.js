@@ -18,6 +18,7 @@
     { id: "god_devour", label: "古神吞噬" },
     { id: "order_collapse", label: "秩序崩溃" },
     { id: "famine", label: "断粮" },
+    { id: "hull_breach", label: "舰体解体" },
     { id: "thrall_takeover", label: "全船眷属化" }
   ];
 
@@ -656,7 +657,13 @@
       return lose(state, cfg, "extinction", "船上的人不到 " + num(F.minPopulation, 200) +
         "，或中层贵族连续 " + num(F.l2EmptyWeeks, 26) + " 周一个不剩。");
     }
-    // 2 机器接管
+    // 2 舰体解体（结构件损伤到顶 / 单次冲击超过剩余结构比例）
+    if (state.ship && state.ship.hull && state.ship.hull.structureFailed) {
+      return lose(state, cfg, "hull_breach",
+        (state.ship.hull.gameOver && state.ship.hull.gameOver.reason) ||
+        "结构件损伤到顶，舰体解体。");
+    }
+    // 3 机器接管
     if (soc.machine && (soc.machine.depts || []).length >= num(F.machineDepts, 4)) {
       return lose(state, cfg, "machine_takeover", "机器已经管了 " + num(F.machineDepts, 4) +
         " 个以上部门，船上的事不再由人定。");

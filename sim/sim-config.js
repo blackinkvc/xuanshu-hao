@@ -1352,9 +1352,56 @@
       /* 日常维修回收：缺口 < wearRoutineGap 时按比例每年回收，满维修时 = wearRoutineDrop */
       wearRoutineDrop: 0.08,
       wearRoutineGap: 0.25,
-      /* 结构修补：满维修时每年 +0.42；产出受结构影响的下限 */
-      structureRepair: 0.42,
-      structureProdFloor: 0.70
+      /* 产出受最差部件状态影响的下限（v6.61 起结构不再是汇总值） */
+      structureProdFloor: 0.70,
+
+      /* ---------------- 舰体磨损 v2：六部件损伤模型 ----------------
+         每个部件一个损伤值 D ∈ [0,1]，按周积分：
+           载荷 load：真实负荷（人口 / 功率 / 推力 / 辐射 / 振动 / 侵蚀），空转 = 0，不磨损
+           可修比例 p(D) = p0 × (1 − D)
+           净变化 dD/dt = r × load × 耦合 − q × p0 × (1 − D) × r
+         不修（q = 0）：D 从 0 到 1 用时 1/r，即 lifeYears。
+         满修（q = 1）：积分 t = (1/p0) × ln(1/(1−p0)) / r。
+           p0 = 0.8 时该系数 = 2.0118，r = 1/500 → 约 1006 年。
+         注意：代码里不出现 1000 这个常数，它是上面的积分结果。
+         q 的构成为「科技 × 劳动力」：科技不到部件门槛时 q = 0（修不了），
+         维修缺口越大 q 越低。科技停滞或人力不足时寿命会明显短于满修值。 */
+      hull: {
+        enabled: true,
+        parts: [
+          { id: "life", name: "生保/环境", lifeYears: 500, p0: 0.80, techNeed: 0.20, loadBase: 1.00,
+            load: "人口×时长", crit: "生保失效：舱温失控，人口开始死亡，抢救窗口 26 周" },
+          { id: "power", name: "电力/管线", lifeYears: 600, p0: 0.78, techNeed: 0.26, loadBase: 1.00,
+            load: "功率", crit: "电力失效：所有部件老化速度 ×2，进入倒计时" },
+          { id: "armor", name: "装甲外壳", lifeYears: 700, p0: 0.60, techNeed: 0.34, loadBase: 0.15,
+            load: "环境侵蚀 + 战斗冲击", crit: "装甲穿透：后续损伤与伤亡放大" },
+          { id: "drive", name: "动力/推进", lifeYears: 800, p0: 0.40, techNeed: 0.42, loadBase: 1.00,
+            load: "推力", crit: "推进失效：只能低速漂航，工质浪费" },
+          { id: "sensor", name: "传感/导航", lifeYears: 900, p0: 0.72, techNeed: 0.30, loadBase: 0.35,
+            load: "辐射剂量", crit: "传感失效：遭遇判定变差，航向偏差" },
+          { id: "structure", name: "结构与骨架", lifeYears: 1200, p0: 0.30, techNeed: 0.55, loadBase: 0.60,
+            load: "振动与重力循环", crit: "结构失效：舰体解体，游戏结束" }
+        ],
+        /* 载荷基准值：按当前船况换算成 0–2 的倍率 */
+        loads: { popRef: 4000, powerRef: 68, speedRef: 0.045, armorEnv: 0.15,
+                 sensorBase: 0.35, structBase: 0.30, structVib: 0.30 },
+        /* 修复能力 q = clamp(gainBase + gainTech × 科技, 0, 1) × clamp(1 − 维修缺口, 0, 1)
+           金属成本 = 修复量 × metalPerD × e^(metalExpK × D)：前期便宜、后期极贵 */
+        repair: { gainBase: 0.30, gainTech: 0.90, metalPerD: 900, metalExpK: 4.0, stockShareCap: 0.02 },
+        /* 部件耦合：上游损伤超过 floor 的部分，按系数放大下游老化 */
+        couple: { floor: 0.20, lifeToPower: 0.60, lifeToSensor: 0.35, powerToLife: 0.55, structToPlumb: 0.50 },
+        /* 失效分级 */
+        fail: { lifeWarn: 0.85, lifeDeathPerWeek: 0.012, powerFail: 0.90, powerAgingMul: 2.0,
+                armorPierce: 0.88, casualtyMul: 1.60, structureFail: 1.00 },
+        /* 单次冲击：伤害超过「当前剩余结构」的 18% 直接解体 */
+        breach: { ratio: 0.18 },
+        /* 舰体科技升级线：科技到门槛自动生效（降低磨损速率、抬高可修比例） */
+        upgrades: [
+          { lv: 1, tech: 0.45, name: "骨架加固 I",    wearMul: 0.88, p0Add: 0.00 },
+          { lv: 2, tech: 0.60, name: "自愈蒙皮 II",   wearMul: 0.76, p0Add: 0.05 },
+          { lv: 3, tech: 0.75, name: "纳米修复层 III", wearMul: 0.62, p0Add: 0.10 }
+        ]
+      }
     },
 
     /* ---------------- 首页 HUD 三项操控（配给 / 休眠 / 航速） ----------------
@@ -1779,10 +1826,10 @@
           id: "cr_standing_hull",
           name: "舱段失压",
           tag: "船体",
-          trigger: { structureBelow: 68 },
-          triggerText: "结构完整度低于 68",
-          debuff: { prodMul: 0.95, structurePerWeek: -0.06 },
-          debuffText: "全船产出 −5% · 每周结构 −0.06",
+          trigger: { hullPart: { id: "life", above: 0.80 } },
+          triggerText: "生保/环境部件损伤高于 80%",
+          debuff: { prodMul: 0.95 },
+          debuffText: "全船产出 −5%（损伤本身由舰体模型逐周积分，不再额外扣结构）",
           choices: [
             {
               id: "repair", label: "组织抢修", desc: "花金属换结构，最稳但最贵", mode: "one",

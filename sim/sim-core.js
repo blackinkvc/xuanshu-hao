@@ -917,8 +917,8 @@
           m.repairLeft = m.mttr;
           m.active = true;
           m.faults++;
-          // 一次故障就是一次不可逆冲击：底噪抬 2 个点
-          state.wearFloor = clamp(num(state.wearFloor, 0) + 0.02, 0, 0.92);
+          // 一次故障就是一次不可逆冲击：给生保/环境件加 2 个点损伤
+          hullDamage(state, cfg, "life", 0.02);
           yieldF = M.downtimeYield;
           pushEvent(state, cfg, "maint_fault", "维修", "设备停摆 · 抢修中",
             "农环一组停了，粮食产出只剩 " + Math.round(M.downtimeYield * 100) + "%",
@@ -988,6 +988,207 @@
         "检疫周期 " + M.quarantineWeeks + " 周", true);
     }
     return yieldF;
+  }
+
+  /* ---------------- 舰体磨损 v2：六部件损伤模型 ----------------
+     dD/dt = r × 载荷 × 耦合 − q × p0 × (1 − D) × r
+     · 不修（q = 0）：D 从 0 到 1 用 1/r 年
+     · 满修（q = 1）：∫dD/(p0(1−D)) = r·t → t = (1/p0)·ln(1/(1−p0))/r
+       p0 = 0.8 → 2.0118/r，r = 1/500 → 约 1006 年（积分结果，不是常数） */
+  function hullConf(cfg) { return (cfg.ship && cfg.ship.hull) || null; }
+
+  function hullEnsure(state, cfg) {
+    var H = hullConf(cfg);
+    var ship = state.ship;
+    if (!H || H.enabled === false || !ship) return null;
+    var h = ship.hull;
+    if (h && h.v === 2 && h.parts) return h;
+    var old = (h && h.parts) || {};
+    var seedD = clamp(num(state.wear, 0), 0, 0.85);
+    var parts = {};
+    H.parts.forEach(function (p) {
+      var d = isNum(old[p.id]) ? clamp(old[p.id], 0, 1) : null;
+      if (d == null) {
+        if (p.id === "structure" && isNum(ship.structure)) {
+          d = clamp(1 - ship.structure / (ship.structureMax || 100), 0, 1);
+        } else {
+          d = clamp(seedD * (p.id === "armor" ? 0.5 : 1), 0, 0.85);
+        }
+      }
+      parts[p.id] = d;
+    });
+    ship.hull = {
+      v: 2, parts: parts, upg: 0, upgName: "", tech: 0,
+      health: 1, worst: null, deathPerWeek: 0, metalWeek: 0,
+      powerFailed: false, armorBreached: false, structureFailed: false, lifeFailed: false,
+      detail: {}, gameOver: null
+    };
+    return ship.hull;
+  }
+
+  // 生保失效时的按比例死亡（只动醒着的人，先救能救的）
+  function hullKill(state, cfg, n) {
+    if (!(n > 0)) return 0;
+    var t = totals(state, cfg);
+    if (!(t.awake > 0)) return 0;
+    var want = Math.min(t.awake, n);
+    var killed = 0;
+    cfg.population.groups.forEach(function (g) {
+      var s = state.groups[g.id];
+      if (!s || !(s.awake > 0)) return;
+      var take = Math.min(s.awake, want * (s.awake / t.awake));
+      s.awake = Math.max(0, s.awake - take);
+      killed += take;
+    });
+    return killed;
+  }
+
+  // 外部冲击（战斗 / 事故 / 事件）直接给某部件加损伤；结构件单次伤超过剩余 18% 即解体
+  function hullDamage(state, cfg, partId, amount) {
+    var H = hullConf(cfg);
+    var h = hullEnsure(state, cfg);
+    if (!H || !h || !isNum(h.parts[partId])) return null;
+    var hit = Math.abs(num(amount, 0));
+    var before = 1 - num(h.parts[partId], 0);
+    h.parts[partId] = clamp(num(h.parts[partId], 0) + hit, 0, 1);
+    if (partId === "structure") {
+      var ratio = num((H.breach || {}).ratio, 0.18);
+      if (hit > 0.02 && hit > before * ratio) {
+        h.structureFailed = true;
+        h.gameOver = { week: state.weeks, reason: "单次冲击 " + Math.round(hit * 100) +
+          "% 超过结构剩余 " + Math.round(before * 100) + "% 的 " + Math.round(ratio * 100) + "%，舰体解体" };
+      }
+    }
+    return h;
+  }
+
+  function hullTick(state, cfg, ctx) {
+    var H = hullConf(cfg);
+    var h = hullEnsure(state, cfg);
+    if (!H || !h) return null;
+    var dt = 1 / cfg.time.weeksPerYear;
+    var L = H.loads || {};
+    var F = H.fail || {};
+    var C = H.couple || {};
+    var tech = clamp(num(ctx && ctx.tech, 0), 0, 1);
+    h.tech = tech;
+
+    // 舰体科技升级线：达到门槛自动生效
+    var upg = null;
+    (H.upgrades || []).forEach(function (u) { if (tech + 1e-9 >= num(u.tech, 2)) upg = u; });
+    h.upg = upg ? upg.lv : 0;
+    h.upgName = upg ? upg.name : "";
+
+    // 载荷：真实负荷，空转为 0
+    var loads = {
+      life: clamp((num(ctx.awake, 0) + 0.15 * num(ctx.dormant, 0)) / num(L.popRef, 4000), 0, 1.8),
+      power: clamp(num(ctx.energy, 0) / num(L.powerRef, 62), 0, 1.8),
+      armor: clamp(num(L.armorEnv, 0.15) + num(ctx.combat, 0), 0, 2.2),
+      drive: clamp(num(ctx.speedC, 0) / num(L.speedRef, 0.04), 0, 1.8),
+      sensor: clamp(num(L.sensorBase, 0.35) + num(ctx.radiation, 0), 0, 2.2),
+      structure: clamp(num(L.structBase, 0.30) +
+        num(L.structVib, 0.30) * Math.pow(clamp(num(ctx.speedRatio, 1), 0, 2), 2), 0, 1.8)
+    };
+
+    // 修复能力：科技 × 劳动力；科技不到部件门槛时该部件 q = 0
+    var R = H.repair || {};
+    var qTech = clamp(num(R.gainBase, 0.30) + num(R.gainTech, 0.90) * tech, 0, 1);
+    var qBase = qTech * clamp(1 - num(ctx.maintGap, 0), 0, 1);
+    var metal = num(state.stocks && state.stocks.metal, 0);
+    var stockCap = Math.max(0, metal * num(R.stockShareCap, 0.02));
+    var metalUsed = 0;
+    var D = h.parts;
+    var worst = null;
+    var detail = {};
+
+    H.parts.forEach(function (p) {
+      var r = 1 / Math.max(1, num(p.lifeYears, 500));
+      var p0 = clamp(num(p.p0, 0.8) + (upg ? num(upg.p0Add, 0) : 0), 0, 0.95);
+      var d = clamp(num(D[p.id], 0), 0, 1);
+
+      // 部件耦合：上游损伤超过 floor 的部分放大下游老化
+      var cf = num(C.floor, 0.20);
+      var cm = 1;
+      var exLife = Math.max(0, num(D.life, 0) - cf);
+      var exPower = Math.max(0, num(D.power, 0) - cf);
+      var exStruct = Math.max(0, num(D.structure, 0) - cf);
+      if (p.id === "power") {
+        cm += num(C.lifeToPower, 0.60) * exLife + num(C.structToPlumb, 0.50) * exStruct;
+      } else if (p.id === "sensor") {
+        cm += num(C.lifeToSensor, 0.35) * exLife;
+      } else if (p.id === "life") {
+        cm += num(C.powerToLife, 0.55) * exPower;
+      }
+      // 电力失效：全船老化速度翻倍
+      if (num(D.power, 0) >= num(F.powerFail, 0.90)) cm *= num(F.powerAgingMul, 2);
+
+      var canRepair = tech + 1e-9 >= num(p.techNeed, 0);
+      var q = canRepair ? qBase : 0;
+      var dmgRate = r * num(loads[p.id], 0) * cm * (upg ? num(upg.wearMul, 1) : 1);
+      var repairRate = q * p0 * (1 - d) * r;
+
+      // 修复金属：修复量 × 指数成本；库存不够时按支付比例打折
+      var paidFrac = 1;
+      if (repairRate > 0) {
+        var unit = num(R.metalPerD, 900) * Math.exp(num(R.metalExpK, 4) * d);
+        var need = repairRate * dt * unit;
+        if (need > 1e-9) {
+          var pay = Math.min(need, Math.max(0, stockCap - metalUsed));
+          paidFrac = need > 0 ? pay / need : 1;
+          metalUsed += pay;
+        }
+      }
+      var nd = clamp(d + (dmgRate - repairRate * paidFrac) * dt, 0, 1);
+      D[p.id] = nd;
+      detail[p.id] = {
+        d: Math.round(nd * 1000) / 1000, p0: p0, r: r,
+        load: Math.round(loads[p.id] * 1000) / 1000,
+        q: Math.round(q * 1000) / 1000, techNeed: num(p.techNeed, 0),
+        canRepair: canRepair, name: p.name
+      };
+      if (!worst || nd > worst.d) worst = { id: p.id, name: p.name, d: nd };
+    });
+
+    state.stocks.metal = Math.max(0, metal - metalUsed);
+    h.metalWeek = Math.round(metalUsed * 1000) / 1000;
+    h.detail = detail;
+
+    // 全船健康度取最差部件，不取平均——瓶颈随投入与科技一路往上挪
+    h.worst = worst;
+    h.health = clamp(1 - (worst ? worst.d : 0), 0, 1);
+    state.wear = clamp(worst ? worst.d : 0, 0, 1);
+    // 兼容旧读数：structure 字段 = 结构件剩余完整度（百分制）
+    if (state.ship) {
+      var stMax = num(state.ship.structureMax, 100) || 100;
+      state.ship.structure = clamp((1 - num(D.structure, 0)) * stMax, 0, stMax);
+    }
+
+    // 失效分级
+    h.powerFailed = num(D.power, 0) >= num(F.powerFail, 0.90);
+    h.armorBreached = num(D.armor, 0) >= num(F.armorPierce, 0.88);
+    h.structureFailed = num(D.structure, 0) >= num(F.structureFail, 1) - 1e-9;
+    h.lifeFailed = num(D.life, 0) >= 0.999;
+    // 生保失效：从 lifeWarn 起人口按周死亡，D 越高死得越快（抢救窗口）
+    var warn = num(F.lifeWarn, 0.85);
+    var dl = num(D.life, 0);
+    h.deathPerWeek = dl > warn
+      ? num(F.lifeDeathPerWeek, 0.012) * (dl - warn) / Math.max(1e-6, 1 - warn) : 0;
+    if (h.deathPerWeek > 0) {
+      var t2 = totals(state, cfg);
+      var dead = hullKill(state, cfg, t2.awake * h.deathPerWeek);
+      h.deaths = Math.round(dead * 10) / 10;
+      if (dead >= 1 && h.lastDeathWeek !== state.weeks) {
+        h.lastDeathWeek = state.weeks;
+        pushEvent(state, cfg, "hull_life", "船体", "生保撑不住了",
+          "舱温失控，本周死了 " + Math.round(dead) + " 人",
+          "生保损伤 " + Math.round(dl * 100) + "%，超过 " + Math.round(warn * 100) + "% 警戒线",
+          true, null, "生保越拖越糟，早修早省");
+      }
+    }
+    if (h.structureFailed && !h.gameOver) {
+      h.gameOver = { week: state.weeks, reason: "结构件损伤到顶，舰体解体" };
+    }
+    return h;
   }
 
   /* ---------------- 周结算 ---------------- */
@@ -1066,28 +1267,28 @@
       state.weeks < num(state.society.machine.overrideUntil, -1))
       ? num(state.society.machine.overrideMW) : 0;
     if (machMW > 0) rest = Math.max(0, rest - Math.min(machMW, rest));
-    // v6.39：船体结构 / 护盾
+    // v6.61：舰体六部件损伤（替代旧的结构总值 + cr_standing_hull 散装伤害）
     var hull = state.ship;
     if (hull) {
-      if (hull.structureMax == null) hull.structureMax = 100;
       if (hull.shieldMax == null) hull.shieldMax = 100;
-      if (!isNum(hull.structure)) hull.structure = hull.structureMax;
       if (!isNum(hull.shield)) hull.shield = hull.shieldMax;
       var surplus = rest - 40;
       if (surplus > 0) hull.shield = Math.min(hull.shieldMax, hull.shield + 0.5 * clamp(surplus / 60, 0.1, 1));
       else hull.shield = Math.max(0, hull.shield - 0.12);
-      var wNow = clamp(state.wear, 0, 1);
-      // 结构：磨损越高掉得越快；剩余结构越少越慢（不会靠磨损单项归零，
-      // 真正归零要叠加危机/事故），维修到位才压得住
-      var strFrac = clamp(hull.structure / hull.structureMax, 0, 1);
-      hull.structure = Math.max(0, hull.structure -
-        (0.13 + 2.60 * Math.pow(wNow, 1.5)) * strFrac * dt);
-      var gapPrev = clamp(num(state.last && state.last.maintGap, 0), 0, 1);
-      if (gapPrev < 0.25 && num(state.stocks.metal) > 0.02) {
-        hull.structure = Math.min(hull.structureMax,
-          hull.structure + num(cfg.ship.structureRepair, 0.42) * (1 - gapPrev) * dt);
-        state.stocks.metal = Math.max(0, num(state.stocks.metal) - 0.02);
-      }
+      hullTick(state, cfg, {
+        awake: t0.awake,
+        dormant: t0.dormant,
+        energy: energy,
+        speedC: hull.speedC,
+        speedRatio: speedRatio,
+        maintGap: num(state.last && state.last.maintGap, 0),
+        tech: num(state.society && state.society.machine && state.society.machine.tech, 0),
+        combat: num(state.hullCombatShock, 0),
+        radiation: num(state.hullRadiation, 0)
+      });
+      // 冲击是一次性的：结算完清空
+      state.hullCombatShock = 0;
+      state.hullRadiation = 0;
     }
     // 休眠维持：舱位电耗先扣，剩余才给农业/工业
     var dormantMW = Math.min(t0.dormant * ((cfg.hibernation && cfg.hibernation.mWPerDormant) || 0), rest);
@@ -1172,9 +1373,10 @@
     production *= maintYield;
     // 大修工期占用：维修队上船，产出让路
     if (state.repair && state.weeks < state.repair.until) production *= 0.96;
-    // 船体完整性：结构跌破出厂值后产出跟着掉（94 时无影响）
-    if (state.ship) {
-      production *= clamp(num(state.ship.structure, 94) / 94, num(cfg.ship.structureProdFloor, 0.70), 1);
+    // 船体完整性：取最差部件（全船健康度），不再是结构一个汇总数
+    if (state.ship && state.ship.hull) {
+      production *= clamp(0.55 + 0.45 * clamp(num(state.ship.hull.health, 1), 0, 1),
+        num(cfg.ship.structureProdFloor, 0.70), 1);
     }
     // 营养（体能 fit、神经损伤）与成瘾（三档体能惩罚、化学极乐）对出力的折损
     if (state.nutrition) {
@@ -1426,28 +1628,9 @@
         0.15 * clamp(soc.infection.share || 0, 0, 1) +
         0.50 * clamp(AD.errorK || 0, 0, 0.25), 0, 1);
     }
-    // 磨损：不可逆底噪（时间 / 航速 / 超载 / 事件）+ 可逆的维修缺口，两项都累积。
-    // 维修只能把磨损压回底噪附近，压不到 0——所以中期一定会有压力。
-    var speedRatio = (state.ship && cfg.ship && cfg.ship.speedBaseC)
-      ? state.ship.speedC / cfg.ship.speedBaseC : 1;
-    var speedOver = Math.max(0, speedRatio - 1);
-    var overload = clamp(t0.working / Math.max(1, cfg.population.laborFull) - 1, 0, 1) +
-      clamp(0.95 - rationActual, 0, 0.45);
-    var wearSpeedK = 1 + (((cfg.ship && cfg.ship.wearK) || 0)) * speedOver;
-    var floorRate = (0.0040 + 0.0040 * maintGap + 0.0080 * speedOver +
-      0.0045 * overload) * dt;
-    state.wearFloor = clamp(num(state.wearFloor, 0) +
-      floorRate * (1 - num(state.wearFloor, 0) / 0.92), 0, 0.92);
-    var wearTarget = clamp(num(state.wearFloor, 0) + 1.30 * maintGap * wearSpeedK +
-      0.25 * speedOver + 0.12 * overload, 0, 1);
-    // 日常维修到位时可少量回收磨损：满维修每年 −0.05，缺口越大回收越少（缺口 ≥25% 归零）。
-    // 大修（repairWear）仍是唯一大幅降磨损的手段，只补粮的打法拿不到这项回收。
-    var routineDropCap = num(cfg.ship.wearRoutineDrop, 0.05);
-    var routineGapMax = num(cfg.ship.wearRoutineGap, 0.25);
-    var routineDrop = (routineDropCap > 0 && maintGap < routineGapMax && num(state.stocks.metal) > 0.05)
-      ? routineDropCap * clamp(1 - maintGap / routineGapMax, 0, 1) : 0;
-    state.wear = clamp(state.wear + (wearTarget - state.wear) * 0.06 * dt -
-      routineDrop * dt, num(state.wearFloor, 0), 1);
+    // v6.61：磨损不再由「底噪 + 维修缺口」汇总得出，state.wear 直接取六部件里最差那个的损伤
+    // （在 hullTick 里写回）。这里只保留一处旧字段，供老存档 / 旧事件读取，不再参与结算。
+    state.wearFloor = Math.min(num(state.wearFloor, 0), num(state.wear, 0));
 
     var constructionSpend = 0;
     var availableMetal = Math.max(0, state.stocks.metal + capM - maintSpend);
@@ -1948,7 +2131,22 @@
             structureMax: num(state.ship.structureMax, 100),
             shield: Math.round(num(state.ship.shield, 86) * 10) / 10,
             shieldMax: num(state.ship.shieldMax, 100),
-            rangeKm: Math.round(remainingRangeKm(cfg, state.ship.propellant, state.ship.speedC))
+            rangeKm: Math.round(remainingRangeKm(cfg, state.ship.propellant, state.ship.speedC)),
+            // v6.61：六部件损伤模型（D=损伤 0–1，canRepair 由科技门槛决定）
+            hull: state.ship.hull ? {
+              health: Math.round(num(state.ship.hull.health, 1) * 1000) / 1000,
+              worst: state.ship.hull.worst,
+              upg: state.ship.hull.upg,
+              upgName: state.ship.hull.upgName,
+              tech: Math.round(num(state.ship.hull.tech, 0) * 1000) / 1000,
+              metalWeek: num(state.ship.hull.metalWeek, 0),
+              deathPerWeek: num(state.ship.hull.deathPerWeek, 0),
+              powerFailed: !!state.ship.hull.powerFailed,
+              armorBreached: !!state.ship.hull.armorBreached,
+              structureFailed: !!state.ship.hull.structureFailed,
+              lifeFailed: !!state.ship.hull.lifeFailed,
+              parts: state.ship.hull.detail || {}
+            } : null
           } : null,
           repair: state.repair,
           factions: factionSummary(state),
@@ -2168,6 +2366,16 @@
           : { ok: false, msg: "古神层未加载" };
       },
 
+      /* ---------- 舰体六部件（v6.61 诊断 / 交易） ---------- */
+      /** 给定上下文推进一周（诊断与离线曲线用，与 stepWeek 内部同一套积分） */
+      hullTick: function (ctx) {
+        return hullTick(state, cfg, ctx || {});
+      },
+      /** 给某部件加损伤（战斗 / 事故用）；结构件超过剩余 18% 直接判解体 */
+      hullDamage: function (partId, amount) {
+        return hullDamage(state, cfg, partId, amount);
+      },
+
       /* ---------- 磨损大修（金属＋时间，带科技门槛） ---------- */
       repairWear: function () {
         var tech = num(state.society && state.society.machine && state.society.machine.tech, 0) * 100;
@@ -2186,10 +2394,20 @@
         }
         state.stocks.metal = Math.max(0, num(state.stocks.metal) - cost);
         var drop = num(cfg.ship && cfg.ship.wearRepairDrop, 0.06);
-        state.wearFloor = clamp(num(state.wearFloor, 0) - drop, 0, 0.92);
-        state.wear = clamp(Math.max(num(state.wearFloor, 0), w - drop * 1.7), 0, 1);
+        // v6.61：大修按同一比例拉低全部六部件的损伤（不是只压一个汇总值）
+        var hh = hullEnsure(state, cfg);
+        if (hh) {
+          Object.keys(hh.parts).forEach(function (k) {
+            hh.parts[k] = clamp(num(hh.parts[k], 0) - drop, 0, 1);
+          });
+          state.wear = clamp(Math.max.apply(null, Object.keys(hh.parts).map(function (k) {
+            return num(hh.parts[k], 0);
+          })), 0, 1);
+        } else {
+          state.wear = clamp(w - drop, 0, 1);
+        }
         state.repair = { until: state.weeks + Math.round(num(cfg.ship && cfg.ship.wearRepairWeeks, 3)), cost: cost, at: state.weeks };
-        return { ok: true, msg: "大修开工：−" + cost + " 吨金属 · 底噪 −" + drop.toFixed(2) + " · 工期 " + (state.repair.until - state.weeks) + " 周（期间产出 −4%）" };
+        return { ok: true, msg: "大修开工：−" + cost + " 吨金属 · 六部件损伤各 −" + drop.toFixed(2) + " · 工期 " + (state.repair.until - state.weeks) + " 周（期间产出 −4%）" };
       },
 
       /* ---------- 商栈与掠夺（v6.53 第四波） ---------- */
@@ -2213,6 +2431,10 @@
       },
       tradeStatue: function (p) {
         return global.XuanShuTrade ? global.XuanShuTrade.statue(state, cfg, p || {}) : { ok: false, msg: "商栈层未加载" };
+      },
+      /** 换装舰体零件（v6.61）：直接替换，价格随科技与损伤走 */
+      tradePart: function (p) {
+        return global.XuanShuTrade ? global.XuanShuTrade.buyPart(state, cfg, p || {}) : { ok: false, msg: "商栈层未加载" };
       },
 
       /* ---------- 千年节点 / 自动推演 / 胜负 ---------- */

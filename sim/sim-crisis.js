@@ -14,6 +14,7 @@
   var VERSION = "1.0.0";
 
   function isNum(v) { return typeof v === "number" && isFinite(v); }
+  function num(v, d) { return isNum(v) ? v : (d || 0); }
   function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
   function cfgOf(cfg) { return (cfg && cfg.crisisStanding) || null; }
   function defsOf(cfg) { var c = cfgOf(cfg); return (c && c.defs) || []; }
@@ -63,6 +64,10 @@
     if (isNum(tr.orderBelow) && isNum(state.order) && state.order < tr.orderBelow) return true;
     if (isNum(tr.structureBelow) && state.ship && isNum(state.ship.structure) &&
       state.ship.structure < tr.structureBelow) return true;
+    // v6.61：按部件损伤触发（舰体六部件模型）
+    if (tr.hullPart && tr.hullPart.id && state.ship && state.ship.hull &&
+      state.ship.hull.parts && isNum(tr.hullPart.above) &&
+      num(state.ship.hull.parts[tr.hullPart.id], 0) > tr.hullPart.above) return true;
     if (isNum(tr.waterBelow) && state.stocks && isNum(state.stocks.water) &&
       state.stocks.water < tr.waterBelow) return true;
     if (isNum(tr.foodBelow) && state.stocks && isNum(state.stocks.food) &&
@@ -145,9 +150,7 @@
         state.order = clamp(state.order + b.orderPerWeek, 0, 1);
       }
       if (isNum(b.wearPerWeek)) state.wear = clamp(state.wear + b.wearPerWeek, 0, 1);
-      if (isNum(b.structurePerWeek) && state.ship) {
-        state.ship.structure = clamp(state.ship.structure + b.structurePerWeek, 0, state.ship.structureMax || 100);
-      }
+      // v6.61：结构常驻伤害已取消，改由 hullTick 逐周积分六部件损伤
       if (isNum(b.foodPerWeek) && state.stocks) {
         state.stocks.food = Math.max(0, state.stocks.food + b.foodPerWeek);
       }
@@ -254,7 +257,19 @@
           state.order = clamp(state.order + v, 0, 1);
           break;
         case "structure":
-          if (state.ship) state.ship.structure = clamp(state.ship.structure + v, 0, state.ship.structureMax || 100);
+          // v6.61：结构已是六部件之一，抢修 = 直接降低结构件损伤（ΔD = −v/100）
+          if (state.ship && state.ship.hull && state.ship.hull.parts &&
+              isNum(state.ship.hull.parts.structure)) {
+            state.ship.hull.parts.structure =
+              clamp(state.ship.hull.parts.structure - v / 100, 0, 1);
+            if (isNum(state.ship.structureMax)) {
+              state.ship.structure = clamp(
+                (1 - state.ship.hull.parts.structure) * state.ship.structureMax,
+                0, state.ship.structureMax);
+            }
+          } else if (state.ship) {
+            state.ship.structure = clamp(state.ship.structure + v, 0, state.ship.structureMax || 100);
+          }
           break;
         case "shield":
           if (state.ship) state.ship.shield = clamp(state.ship.shield + v, 0, state.ship.shieldMax || 100);

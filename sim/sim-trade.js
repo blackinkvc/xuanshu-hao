@@ -357,6 +357,72 @@
     return { ok: true, msg: l2, lines: t.lines.slice() };
   }
 
+  /* ---------------- 舰体零件（v6.61）：直接替换，不做修补 ----------------
+     价格 = 基价 × (1.6 − 0.6 × 科技) × (1 + 1.8 × 当前损伤) × 商船系数
+     科技越高越便宜（能造）；损伤越重越贵（稀缺 + 拆装风险）。 */
+  var PART_BASE = {
+    life: 110, power: 120, armor: 170, drive: 210, sensor: 140, structure: 280
+  };
+
+  function partPrice(state, cfg, id) {
+    var ship = state.ship || {};
+    var h = ship.hull;
+    var d = h && h.parts ? clamp(num(h.parts[id], 0), 0, 1) : 0;
+    var tech = clamp(num(state.society && state.society.machine && state.society.machine.tech, 0), 0, 1);
+    var t = ensure(state);
+    var k = 1 + clamp((50 - num(t.rep, 50)) / 100, -0.2, 0.5); // 商誉低则加价
+    return Math.max(20, Math.round(num(PART_BASE[id], 150) * (1.6 - 0.6 * tech) * (1 + 1.8 * d) * k));
+  }
+
+  function partList(state, cfg) {
+    var H = cfg.ship && cfg.ship.hull;
+    if (!H || !H.parts) return [];
+    var h = state.ship && state.ship.hull;
+    return H.parts.map(function (p) {
+      var d = h && h.parts ? clamp(num(h.parts[p.id], 0), 0, 1) : 0;
+      return {
+        id: p.id, name: p.name, dmg: Math.round(d * 100),
+        need: Math.round(num(p.techNeed, 0) * 100),
+        price: partPrice(state, cfg, p.id)
+      };
+    });
+  }
+
+  function buyPart(state, cfg, p) {
+    var t = ensure(state);
+    var id = p && p.id;
+    var H = cfg.ship && cfg.ship.hull;
+    if (!H || !H.parts) return { ok: false, msg: "舰体模型未启用" };
+    var def = null;
+    H.parts.forEach(function (x) { if (x.id === id) def = x; });
+    if (!def) return { ok: false, msg: "没有这个零件" };
+    var h = state.ship && state.ship.hull;
+    if (!h || !h.parts) return { ok: false, msg: "舰体状态异常" };
+    var price = partPrice(state, cfg, id);
+    if (num(state.stocks && state.stocks.metal, 0) < price) {
+      return { ok: false, msg: "金属不足：换 " + def.name + " 需要 " + price +
+        " 吨，库存 " + Math.round(num(state.stocks.metal, 0)) + " 吨" };
+    }
+    state.stocks.metal = Math.max(0, num(state.stocks.metal, 0) - price);
+    var before = clamp(num(h.parts[id], 0), 0, 1);
+    // 换新件：损伤归到 2%（安装误差），不是修到 0
+    h.parts[id] = 0.02;
+    t.rep = clamp(num(t.rep, 50) + 1, 0, 100);
+    t.stats.buy += 1;
+    var line = "换装 " + def.name + "：损伤 " + Math.round(before * 100) + "% → 2%，付 " +
+      price + " 吨金属";
+    pushLine(t, line);
+    if (state.events) {
+      state.events.push({
+        type: "trade_part", level: "交易", week: state.weeks,
+        title: "换装零件 · " + def.name, text: line,
+        basis: "科技门槛 " + Math.round(num(def.techNeed, 0) * 100) + " 点（买件不受门槛限制）",
+        at: state.weeks
+      });
+    }
+    return { ok: true, msg: line, lines: t.lines.slice(), parts: partList(state, cfg) };
+  }
+
   function brief(state, cfg) {
     var t = ensure(state);
     return {
@@ -373,6 +439,8 @@
       ships: SHIPS.map(function (s) { return { id: s.id, name: s.name, risk: s.risk, goods: s.goods.slice() }; }),
       stars: STARS.slice(),
       units: Object.keys(GOODS).map(function (k) { return { id: k, name: GOODS[k].name, unit: GOODS[k].unit, uv: GOODS[k].uv }; }),
+      // v6.61：可换装的舰体零件（价格随科技与损伤走）
+      parts: partList(state, cfg),
       price: PEOPLE_PRICE
     };
   }
@@ -386,6 +454,8 @@
     disguise: disguise,
     people: people,
     statue: statue,
+    buyPart: buyPart,
+    partList: partList,
     GOODS: GOODS,
     SHIPS: SHIPS,
     STARS: STARS
