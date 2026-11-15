@@ -2011,6 +2011,9 @@
           // 贵族生命周期：三时间轴均值、休眠档位、基因强化状态
           noble: (global.XuanShuPeople && state.people && global.XuanShuPeople.nobleSummary)
             ? global.XuanShuPeople.nobleSummary(state, cfg) : null,
+          // 眷属：逐人真实人数 + 玩家视角的可见报告（区间 / 约数 / 精确）
+          cult: (global.XuanShuPeople && global.XuanShuPeople.cultSummary)
+            ? global.XuanShuPeople.cultSummary(state, cfg) : null,
           // 随机判定摘要：计数、最近 10 条、各槽压力/冷却
           judge: (global.XuanShuJudge && state.judge)
             ? global.XuanShuJudge.brief(state, cfg) : null,

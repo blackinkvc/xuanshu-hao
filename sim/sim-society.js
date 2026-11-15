@@ -684,15 +684,17 @@
           c: q.C / 100, iso: iso, stage: q.stage / 3
         }, { slot: "infection_thrall:" + q.id, note: q.name + " · " + q.layer });
         if (rc.allow) {
-          var rate = (q.layer === "L1" || q.layer === "L2") ? F.convertRateNoble : F.convertRate;
-          q.thrallFrac = clamp(q.thrallFrac + rate * (1 - q.thrallFrac), 0, 0.95);
+          // v6.59：不再整队按比例转化。判定通过只负责「打开窗口」，
+          // 具体谁变眷属由 sim-people 的 cultTick 逐人判（感染度 / 三要素抵抗 / 接触暴露）。
+          q.cultOpenUntil = state.weeks + need;
+          q.highWeeks = 0;
           if (!q.logged.thrall) {
             q.logged.thrall = true;
             pushEvent(state, cfg, "infection", "眷属", "有人变眷属了 · " + q.name,
               "「" + q.dept + "」有人样子不对，但很听话，已经单独登记",
-              "感染度 ≥" + F.thrall + " 连续 " + need + " 周；转化率 " + (rate * 100).toFixed(3) +
-              "%/周；判定 p=" + (rc.probability != null ? rc.probability.toFixed(2) : "—"),
-              null, "感染到了顶，开始变成眷属");
+              "感染度 ≥" + F.thrall + " 连续 " + need + " 周，进入逐人转化窗口；判定 p=" +
+              (rc.probability != null ? rc.probability.toFixed(2) : "—"),
+              null, "感染到了顶，开始有人变成眷属");
           }
         } else if (rc.judged) {
           var fec = failEffect(cfg, "infection_thrall");
@@ -755,7 +757,11 @@
     soc.infection.perm += S.permBase;
     soc.infection.lockUntil = state.weeks + S.lockYears * cfg.time.weeksPerYear;
     soc.infection.summonSince = 0;
-    soc.infection.bonus = (soc.infection.bonus || 0) + S.newThralls + S.newThrallK * soc.infection.thralls;
+    // v6.59：召唤新增的眷属直接落成具体的人，不再进 bonus 池滚雪球
+    var addN = Math.round(S.newThralls + S.newThrallK * soc.infection.thralls);
+    var madeN = (global.XuanShuPeople && global.XuanShuPeople.convertN)
+      ? global.XuanShuPeople.convertN(state, cfg, addN) : 0;
+    if (madeN) soc.infection.thralls = num(soc.infection.thralls, 0) + madeN;
 
     soc.queues.forEach(function (q) {
       q.S = clamp(q.S + S.stressAdd, 0, 1);
@@ -1108,6 +1114,10 @@
     updateGarrison(state, cfg, env);
     updateInfection(state, cfg, env);
     updateMachine(state, cfg, env);
+    // v6.59：感染度与队列窗口都更新完之后，再逐人结算眷属转化
+    if (global.XuanShuPeople && global.XuanShuPeople.cultTick) {
+      global.XuanShuPeople.cultTick(state, cfg);
+    }
 
     // 效果衰减：原月步长是 ×0.90/tick，周步长用 0.90^(12/52)=0.976/tick，
     // 半衰期仍是约 6.6 个月，效果的积分面积不变。

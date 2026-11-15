@@ -834,8 +834,13 @@
         }
       } else if (k === "thralls") {
         var vT = scale(op.v, op);
-        if (soc.infection) soc.infection.thralls = Math.max(0, num(soc.infection.thralls) + vT);
-        notes.push("眷属 " + (vT >= 0 ? "+" : "") + (Math.round(vT * 10) / 10));
+        // v6.59：眷属落在具体的人身上；负数是把低阶眷属放回来
+        var P = global.XuanShuPeople;
+        var made = vT >= 0
+          ? (P && P.convertN ? P.convertN(state, cfg, vT) : 0)
+          : (P && P.releaseN ? -P.releaseN(state, cfg, -vT) : 0);
+        if (soc.infection) soc.infection.thralls = Math.max(0, num(soc.infection.thralls) + made);
+        notes.push("眷属 " + (made >= 0 ? "+" : "") + made);
       } else if (k === "garrison") {
         var vG = scale(op.v, op);
         if (soc.garrison && typeof soc.garrison[op.k] === "number") {
@@ -963,7 +968,12 @@
     switch (card.id) {
       case "ex_signal":
         if (choice === "tech") { if (soc.machine) soc.machine.tech = clamp(num(soc.machine.tech) + 0.10, 0, 1); notes.push("科技 +10 点"); }
-        else if (choice === "thralls") { if (soc.infection) soc.infection.thralls += 3; notes.push("眷属 +3"); }
+        else if (choice === "thralls") {
+          var P1 = global.XuanShuPeople;
+          var n1 = P1 && P1.convertN ? P1.convertN(state, cfg, 3) : 0;
+          if (soc.infection) soc.infection.thralls = num(soc.infection.thralls) + n1;
+          notes.push("眷属 +" + n1);
+        }
         else { notes.push(pactByChoice(state, cfg, "random")); }
         break;
       case "cr_decompression":
@@ -980,7 +990,12 @@
         break;
       case "tr_relic_auction":
         if (choice === "tech") { if (soc.machine) soc.machine.tech = clamp(num(soc.machine.tech) + 0.04, 0, 1); notes.push("科技 +4 点"); }
-        else if (choice === "thralls") { if (soc.infection) soc.infection.thralls += 3; notes.push("眷属 +3"); }
+        else if (choice === "thralls") {
+          var P2 = global.XuanShuPeople;
+          var n2 = P2 && P2.convertN ? P2.convertN(state, cfg, 3) : 0;
+          if (soc.infection) soc.infection.thralls = num(soc.infection.thralls) + n2;
+          notes.push("眷属 +" + n2);
+        }
         else { notes.push(pactByChoice(state, cfg, "random")); }
         break;
       case "og_pact":

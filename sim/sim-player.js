@@ -109,7 +109,7 @@
       complianceBonus: 0, willBonus: 0, dominionBonus: 0, authorityBonus: 0,
       compliance: 50, will: 30, dominion: 0, authority: 0,
       infectionC: 0, stage: 0, age: 34, infectionYears: 0,
-      geneDamage: 18, addiction: 0, charm: 52, mutation: 24,
+      geneDamage: 18, addiction: 0, charm: 52, mutation: 24, mania: 32,
       care: {
         stock: { calm: 2, stim: 2, suppress: 2, deep: 2 },
         active: null, leisure: null, genes: {}, repairs: 0,
@@ -386,8 +386,10 @@
       addiction: clamp(Math.round(num(p.pc.addiction, 0)), 0, 100),
       // 魅力值：个体向的派系资本（0–100），协商 / 安抚 / 公开账目吃这个数
       charm: clamp(Math.round(num(p.pc.charm, 52) + num(p.pc.will) * 0.15), 0, 100),
-      // 基因变异度：成瘾会把它推高（易感上升），耐受度另算
-      mutation: clamp(Math.round(num(p.pc.mutation, 24) + num(p.pc.addiction, 0) * 0.35), 0, 100),
+      // 基因变异度：固有属性，不跟成瘾挂钩（成瘾推高的是癫狂）
+      mutation: clamp(Math.round(num(p.pc.mutation, 24)), 0, 100),
+      // 癫狂：药物与教义激起的亢奋，成瘾每周把它往上推
+      mania: clamp(Math.round(num(p.pc.mania, 32) + num(p.pc.addiction, 0) * 0.5), 0, 100),
       compliance: rnd(p.pc.compliance),
       will: rnd(p.pc.will),
       dominion: rnd(p.pc.dominion),

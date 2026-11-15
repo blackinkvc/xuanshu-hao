@@ -142,7 +142,12 @@
     if (o.dominion && p) p.dominionBonus = num(p.dominionBonus) + num(o.dominion);
     if (o.order) state.order = clamp(num(state.order) + num(o.order), 0.05, 1);
     if (o.tech && soc.machine) soc.machine.tech = clamp(num(soc.machine.tech) + num(o.tech), 0, 1);
-    if (o.thralls && soc.infection) soc.infection.thralls = num(soc.infection.thralls) + num(o.thralls);
+    if (o.thralls) {
+      // v6.59：眷属直接落成具体的人
+      var made = (global.XuanShuPeople && global.XuanShuPeople.convertN)
+        ? global.XuanShuPeople.convertN(state, cfg, num(o.thralls)) : 0;
+      if (made && soc.infection) soc.infection.thralls = num(soc.infection.thralls) + made;
+    }
     if (o.infectionC) {
       ((soc.queues) || []).forEach(function (q) { q.C = clamp(num(q.C) + num(o.infectionC), 0, 100); });
     }
@@ -463,8 +468,10 @@
       // 可见后果：眷属暴增 + 秩序剧变
       var inf = soc.infection || (soc.infection = {});
       var gainThralls = Math.round(lost * num(R.thrallShare, 0.25));
-      inf.bonus = num(inf.bonus) + gainThralls;
-      inf.thralls = num(inf.thralls) + gainThralls;
+      // v6.59：被收走的人直接在名册里变成眷属，不再只加计数
+      var madeT = (global.XuanShuPeople && global.XuanShuPeople.convertN)
+        ? global.XuanShuPeople.convertN(state, cfg, gainThralls) : 0;
+      inf.thralls = num(inf.thralls) + madeT;
       state.order = clamp(num(state.order) - num(R.orderHit, 0.06), 0.05, 1);
       adjustFavor(state, cfg, id, rec.primary ? num(R.favorGain, 5) : num(R.favorGainSide, 2));
 

@@ -127,7 +127,13 @@
       implanted: h01(seq, 23) < implantBaseOf(cfg, layer),
       dormant: false,
       action: defaultAction(cfg, gid),
-      actionSince: 0
+      actionSince: 0,
+      // 眷属阶位：0 无 / 1 低语者 / 2 变形者 / 3 眷属贵族
+      cultStage: 0,
+      cultSince: 0,
+      cultC: 0,
+      mania: Math.round(num(cfg.people.mania.min, 18) +
+        h01(seq, 29) * (num(cfg.people.mania.max, 62) - num(cfg.people.mania.min, 18)))
     };
   }
 
@@ -173,6 +179,11 @@
       for (var i = 0; i < arr.length; i++) {
         if (typeof arr[i].charm !== "number") arr[i].charm = charmOf(cfg, arr[i].seq);
         if (typeof arr[i].mutation !== "number") arr[i].mutation = mutationOf(cfg, arr[i].g, arr[i].seq);
+        if (typeof arr[i].cultStage !== "number") { arr[i].cultStage = 0; arr[i].cultSince = 0; arr[i].cultC = 0; }
+        if (typeof arr[i].mania !== "number") {
+          arr[i].mania = Math.round(num(cfg.people.mania.min, 18) +
+            h01(arr[i].seq, 29) * (num(cfg.people.mania.max, 62) - num(cfg.people.mania.min, 18)));
+        }
         if (isLife) {
           // 生命周期组：休眠与否由 phase 决定，sync 不再按 dormTarget 强行分配
           if (!arr[i].phase) lifeInit(arr[i], cfg, i >= cut);
@@ -821,6 +832,360 @@
     return n > 0 ? sum / n : null;
   }
 
+  // ---------------- v6.59 眷属：逐人转化 ----------------
+  // 旧版是「队列 × 转化比例 + bonus 池」，现在是具体的人：
+  // 每周按个人感染度、三要素抵抗、接触网络暴露度判一次；阶位只升不降。
+  var CULT_LABEL = { 1: "低语者", 2: "变形者", 3: "眷属贵族" };
+
+  function cultCfg(cfg) {
+    return (cfg.society && cfg.society.cult) || null;
+  }
+
+  /** 人所属的队列：layer + dept；克隆人队列挂在 L4 下、用 kind 区分。 */
+  function queueMapOf(soc) {
+    var qm = {};
+    (soc.queues || []).forEach(function (q) {
+      var k = q.layer + "|" + q.dept + "|" + q.kind;
+      (qm[k] || (qm[k] = [])).push(q);
+    });
+    return qm;
+  }
+  function queueOfPerson(p, qm) {
+    var a = qm[p.layer + "|" + p.dept + "|" + p.layer];
+    if (a && a.length) return a[0];
+    if (p.layer === "L4clone") {
+      var b = qm["L4|" + p.dept + "|L4clone"];
+      if (b && b.length) return b[0];
+    }
+    var c = qm["L4|" + p.dept + "|L4"];
+    return (c && c.length) ? c[0] : null;
+  }
+
+  /** 舱段归属：只由 seq 决定，与轮换无关，可缓存。 */
+  function zoneOf(p, cfg) {
+    if (p._z) return p._z;
+    p._z = posOf(p, cfg, 0).zone;
+    return p._z;
+  }
+
+  /**
+   * 接触网络暴露度：从自己常接触的人里抽 contactK 个，
+   * 看其中眷属占多少。同舱段为主，其余取同部门 / 同班次。
+   * 隔离执行度越高，眷属越抽不到——隔离同时压低接触面与扩散速度。
+   */
+  function exposureOf(p, pools, iso, wk, C) {
+    var zp = pools[p._z] || [];
+    var dp = pools["D:" + p.dept] || [];
+    var K = Math.max(2, Math.round(num(C.contactK, 6)));
+    var zw = clamp(num(C.zoneW, 0.55), 0, 1);
+    var hit = 0, n = 0;
+    for (var i = 0; i < K; i++) {
+      var useZone = h01(p.seq * 31 + i, 1901 + wk) < zw;
+      var arr = useZone ? zp : dp;
+      if (!arr || arr.length < 2) arr = useZone ? dp : zp;
+      if (!arr || arr.length < 2) continue;
+      var o = arr[Math.floor(h01(p.seq * 37 + i, 1913 + wk) * arr.length)];
+      if (!o || o === p) continue;
+      if (o.cultStage >= 1 && h01(o.seq * 41 + i, 1927 + wk) < iso * num(C.isolationK, 0.8)) continue;
+      n++;
+      if (o.cultStage >= 1) hit++;
+    }
+    return n ? hit / n : 0;
+  }
+
+  /**
+   * 情报可见度：科技 / 警备 / 机器人 / 统治力 / 服从度加权成 intel，
+   * 再减去反对教派的遮蔽，加上主角本人是眷属时的 +0.25。
+   */
+  function cultVisibility(state, cfg, stageCount) {
+    var C = cultCfg(cfg) || {};
+    var V = C.visibility || {};
+    var soc = state.society || {};
+    var tech = clamp(num(soc.machine && soc.machine.tech, 0), 0, 1);
+    // 警备 / 机器人按「覆盖率」算：60 人守 3000 人不是 100% 覆盖
+    var awakeAll = 0;
+    Object.keys(state.people.groups || {}).forEach(function (gid) {
+      state.people.groups[gid].forEach(function (p) { if (!p.dormant) awakeAll++; });
+    });
+    var police = clamp(num(soc.garrison && soc.garrison.strength, 0) / Math.max(1, awakeAll * 0.15), 0, 1);
+    var robots = clamp(num(soc.garrison && soc.garrison.infiltrators, 0) / Math.max(1, awakeAll * 0.01), 0, 1);
+    var dominion = 0, opp = 0, tot = 0;
+    (soc.queues || []).forEach(function (q) {
+      if (q.layer === "L1" || q.layer === "L2") dominion = Math.max(dominion, num(q.D, 0) / 100);
+      tot += num(q.n, 0);
+      if (num(q.O, 60) < 35) opp += num(q.n, 0);
+    });
+    var compliance = clamp(num(soc.meanO, 60) / 100, 0, 1);
+    // 科技与统治力是主要来源；警备 / 机器人 / 服从度补余
+    var intel = 0.45 * tech + 0.15 * police + 0.10 * robots + 0.20 * dominion + 0.10 * compliance;
+    var oppShare = tot > 0 ? opp / tot : 0;
+    var oppPen = Math.min(num(V.oppCap, 0.5), oppShare * num(V.oppK, 0.5));
+    var playerBonus = (num(state.player && state.player.cultStage, 0) >= 1 ||
+      num(state.player && state.player.pc && state.player.pc.stage, 0) >= 3)
+      ? num(V.playerBonus, 0.25) : 0;
+    var rate = clamp(num(V.base, 0.15) + intel * num(V.intelK, 0.85) - oppPen + playerBonus, 0, 1);
+    var total = num(stageCount[1], 0) + num(stageCount[2], 0) + num(stageCount[3], 0);
+    var reported;
+    if (rate < 0.5) {
+      var lo = Math.max(0, Math.round(total * Math.max(0, rate - 0.15)));
+      var hi = Math.round(total * Math.min(1, rate + 0.15));
+      reported = { mode: "range", lo: lo, hi: hi,
+        label: total ? "约 " + lo + "–" + hi + " 人" : "没有发现迹象" };
+    } else if (rate < 0.85) {
+      var approx = Math.round(total * rate / 5) * 5;
+      reported = { mode: "approx", value: approx, label: "约 " + approx + " 人" };
+    } else {
+      reported = { mode: "exact", value: total, label: total + " 人（已核实）" };
+    }
+    return {
+      rate: rate, reported: reported,
+      intel: { tech: tech, police: police, robots: robots, dominion: dominion,
+               compliance: compliance, opposition: oppShare }
+    };
+  }
+
+  /** 按需把 N 个具体的人转成眷属（神直接收人、召唤新增都走这里）。 */
+  function convertN(state, cfg, n) {
+    if (!state.people || !state.people.groups) return 0;
+    var want = Math.max(0, Math.round(num(n, 0)));
+    if (!want) return 0;
+    var pool = [];
+    Object.keys(state.people.groups).forEach(function (gid) {
+      state.people.groups[gid].forEach(function (p) {
+        if (p.dormant || num(p.cultStage, 0) >= 1) return;
+        if (actionOf(p, cfg) === "医疗隔离" || actionOf(p, cfg) === "失踪/叛逃") return;
+        pool.push(p);
+      });
+    });
+    if (!pool.length) return 0;
+    var wk = state.weeks | 0, done = 0;
+    for (var i = 0; i < want && pool.length; i++) {
+      var idx = Math.floor(h01(wk * 19 + i, 2003) * pool.length);
+      var p = pool.splice(idx, 1)[0];
+      p.cultStage = 1; p.cultSince = wk; p.cultC = 30;
+      done++;
+    }
+    return done;
+  }
+
+  /** 反向：从眷属里放回 N 个人（治疗 / 交易赎回），只挑低阶位。 */
+  function releaseN(state, cfg, n) {
+    if (!state.people || !state.people.groups) return 0;
+    var want = Math.max(0, Math.round(num(n, 0))), done = 0;
+    Object.keys(state.people.groups).forEach(function (gid) {
+      if (done >= want) return;
+      state.people.groups[gid].forEach(function (p) {
+        if (done >= want) return;
+        if (num(p.cultStage, 0) !== 1) return;
+        p.cultStage = 0; p.cultC = 0; p.cultSince = 0; done++;
+      });
+    });
+    return done;
+  }
+
+  /**
+   * 每周眷属结算：逐人转化 → 阶位晋升 → 耐受淘汰 → 聚合与可见度。
+   * 旧档（没有 state.cult）第一次进入时按队列 thrallFrac 落成具体的人，只做一次。
+   */
+  function cultTick(state, cfg) {
+    var C = cultCfg(cfg);
+    if (!C) return null;
+    if (!state.people) sync(state, cfg);
+    var ppl = state.people;
+    if (!ppl || !ppl.groups) return null;
+    var wk = state.weeks | 0;
+    if (ppl.cultWeek === wk && state.cult) return state.cult;
+    ppl.cultWeek = wk;
+
+    var soc = state.society || {};
+    var qm = queueMapOf(soc);
+
+    // 旧档迁移：把队列比例落成具体的人（一次）
+    if (!state.cult || !state.cult.seeded) {
+      (soc.queues || []).forEach(function (q) {
+        var frac = num(q.thrallFrac, 0);
+        if (frac <= 0) return;
+        var want = Math.round(num(q.n, 0) * frac);
+        if (want <= 0) return;
+        var cand = [];
+        Object.keys(ppl.groups).forEach(function (gid) {
+          ppl.groups[gid].forEach(function (p) {
+            if (num(p.cultStage, 0) >= 1) return;
+            if (queueOfPerson(p, qm) !== q) return;
+            cand.push(p);
+          });
+        });
+        for (var i = 0; i < want && cand.length; i++) {
+          var p = cand[Math.floor(h01(p.seq, 2005) * cand.length)];
+          p.cultStage = num(q.stage, 0) >= 3 ? 3 : (num(q.stage, 0) === 2 ? 2 : 1);
+          p.cultC = p.cultStage === 3 ? 90 : (p.cultStage === 2 ? 68 : 38);
+          p.cultSince = wk - num(q.highWeeks, 0);
+          cand.splice(cand.indexOf(p), 1);
+        }
+      });
+      state.cult = state.cult || {};
+      state.cult.seeded = true;
+    }
+
+    var iso = clamp(num(soc.env && soc.env.iso, 0), 0, 1);
+    var med = clamp(num(state.last && state.last.medCoverage, 0.5), 0, 1);
+    var all = [], pools = {}, thrallN = 0, awakeN = 0;
+    var stageCount = { 1: 0, 2: 0, 3: 0 };
+    var qCount = {}, qTotal = {};
+
+    Object.keys(ppl.groups).forEach(function (gid) {
+      var arr = ppl.groups[gid];
+      for (var i = 0; i < arr.length; i++) {
+        var p = arr[i];
+        var q = queueOfPerson(p, qm);
+        if (q) {
+          qTotal[q.id] = num(qTotal[q.id], 0) + 1;
+          if (num(p.cultStage, 0) >= 1) qCount[q.id] = num(qCount[q.id], 0) + 1;
+        }
+        if (num(p.cultStage, 0) >= 1) {
+          thrallN++;
+          stageCount[p.cultStage] = num(stageCount[p.cultStage], 0) + 1;
+        }
+        var act = actionOf(p, cfg);
+        if (p.dormant || act === "休眠" || act === "医疗隔离" || act === "失踪/叛逃") continue;
+        awakeN++;
+        all.push(p);
+        var z = zoneOf(p, cfg);
+        (pools[z] || (pools[z] = [])).push(p);
+        (pools["D:" + p.dept] || (pools["D:" + p.dept] = [])).push(p);
+      }
+    });
+
+    if (!awakeN) {
+      state.cult = state.cult || {};
+      state.cult.trueCounts = { 1: 0, 2: 0, 3: 0, total: 0 };
+      state.cult.lastWeek = wk;
+      return state.cult;
+    }
+
+    var shipDensity = thrallN / awakeN;
+    var cap2 = Math.max(1, Math.floor(awakeN * num(C.stage2Cap, 0.08)));
+    var cap3 = Math.max(1, Math.floor(awakeN * num(C.stage3Cap, 0.008)));
+    var W = C.resistW || { hp: 0.55, mut: 0.45 };
+    var news = 0, promoted = 0;
+    var dead = [];
+
+    all.forEach(function (p) {
+      var stage = num(p.cultStage, 0);
+      var q = queueOfPerson(p, qm);
+      var isNoble = p.layer === "L1" || p.layer === "L2" || p.layer === "L3";
+
+      if (stage >= 1) {
+        // 第二条线：进展速度 ← 意志。意志高则涨得慢；克隆人意志低，涨满就是彻底变异
+        var ps1 = pStats(p, state, cfg);
+        var grow = num(C.growBase, 0.55) * (1 - (ps1.will / 100) * num(C.willK, 0.75)) *
+          (1 + Math.min(1, shipDensity) * num(C.growInduce, 0.6));
+        p.cultC = clamp(num(p.cultC, 30) + Math.max(0, grow), 0, 100);
+        if (stage === 1 && p.cultC >= num(C.stage2At, 60) && stageCount[2] < cap2) {
+          p.cultStage = 2; p.cultSince = wk;
+          stageCount[1]--; stageCount[2]++; promoted++;
+        } else if (stage === 2 && p.cultC >= num(C.stage3At, 85) && stageCount[3] < cap3 && isNoble) {
+          p.cultStage = 3; p.cultSince = wk;
+          stageCount[2]--; stageCount[3]++; promoted++;
+        }
+        // 第三条线：死不死 ← 医疗条件与体质。贵族医疗好、体格稳，感染后活得久
+        var careF = clamp(med + (isNoble ? num(C.nobleMed, 0.25) : 0), 0, 1);
+        var leth = Math.pow(p.cultC / 100, 2) *
+          (1 - careF * num(C.medK, 0.35)) * (1 - (ps1.hp / 100) * num(C.hpK, 0.25));
+        if (h01(p.seq, 1801 + wk * 11) < num(C.deathBase, 0.0048) * leth) dead.push(p);
+        return;
+      }
+
+      if (!q) return;
+      // 逐人感染度：队列 C 加个人偏移
+      var cp = clamp(num(q.C, 0) + (h01(p.seq, 1607) - 0.5) * 16, 0, 100);
+      if (cp < num(C.cFloor, 30)) return;
+      // 队列必须先过「高感染持续」那道判定（q.cultOpenUntil）
+      if (wk >= num(q.cultOpenUntil, -1)) return;
+      var drive = Math.min(0.98, Math.pow((cp - num(C.cFloor, 30)) / num(C.infSpan, 55), 2));
+      var ps = pStats(p, state, cfg);
+      // 第一条线：会不会被转化 ← 健康、低变异度、高癫狂、接触暴露。
+      // 意志不在这里（它只管转化后进展有多快）。
+      var resist = (ps.hp / 100) * W.hp + ((100 - num(p.mutation, 40)) / 100) * W.mut;
+      var rf = clamp(1 - resist * num(C.resistCap, 0.85), 0.05, 1);
+      var maniaF = 1 + (num(p.mania, 40) / 100) * num(C.maniaK, 1.2);
+      var expo = exposureOf(p, pools, iso, wk, C);
+      var density = Math.min(expo, shipDensity);   // 全船密度只封顶
+      var induce = 1 + Math.min(num(C.densityCap, 1), density) * num(C.induceK, 1.5);
+      var chance = num(C.base, 0.0004) * drive * rf * maniaF * induce * (1 - med * 0.25);
+      if (h01(p.seq, 1709 + wk * 7) < chance) {
+        p.cultStage = 1; p.cultSince = wk; p.cultC = 30;
+        stageCount[1]++; news++;
+      }
+    });
+
+    // 神 / 事件遗留的 bonus：折成具体的人，不再留在池里滚雪球
+    var bonus = num(soc.infection && soc.infection.bonus, 0);
+    if (bonus >= 1) {
+      var addN = Math.floor(bonus);
+      var done = convertN(state, cfg, addN);
+      soc.infection.bonus = bonus - addN;
+      news += done; stageCount[1] += done; thrallN += done;
+    }
+
+    // 淘汰：从名册移除并同步人口计数
+    if (dead.length) {
+      state.cult.deathsByGroup = state.cult.deathsByGroup || {};
+      var deadSet = {};
+      dead.forEach(function (p) { deadSet[p.seq] = true; });
+      Object.keys(ppl.groups).forEach(function (gid) {
+        var arr = ppl.groups[gid];
+        for (var i = arr.length - 1; i >= 0; i--) {
+          if (!deadSet[arr[i].seq]) continue;
+          var p = arr.splice(i, 1)[0];
+          var st = state.groups && state.groups[gid];
+          if (st) {
+            if (p.dormant) st.dormant = Math.max(0, num(st.dormant) - 1);
+            else st.awake = Math.max(0, num(st.awake) - 1);
+          }
+          state.cult.deaths = num(state.cult.deaths, 0) + 1;
+          state.cult.deathsByGroup[gid] = num(state.cult.deathsByGroup[gid], 0) + 1;
+        }
+      });
+    }
+
+    var total = num(stageCount[1], 0) + num(stageCount[2], 0) + num(stageCount[3], 0);
+    state.cult.trueCounts = { 1: stageCount[1], 2: stageCount[2], 3: stageCount[3], total: total };
+    state.cult.lastWeek = wk;
+    state.cult.news = news;
+    var vis = cultVisibility(state, cfg, stageCount);
+    state.cult.visibleRate = vis.rate;
+    state.cult.reported = vis.reported;
+    state.cult.intel = vis.intel;
+    state.cult.density = shipDensity;
+    state.cult.labels = CULT_LABEL;
+
+    // 队列聚合只读：thrallFrac 由人身上的真实人数回填
+    (soc.queues || []).forEach(function (q) {
+      var n = Math.max(0, num(q.n, 0));
+      var cnt = num(qCount[q.id], 0);
+      q.thrallCount = cnt;
+      q.thrallFrac = n > 0 ? clamp(cnt / n, 0, 1) : 0;
+    });
+    if (soc.infection) soc.infection.thralls = total;
+    ppl.cache = null;
+    return state.cult;
+  }
+
+  function cultSummary(state, cfg) {
+    if (!state.cult) return null;
+    return {
+      reported: state.cult.reported || null,
+      visibleRate: num(state.cult.visibleRate, 0),
+      stages: state.cult.trueCounts || null,
+      density: num(state.cult.density, 0),
+      deaths: num(state.cult.deaths, 0),
+      deathsByGroup: state.cult.deathsByGroup || {},
+      news: num(state.cult.news, 0),
+      labels: state.cult.labels || CULT_LABEL
+    };
+  }
+
   /** 某层（可按部门再筛）的人均魅力；休眠者也算在内，因为魅力是固有属性。 */
   function charmAvg(ppl, layer, dept) {
     if (!ppl || !ppl.groups) return null;
@@ -836,7 +1201,7 @@
   }
 
   global.XuanShuPeople = {
-    version: "1.3.0",
+    version: "1.4.0",
     create: create,
     sync: sync,
     truth: truth,
@@ -850,6 +1215,10 @@
     nobleSummary: nobleSummary,
     nobleGene: nobleGene,
     avgAwake: avgAwake,
+    cultTick: cultTick,
+    cultSummary: cultSummary,
+    convertN: convertN,
+    releaseN: releaseN,
     ACTIONS: ACTIONS,
     ACTION_LIST: ACTION_LIST,
     posOf: posOf
