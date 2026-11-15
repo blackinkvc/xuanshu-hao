@@ -1104,6 +1104,10 @@
     ) + mAdd("medCoverage", 0);
     medCoverage = clamp(medCoverage, 0, 1);
 
+    // 行动状态：按人头加权，参与产出 / 口粮 / 秩序 / 感染结算
+    var act = (global.XuanShuPeople && global.XuanShuPeople.actionMix)
+      ? global.XuanShuPeople.actionMix(state, cfg) : null;
+
     // 社会层：先结算服从 / 哗变 / 感染，再让秩序与产能吃它的反馈
     if (state.society && global.XuanShuSociety) {
       global.XuanShuSociety.step(state, cfg, {
@@ -1121,6 +1125,10 @@
     // 周期事件（周级）：设备故障 / 维修、轮班、补给、隔离检疫
     var maintYield = stepMaintenance(state, cfg);
     var soc = state.society;
+    // 行动状态对感染面的乘数：按周渐进，避免休眠冻结/隔离造成指数跳变
+    if (act && soc && soc.infection && act.totals.infMul !== 1) {
+      soc.infection.share = clamp(soc.infection.share * (1 + (act.totals.infMul - 1) * 0.10), 0, 1);
+    }
 
     // 基因抵押：逐年抬升秩序惩罚，到期自动赎回或违约
     if (global.XuanShuEncounter && global.XuanShuEncounter.mortgageTick) {
@@ -1139,6 +1147,7 @@
     // 水培高度自动化：在岗人口只影响边际人力，避免「冻 400 人就把粮食冻没」
     var laborF = (0.80 + 0.20 * clamp(t0.working / cfg.population.laborFull, 0, 1)) *
       (0.75 + 0.25 * clamp(state.order / 0.8, 0, 1));
+    if (act) laborF *= clamp(act.totals.outputAvg, 0, 1.2);
     var energyF = clamp(agriMW / cfg.food.agriMWFull, 0, 1);
     var waterF = clamp(state.stocks.water / cfg.food.waterBuffer, 0, 1);
     var nutrientF = 0.95 + 0.05 * medCoverage;
@@ -1199,9 +1208,11 @@
     }
     var planet = I.planetCut ? 0 : (cfg.food.planetTpy + mAdd("foodPerYear", 0));
 
-    // 粮食结算：库存永不为负
-    var baseDemand = t0.awake * cfg.food.perCapitaTpy +
-      t0.dormant * cfg.food.perCapitaTpy * cfg.food.dormantFactor;
+    // 粮食结算：库存永不为负。行动状态给出逐人口粮乘数（休眠 0.02 等）
+    var baseDemand = act
+      ? cfg.food.perCapitaTpy * act.totals.rationSum
+      : (t0.awake * cfg.food.perCapitaTpy +
+        t0.dormant * cfg.food.perCapitaTpy * cfg.food.dormantFactor);
     var standardNeed = baseDemand * dt;
     var need = standardNeed * I.ration * mMul("foodUse", 1) * gMul("foodUse", 1);
     // v1.2 储备自然损耗：按现存库存的年率折损，库存越高损耗越多
@@ -1505,6 +1516,8 @@
       orderEq -= 0.10 * clamp(soc.infection.share || 0, 0, 1);
       orderEq -= 0.08 * (1 - clamp(soc.garrison.durability / 100, 0, 1));
     }
+    // 行动状态：监禁/失踪拉低秩序，值勤/训练/仪式小幅回补（按人头摊薄）
+    if (act) orderEq += act.totals.orderAvg;
     // 成瘾：服从性加成（三档加权），化学极乐额外 +12%；戒断人数按醒态占比扣秩序
     orderEq += clamp(AD.obey || 0, 0, 0.18);
     if (AD.bliss) orderEq += cfg.addict.bliss.orderGain;
@@ -1654,6 +1667,7 @@
       cloneOut: cloneOutY,
       deaths: weekDeaths / dt,
       targetDorm: targetDorm,
+      action: act,
       metalSupply: metalSupplyY,
       maintGap: maintGap,
       dormantMW: dormantMW,
@@ -1915,6 +1929,9 @@
           dormant: t.dormant,
           working: t.working,
           groups: clone(state.groups),
+          actions: (state.last && state.last.action)
+            ? clone(state.last.action)
+            : ((global.XuanShuPeople && global.XuanShuPeople.actionMix) ? global.XuanShuPeople.actionMix(state, cfg) : null),
           stocks: clone(state.stocks),
           infra: clone(state.infra),
           order: state.order,

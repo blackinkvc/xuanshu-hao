@@ -30,6 +30,36 @@
   }
   function h01(a, b) { return h32(a, b) / 4294967296; }
 
+  /* -------------------------------------------------------------------------
+     行动状态（v6.55）
+     宏观状态挂在人身上；队列只做聚合。系数口径：
+       output 该状态对岗位产能的乘数；ration 口粮消耗乘数（1 = 正常）；
+       hp/mind 每周变化；inf 每周感染变化乘数；order 每周秩序贡献（按人头摊薄）。
+     pri 越大越优先。医疗隔离最高；休眠最低，但物理休眠仍由 sync 强制。
+     ------------------------------------------------------------------------- */
+  var ACTIONS = {
+    "医疗隔离": { pri: 90, output: 0.00, ration: 0.90, hp: 0.70, inf: 0.50, order: 0.000, mind: -0.20, call: false, trade: false, sac: false },
+    "任务":     { pri: 70, output: 1.10, ration: 1.15, hp: -0.20, inf: 1.10, order: 0.003, mind: -0.15, call: true,  trade: false, sac: false },
+    "监禁":     { pri: 60, output: 0.00, ration: 0.60, hp: -0.25, inf: 1.10, order: -0.010, mind: -0.55, call: false, trade: true,  sac: true },
+    "教团仪式": { pri: 50, output: 0.35, ration: 1.00, hp: -0.10, inf: 1.05, order: 0.005, mind: 0.40, call: true,  trade: true,  sac: false },
+    "育幼":     { pri: 45, output: 0.50, ration: 1.05, hp: -0.05, inf: 1.00, order: 0.004, mind: 0.15, call: true,  trade: true,  sac: false },
+    "训练":     { pri: 40, output: 0.55, ration: 1.10, hp: -0.15, inf: 1.05, order: 0.005, mind: 0.05, call: true,  trade: true,  sac: false },
+    "值勤":     { pri: 30, output: 1.00, ration: 1.00, hp: -0.05, inf: 1.00, order: 0.000, mind: -0.10, call: true,  trade: true,  sac: false },
+    "休整":     { pri: 20, output: 0.00, ration: 0.95, hp: 0.35, inf: 0.95, order: 0.000, mind: 0.30, call: true,  trade: true,  sac: false },
+    "休眠":     { pri: 10, output: 0.00, ration: 0.02, hp: -0.02, inf: 0.00, order: 0.000, mind: -0.05, call: false, trade: true,  sac: false },
+    "失踪/叛逃": { pri: 0, output: 0.00, ration: 0.00, hp: -0.30, inf: 1.00, order: -0.020, mind: -0.30, call: false, trade: false, sac: false }
+  };
+  var ACTION_LIST = Object.keys(ACTIONS);
+
+  function defaultAction(cfg, gid) {
+    return gid === (cfg.population && cfg.population.undecidedId) ? "休整" : "值勤";
+  }
+  function actionOf(p, cfg) {
+    if (p.action && ACTIONS[p.action]) return p.action;
+    if (p.dormant) return "休眠";
+    return defaultAction(cfg || {}, p.g);
+  }
+
   var zoneCache = null;
   var zoneCacheCfg = null;
 
@@ -77,7 +107,9 @@
       dept: (cfg.people.groupDept && cfg.people.groupDept[gid]) || "勤务",
       // 植入是「真值」属性：装没装芯片在建造/入伍时就定了，不随周变化
       implanted: h01(seq, 23) < implantBaseOf(cfg, layer),
-      dormant: false
+      dormant: false,
+      action: defaultAction(cfg, gid),
+      actionSince: 0
     };
   }
 
@@ -88,7 +120,10 @@
       var n = Math.max(0, Math.round(num(g.awake) + num(g.dormant)));
       for (var i = 0; i < n; i++) arr.push(makePerson(ppl, cfg, g.id));
       var dorm = Math.max(0, Math.min(n, Math.round(num(g.dormant))));
-      for (var k = 0; k < n; k++) arr[k].dormant = k >= n - dorm;
+      for (var k = 0; k < n; k++) {
+        arr[k].dormant = k >= n - dorm;
+        if (arr[k].dormant) arr[k].action = "休眠";
+      }
     });
     return ppl;
   }
@@ -113,9 +148,128 @@
       for (var i = 0; i < arr.length; i++) {
         var want = i >= cut;
         if (arr[i].dormant !== want) arr[i].dormant = want;
+        if (want) {
+          // 物理休眠优先于其余非强制状态；失踪/叛逃不再改动
+          if (arr[i].action !== "失踪/叛逃") arr[i].action = "休眠";
+        } else if (arr[i].action === "休眠" || !ACTIONS[arr[i].action]) {
+          arr[i].action = defaultAction(cfg, g.id);
+        }
       }
     });
     ppl.cache = null;
+  }
+
+  /**
+   * 手动/事件切换行动状态。按优先级裁决；force=true 时才允许跨优先级强制。
+   * 硬互斥：医疗隔离不能被低优先级顶掉；监禁不能与休眠互换而不唤醒。
+   */
+  function setAction(state, cfg, pid, next, opts) {
+    opts = opts || {};
+    if (!ACTIONS[next]) return { ok: false, msg: "未知状态：" + next };
+    if (!state.people) sync(state, cfg);
+    var hit = null;
+    Object.keys((state.people && state.people.groups) || {}).forEach(function (gid) {
+      if (hit) return;
+      var arr = state.people.groups[gid];
+      for (var i = 0; i < arr.length; i++) {
+        if (arr[i].id === pid) { hit = arr[i]; break; }
+      }
+    });
+    if (!hit) return { ok: false, msg: "找不到该编号" };
+    var from = actionOf(hit, cfg);
+    if (from === next) return { ok: true, msg: "状态未变", from: from, to: next };
+    var cur = ACTIONS[from], tgt = ACTIONS[next];
+    if (!opts.force && tgt.pri < cur.pri) {
+      return { ok: false, msg: from + " 优先级高于 " + next + "（需强制）", from: from, to: next };
+    }
+    if (!opts.force && from === "医疗隔离" && next !== "医疗隔离") {
+      return { ok: false, msg: "医疗隔离未解除，不能切换到 " + next, from: from, to: next };
+    }
+    if (next === "休眠" && !opts.force && hit.dormant === false &&
+        (from === "监禁" || from === "任务" || from === "训练" || from === "教团仪式" || from === "育幼")) {
+      return { ok: false, msg: from + " 与休眠互斥，需先结束该状态", from: from, to: next };
+    }
+    hit.action = next;
+    hit.actionSince = state.weeks | 0;
+    if (next === "休眠") hit.dormant = true;
+    else if (from === "休眠") hit.dormant = false;
+    if (state.people) state.people.cache = null;
+    return { ok: true, msg: from + " → " + next, from: from, to: next };
+  }
+
+  /** 按人头聚合行动状态：人数、系数合计、加权产出/口粮/健康/感染/秩序/精神。 */
+  function actionMix(state, cfg) {
+    if (!cfg.people || cfg.people.enabled === false) return null;
+    var wk0 = state.weeks | 0;
+    if (state.people && state.people.cache && state.people.cache.actWeek === wk0 && state.people.cache.act) {
+      return state.people.cache.act;
+    }
+    // 每周把名册与队列的清醒/休眠数对齐，行动状态跟着物理休眠走
+    sync(state, cfg);
+    var ppl = state.people;
+    if (!ppl) return null;
+    var wk = state.weeks | 0;
+    var mix = {};
+    var t = {
+      n: 0, awakeN: 0, dormantN: 0, workingN: 0,
+      outputSum: 0, outputDen: 0, rationSum: 0,
+      hpSum: 0, infSum: 0, infDen: 0, orderSum: 0, mindSum: 0
+    };
+    var undecided = cfg.population && cfg.population.undecidedId;
+    Object.keys(ppl.groups).forEach(function (gid) {
+      ppl.groups[gid].forEach(function (p) {
+        var name = actionOf(p, cfg);
+        var A = ACTIONS[name];
+        var m = mix[name] || (mix[name] = { n: 0 });
+        m.n++;
+        t.n++;
+        if (p.dormant) {
+          t.dormantN++;
+        } else {
+          t.awakeN++;
+          if (gid !== undecided) {
+            t.workingN++;
+            t.outputSum += A.output;
+            t.outputDen++;
+          }
+          t.infSum += A.inf;
+          t.infDen++;
+        }
+        t.rationSum += A.ration;
+        t.hpSum += A.hp;
+        t.orderSum += A.order;
+        t.mindSum += A.mind;
+      });
+    });
+    var out = {
+      week: wk,
+      mix: {},
+      totals: {
+        n: t.n,
+        awakeN: t.awakeN,
+        dormantN: t.dormantN,
+        workingN: t.workingN,
+        outputAvg: t.outputDen ? Math.round(t.outputSum / t.outputDen * 1000) / 1000 : 1,
+        rationSum: Math.round(t.rationSum * 100) / 100,
+        hpAvg: t.n ? Math.round(t.hpSum / t.n * 1000) / 1000 : 0,
+        infMul: t.infDen ? Math.round(t.infSum / t.infDen * 1000) / 1000 : 1,
+        orderAvg: t.n ? Math.round(t.orderSum / t.n * 10000) / 10000 : 0,
+        mindAvg: t.n ? Math.round(t.mindSum / t.n * 1000) / 1000 : 0
+      }
+    };
+    Object.keys(mix).forEach(function (k) {
+      var A = ACTIONS[k];
+      out.mix[k] = {
+        n: mix[k].n,
+        output: A.output, ration: A.ration, hp: A.hp,
+        inf: A.inf, order: A.order, mind: A.mind,
+        call: A.call, trade: A.trade, sac: A.sac
+      };
+    });
+    ppl.cache = ppl.cache || {};
+    ppl.cache.act = out;
+    ppl.cache.actWeek = wk;
+    return out;
   }
 
   /** 真值位置：分区稳定、房间与岗位按 rotateWeeks 轮换。 */
@@ -172,6 +326,7 @@
           pid: p.id, group: gid, layer: p.layer, dept: p.dept,
           zone: pos.zone, zoneName: pos.zoneName, room: pos.room, post: pos.post,
           dormant: !!p.dormant, implanted: !!p.implanted,
+          action: actionOf(p, cfg),
           hp: ps.hp, mind: ps.mind, will: ps.will
         });
       });
@@ -279,6 +434,7 @@
           room: precise ? pos.room : null,
           post: precise ? pos.post : null,
           dormant: !!p.dormant,
+          action: actionOf(p, cfg),
           hp: ps.hp,
           mind: ps.mind,
           will: ps.will,
@@ -339,6 +495,7 @@
     var corr = clamp(num(inf.meanC) / 100, 0, 1);
     var infected = h01(p.seq, 41) < s;
     var ration = clamp(num(state.last && state.last.rationActual, 1), 0, 1);
+    var act = ACTIONS[actionOf(p, cfg)] || ACTIONS["值勤"];
     var hp, mind, will;
     if (p.dormant) {
       // 休眠：低代谢，健康随感染与医疗走；意识压低，古神感染（meanC）直接啃理智
@@ -351,8 +508,8 @@
       will = meanW + (h01(p.seq, 53) - 0.5) * 18;
     }
     return {
-      hp: Math.round(clamp(hp, 5, 100) * 10) / 10,
-      mind: Math.round(clamp(mind, 0, 100) * 10) / 10,
+      hp: Math.round(clamp(hp + act.hp * 6, 5, 100) * 10) / 10,
+      mind: Math.round(clamp(mind + act.mind * 6, 0, 100) * 10) / 10,
       will: Math.round(clamp(will, 0, 100) * 10) / 10,
       infected: infected
     };
@@ -450,26 +607,34 @@
     });
     var zones = Object.keys(map).map(function (k) { return map[k]; })
       .filter(function (z) { return z.total > 0; });
+    var act = actionMix(state, cfg);
     var b = {
       view: "truth",
       total: total,
       implantedShare: total ? Math.round(implanted / total * 1000) / 1000 : 0,
       zones: zones,
       wellbeing: wellbeing(state, cfg),
+      stateMix: act ? act.mix : null,
+      stateEffects: act ? act.totals : null,
       note: "真值聚合；个人明细用 snapshot({view:'truth'})，玩家视图用 snapshot({view:'player',intel})"
     };
-    ppl.cache = { week: week, brief: b, wb: b.wellbeing, wbWeek: week };
+    ppl.cache = { week: week, brief: b, wb: b.wellbeing, wbWeek: week, act: act, actWeek: week };
     return b;
   }
 
   global.XuanShuPeople = {
-    version: "1.0.0",
+    version: "1.1.0",
     create: create,
     sync: sync,
     truth: truth,
     playerView: playerView,
     brief: brief,
     wellbeing: wellbeing,
+    actionMix: actionMix,
+    setAction: setAction,
+    actionOf: actionOf,
+    ACTIONS: ACTIONS,
+    ACTION_LIST: ACTION_LIST,
     posOf: posOf
   };
 
