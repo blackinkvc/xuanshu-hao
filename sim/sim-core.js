@@ -107,6 +107,35 @@
     return demand > 0 ? state.stocks.food / (demand / 365) : 9999;
   }
 
+  // v6.52：存粮年数 + 两百年内新增/回收折算的额外年数（只做预估，不改结算）
+  function foodYears(state, cfg, t) {
+    var demand = t.awake * cfg.food.perCapitaTpy +
+      t.dormant * cfg.food.perCapitaTpy * cfg.food.dormantFactor;
+    var need = demand * num(state.inputs && state.inputs.ration, 1);
+    if (!(need > 0)) return null;
+    var baseYears = num(state.stocks.food, 0) / need;
+    var prod = num(state.last && state.last.production, 0);
+    var growthYears = Math.max(0, prod - need) * 200 / need;
+    var ry = num(cfg.famine && cfg.famine.recycleYield, 0.55) * cfg.food.perCapitaTpy;
+    var recyclable = 0;
+    if (state.run && state.run.famine && Array.isArray(state.run.famine.layerPops)) {
+      state.run.famine.layerPops.forEach(function (l) {
+        if (l && (l.id === "L4" || l.id === "L3" || l.id === "L2")) recyclable += num(l.pop, 0);
+      });
+    }
+    if (!recyclable) recyclable = t.awake * 0.7;
+    var recycleYears = recyclable * ry / need;
+    var r1 = function (v) { return Math.round(v * 10) / 10; };
+    return {
+      needTpy: Math.round(need),
+      baseYears: r1(baseYears),
+      growthYears: r1(growthYears),
+      recycleYears: r1(recycleYears),
+      extraYears: r1(growthYears + recycleYears),
+      totalYears: r1(baseYears + growthYears + recycleYears)
+    };
+  }
+
   function waterDays(state, cfg, t) {
     var throughput = t.awake * cfg.water.perCapitaAwake + t.dormant * cfg.water.perCapitaDormant;
     return throughput > 0 ? state.stocks.water / (throughput / 365) : 9999;
@@ -1811,6 +1840,7 @@
           phase: state.phase,
           phaseName: cfg.phase.names[state.phase],
           foodDays: days,
+          foodYears: foodYears(state, cfg, t),
           waterDays: waterDays(state, cfg, t),
           cloneShare: cshare,
           inputs: clone(state.inputs),
@@ -1961,6 +1991,13 @@
       playerAct: function (id, payload) {
         return global.XuanShuPlayer
           ? global.XuanShuPlayer.act(state, cfg, id, payload || {})
+          : { ok: false, msg: "身份层没加载" };
+      },
+
+      // v6.52 个体养护：药剂 / 基因修复 / 基因强化 / 娱乐
+      playerCare: function (id, payload) {
+        return global.XuanShuPlayer && global.XuanShuPlayer.playerCare
+          ? global.XuanShuPlayer.playerCare(state, cfg, id, payload || {})
           : { ok: false, msg: "身份层没加载" };
       },
 

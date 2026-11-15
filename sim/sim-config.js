@@ -86,13 +86,13 @@
     food: {
       perCapitaTpy: 0.2263,     // 【档案】0.62 kg/人·日 × 365（年量，未换周）
       dormantFactor: 0.05,      // 【推定】休眠低耗
-      unitYieldTpy: 2.52,       // 【推定】1 单元 = 1000 m² 等效栽培面（年量）
+      unitYieldTpy: 3.45,       // v6.52：水培单产校准（原 2.52）——让基线产出 567 t/年 覆盖 561 t/年 需求       // 【推定】1 单元 = 1000 m² 等效栽培面（年量）
       hydroInit: 191,           // 【档案】191,388 m² 等效
       hydroMax: 600,
       agriMWFull: 30,           // 【档案】农环 30 MW
       planetTpy: 84,            // 【推定】补足 86% 自给之外（年量）
       waterBuffer: 600,         // 【推定】水储备低于 600 t 开始限产
-      stockInit: 240,           // 【推定】约 156 天
+      stockInit: 112245,        // v6.52：初始存粮 = 200 年口粮（年需求 561.2 t × 200）
       cap: 0,                   // v1.2：0 = 不设上限（原 400 t 天花板已拆）
       spoilagePerYear: 0.04,    // v6.22：储备年损耗按真空/惰性气体仓储的粮食保质期口径取 4%（原 25%）
       // v1.2：产出冗余随年份与船况衰减，在既有能源/水/人力/社会反馈系数之上
@@ -580,6 +580,60 @@
       intel: { ruler: "high", mid: "mid", slave: "low", creator: "truth" },
       modeCompliance: { ruler: 8, mid: 3, slave: -5, creator: 0 },
       modeWill: { ruler: -5, mid: 0, slave: 5, creator: 0 },
+      /* ---------------- 个体养护（v6.52）：药剂 / 基因 / 娱乐 ----------------
+         寿命只保留一套算法：上限 = lifespanBase − 基因损伤 × damageK；
+         修复 10 点损伤 = +8 年（10×0.8），不另加年限。科技门槛按 200 年
+         实际产出 40–60 点校准，梯度 12–68。 */
+      care: {
+        lifespanBase: 120,
+        damageK: 0.8,
+        damageBaseWeekly: 0.00096,   // 每周自然增长
+        damageInfectK: 0.00006,      // 每周每 1 点感染额外增长
+        damageCap: 60,
+        repairStep: 10,
+        repairCap: 60,
+        repairTech: 48,
+        repairDrug: 30,
+        repairMetal: 12,
+        techScale: 0.01,             // 1 点 = 0.01 科技值
+        addictWillOver: 60,          // 成瘾 ≥60 掉意志/健康
+        addictWillWeekly: 0.1,
+        addictHealthWeekly: 0.05,
+        addictBreak: 85,             // ≥85 戒断
+        drugs: {
+          calm: { name: "神经安定剂", tech: 40, weeks: 8, stock: 2,
+                  spirit: 4, mind: 6, hp: -1, addict: 12,
+                  effectText: "理智 +6、活跃精神 +4", sideText: "健康 −1" },
+          stim: { name: "代谢兴奋剂", tech: 52, weeks: 6, stock: 2,
+                  spirit: 12, mind: -2, hp: -6, addict: 18,
+                  effectText: "活跃精神 +12、产出 +4%", sideText: "健康 −6、理智 −2" },
+          suppress: { name: "戒断抑制剂", tech: 64, weeks: 4, stock: 2,
+                    spirit: -6, mind: -8, addict: -15,
+                    effectText: "成瘾 −15", sideText: "理智 −8、活跃精神 −6" },
+          deep: { name: "深眠营养剂", tech: 76, weeks: 12, stock: 2,
+                  spirit: -3, mind: 3, hp: 10, addict: 8,
+                  effectText: "健康 +10、理智 +3", sideText: "活跃精神 −3" }
+        },
+        genes: {
+          rad: { name: "耐辐射组织", tech: 56, drug: 20, metal: 10,
+                 hpBonus: 4, mindBonus: 0, spiritBonus: 0,
+                 text: "健康上限 +4" },
+          meta: { name: "代谢增效", tech: 68, drug: 0, metal: 0, food: 20,
+                  hpBonus: -2, willBonus: 3, text: "意志 +3、健康 −2" },
+          neural: { name: "神经加速", tech: 82, drug: 40, metal: 15,
+                   mindBonus: 6, spiritBonus: 8, text: "理智 +6、活跃精神 +8" },
+          whisper: { name: "低语屏障", tech: 94, drug: 50,
+                    infectResist: 0.25, text: "感染累积 −25%" }
+        },
+        leisure: {
+          cinema: { name: "放映与音乐", weeks: 4, food: 2, spirit: 5, mind: 2, freq: 1.10,
+                    text: "活跃精神 +5、理智 +2" },
+          feast: { name: "集体宴会", weeks: 3, food: 8, spirit: 10, mind: 4, order: 0.01,
+                   freq: 1.25, risk: 0.05, text: "活跃精神 +10、理智 +4、秩序 +1%" },
+          retreat: { name: "静修与独处", weeks: 6, food: 0, spirit: -2, mind: 8, freq: 0.80,
+                     text: "活跃精神 −2、理智 +8" }
+        }
+      },
       // 玩家风险判定：fired = 动作成功；未成立 = 失败后果
       risk: {
         player_risk: {
@@ -1661,8 +1715,8 @@
           id: "cr_standing_blight",
           name: "农环病害",
           tag: "粮食",
-          trigger: { foodBelow: 150 },
-          triggerText: "粮食库存低于 150 吨",
+          trigger: { foodBelow: 1200 },
+          triggerText: "粮食库存低于 1200 吨（约 2.1 年口粮）",
           debuff: { foodPerWeek: -6 },
           debuffText: "每周粮食 −6 吨",
           choices: [

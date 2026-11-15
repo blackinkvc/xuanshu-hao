@@ -109,6 +109,13 @@
       complianceBonus: 0, willBonus: 0, dominionBonus: 0, authorityBonus: 0,
       compliance: 50, will: 30, dominion: 0, authority: 0,
       infectionC: 0, stage: 0, age: 34, infectionYears: 0,
+      geneDamage: 18, addiction: 0,
+      care: {
+        stock: { calm: 2, stim: 2, suppress: 2, deep: 2 },
+        active: null, leisure: null, genes: {}, repairs: 0,
+        hpBonus: 0, mindBonus: 0, spiritBonus: 0, willBonus: 0,
+        infectResist: 0, leisureWeek: -1
+      },
       confinedUntil: -1, interrogatedUntil: -1, hiddenUntil: -1,
       alive: true
     };
@@ -146,6 +153,23 @@
     Object.keys(d).forEach(function (k) {
       if (typeof p.pc[k] === "undefined") p.pc[k] = d[k];
     });
+    // v6.52 个体养护：老存档补 care 结构与每支药剂库存
+    if (!p.pc.care || typeof p.pc.care !== "object") p.pc.care = d.care;
+    var c = p.pc.care;
+    var cd = d.care;
+    Object.keys(cd).forEach(function (k) {
+      if (typeof c[k] === "undefined") c[k] = cd[k];
+    });
+    if (!c.stock || typeof c.stock !== "object") c.stock = cd.stock;
+    var dcfg = cfg.player && cfg.player.care;
+    if (dcfg && dcfg.drugs) {
+      Object.keys(dcfg.drugs).forEach(function (k) {
+        if (typeof c.stock[k] !== "number") c.stock[k] = num(dcfg.drugs[k].stock, 2);
+      });
+    }
+    if (typeof p.pc.geneDamage !== "number") p.pc.geneDamage = 18;
+    if (typeof p.pc.addiction !== "number") p.pc.addiction = 0;
+    if (!c.genes || typeof c.genes !== "object") c.genes = {};
     if (!p.actionCd || typeof p.actionCd !== "object") p.actionCd = {};
     if (!p.scope) p.scope = { zones: [], depts: [] };
     if (!p.history) p.history = [];
@@ -271,6 +295,9 @@
       p.pc.will = clamp(num(q.W) + num(p.pc.willBonus) + num(cfg.player.modeWill[p.mode]), 0, 100);
       p.pc.dominion = clamp(num(q.D) + num(p.pc.dominionBonus) + num(cfg.player.titleDominion[p.mode]), 0, 100);
       p.pc.infectionC = clamp(num(q.C), 0, 100);
+      // 低语屏障（v6.52 基因强化）：按比例抵掉本周感染读数
+      var ires = num(p.pc.care && p.pc.care.infectResist, 0);
+      if (ires > 0) p.pc.infectionC = clamp(p.pc.infectionC * (1 - ires), 0, 100);
       p.pc.stage = p.pc.infectionC >= 85 ? 3 : (p.pc.infectionC >= 60 ? 2 : (p.pc.infectionC >= 30 ? 1 : 0));
     }
     p.pc.authority = clamp(num(cfg.player.authority[p.mode]) + num(p.pc.authorityBonus), 0, 100);
@@ -292,6 +319,8 @@
     if (state.weeks < p.pc.confinedUntil) h -= 0.35;
     if (state.weeks < p.pc.interrogatedUntil) h -= 0.50;
     p.pc.health = clamp(h, 0, 100);
+    careTick(state, cfg, p);
+    p.pc.health = clamp(p.pc.health, 0, 100);
     if (p.pc.health <= 0 && p.pc.alive) {
       p.pc.alive = false;
       p.pc.health = 0;
@@ -342,10 +371,13 @@
     return {
       health: rnd(p.pc.health),
       // 理智：眷属侵染越深，精神状态越差（个体口径，不是群体聚合）
-      mind: clamp(Math.round(100 - num(p.pc.stage) * 18 - num(p.pc.infectionC) * 0.35), 0, 100),
+      mind: clamp(Math.round(100 - num(p.pc.stage) * 18 - num(p.pc.infectionC) * 0.35 +
+        num(p.pc.care && p.pc.care.mindBonus, 0) + num(p.pc.care && p.pc.care.mindPenalty, 0) +
+        careBuffSum(p.pc.care, "mind")), 0, 100),
       // 活跃精神：意志 + 场上加成
-      spirit: clamp(Math.round(num(p.pc.will) + num(p.pc.willBonus) + num(p.pc.complianceBonus) * 0.5), 0, 100),
-      addiction: 0,
+      spirit: clamp(Math.round(num(p.pc.will) + num(p.pc.willBonus) + num(p.pc.complianceBonus) * 0.5 +
+        num(p.pc.care && p.pc.care.spiritBonus, 0) + careBuffSum(p.pc.care, "spirit")), 0, 100),
+      addiction: clamp(Math.round(num(p.pc.addiction, 0)), 0, 100),
       compliance: rnd(p.pc.compliance),
       will: rnd(p.pc.will),
       dominion: rnd(p.pc.dominion),
@@ -857,6 +889,251 @@
     };
   }
 
+  /* ---------------- 个体养护（v6.52）：药剂 / 基因修复 / 基因强化 / 娱乐 ---------------- */
+
+  function careCfg(cfg) { return (cfg.player && cfg.player.care) || null; }
+
+  function techPoints(state, k) {
+    var tech = num(state.society && state.society.machine && state.society.machine.tech, 0);
+    return Math.round(tech / num(k && k.techScale, 0.01));
+  }
+
+  // 寿命唯一算法：上限 = 120 − 损伤 × 0.8（修复 10 点即 +8 年，不再叠加）
+  function lifespanOf(cfg, damage) {
+    var k = careCfg(cfg);
+    if (!k) return 120;
+    return Math.round(num(k.lifespanBase, 120) - num(damage, 0) * num(k.damageK, 0.8));
+  }
+
+  function careAddBuff(c, key, v, weeks) {
+    if (!v) return;
+    if (!c.buffs) c.buffs = [];
+    var w = Math.max(1, Math.round(num(weeks, 4)));
+    c.buffs.push({ k: key, v: num(v, 0), weeks: w, left: w });
+  }
+
+  function careBuffSum(c, key) {
+    var s = 0;
+    ((c && c.buffs) || []).forEach(function (b) { if (b && b.k === key) s += num(b.v); });
+    return s;
+  }
+
+  function careTick(state, cfg, p) {
+    var k = careCfg(cfg);
+    if (!k) return;
+    var pc = p.pc;
+    var c = pc.care;
+    if (!c) return;
+    // 基因损伤自然累积
+    pc.geneDamage = clamp(num(pc.geneDamage, 0) + num(k.damageBaseWeekly, 0) +
+      num(pc.infectionC, 0) * num(k.damageInfectK, 0), 0, num(k.damageCap, 60));
+    // 药剂 / 娱乐的临时加成逐周递减
+    if (c.buffs && c.buffs.length) {
+      c.buffs.forEach(function (b) { b.left = num(b.left, 0) - 1; });
+      c.buffs = c.buffs.filter(function (b) { return b.left > 0; });
+    }
+    if (c.active && state.weeks >= num(c.active.until, 0)) c.active = null;
+    if (c.leisure && state.weeks >= num(c.leisure.until, 0)) {
+      c.leisure = null;
+      c.leisureWeek = -1;
+    }
+    // 成瘾：≥60 掉意志与健康；≥85 戒断
+    if (num(pc.addiction, 0) >= num(k.addictWillOver, 60)) {
+      pc.willBonus = clamp(num(pc.willBonus, 0) - num(k.addictWillWeekly, 0.1), -12, 50);
+      pc.health -= num(k.addictHealthWeekly, 0.05);
+    }
+    if (num(pc.addiction, 0) >= num(k.addictBreak, 85) && !c.withdraw) {
+      c.withdraw = true;
+      c.mindPenalty = -10;
+      pushEvent(state, cfg, "player_withdraw", "身份", "戒断发作",
+        "成瘾压过了 " + k.addictBreak + "，理智 −10、意志持续下滑。", { "理智": -10 }, "再用药只会更深");
+    } else if (num(pc.addiction, 0) < num(k.addictBreak, 85) - 10 && c.withdraw) {
+      c.withdraw = false;
+      c.mindPenalty = 0;
+    }
+    if (!c.active) pc.addiction = clamp(num(pc.addiction, 0) - 0.02, 0, 100);
+    // 寿命：超过上限后每周掉健康
+    var life = lifespanOf(cfg, pc.geneDamage);
+    if (num(pc.age, 0) >= life) {
+      pc.health -= 0.3;
+      if (!c.overLife) {
+        c.overLife = true;
+        pushEvent(state, cfg, "player_aging", "身份", "寿命将尽",
+          "基因损伤 " + Math.round(pc.geneDamage) + "，寿命上限 " + life + " 岁，你已经 " +
+          Math.round(num(pc.age, 0)) + " 岁。", null, "去修基因，或者开始交代后事");
+      }
+    }
+    // 娱乐：娱乐类事件的频率按所选活动放大 / 压低（基准 1.2%/周）
+    if (c.leisure && state.weeks < num(c.leisure.until, 0)) {
+      var lg = (k.leisure || {})[c.leisure.id];
+      if (lg && randNext(state) < 0.012 * num(lg.freq, 1)) {
+        var flavor = {
+          cinema: "放映厅里坐满了人，有人跟着旧片子笑出声。",
+          feast: "宴席摆到甲板上，酒和肉香压过了舱里的铁锈味。",
+          retreat: "你独自待在静修室，外面的噪声隔了一层。"
+        }[c.leisure.id] || "你安排了一场消遣。";
+        pushEvent(state, cfg, "player_leisure", "日常", "娱乐：" + (lg.name || "消遣"),
+          flavor, null, "情绪被拉回来了");
+      }
+    }
+  }
+
+  function careBrief(state, cfg) {
+    var k = careCfg(cfg);
+    var p = ensure(state, cfg);
+    var pc = p.pc;
+    var c = pc.care || {};
+    if (!k) return null;
+    var tp = techPoints(state, k);
+    var dmg = Math.round(num(pc.geneDamage, 0) * 10) / 10;
+    var life = lifespanOf(cfg, dmg);
+    var age = Math.round(num(pc.age, 0));
+    var repairs = num(c.repairs, 0);
+    var drugs = Object.keys(k.drugs || {}).map(function (id) {
+      var d = k.drugs[id];
+      return {
+        id: id, name: d.name, tech: d.tech, weeks: d.weeks,
+        effectText: d.effectText, sideText: d.sideText, addict: d.addict,
+        stock: num(c.stock && c.stock[id], 0), techOk: tp >= d.tech,
+        left: tp < d.tech ? d.tech - tp : 0,
+        active: !!(c.active && c.active.id === id && state.weeks < num(c.active.until, 0))
+      };
+    });
+    var genes = Object.keys(k.genes || {}).map(function (id) {
+      var g = k.genes[id];
+      return {
+        id: id, name: g.name, tech: g.tech, text: g.text,
+        costText: [g.drug ? "药剂 " + g.drug : "", g.metal ? "金属 " + g.metal : "",
+          g.food ? "粮 " + g.food : ""].filter(Boolean).join(" + ") || "无",
+        researched: !!c.genes[id], techOk: tp >= g.tech,
+        left: tp < g.tech ? g.tech - tp : 0
+      };
+    });
+    var leisure = Object.keys(k.leisure || {}).map(function (id) {
+      var l = k.leisure[id];
+      return {
+        id: id, name: l.name, weeks: l.weeks, food: l.food, text: l.text, freq: l.freq,
+        active: !!(c.leisure && c.leisure.id === id && state.weeks < num(c.leisure.until, 0)),
+        leftWeeks: c.leisure && c.leisure.id === id ? Math.max(0, num(c.leisure.until, 0) - state.weeks) : 0
+      };
+    });
+    return {
+      techPoints: tp,
+      damage: dmg,
+      lifespan: life,
+      age: age,
+      remaining: Math.max(0, life - age),
+      repaired: repairs,
+      repairCap: num(k.repairCap, 60),
+      repairStep: num(k.repairStep, 10),
+      repairTech: num(k.repairTech, 20),
+      repairDrug: num(k.repairDrug, 30),
+      repairMetal: num(k.repairMetal, 12),
+      repairReady: tp >= k.repairTech && dmg >= k.repairStep && repairs + k.repairStep <= k.repairCap,
+      damageK: num(k.damageK, 0.8),
+      addiction: Math.round(num(pc.addiction, 0)),
+      withdraw: !!c.withdraw,
+      drugs: drugs,
+      genes: genes,
+      leisure: leisure,
+      activeLeisure: c.leisure ? c.leisure.id : "",
+      buffs: (c.buffs || []).map(function (b) { return { k: b.k, v: b.v, left: b.left }; })
+    };
+  }
+
+  function playerCare(state, cfg, id, payload) {
+    payload = payload || {};
+    var k = careCfg(cfg);
+    if (!k) return { ok: false, msg: "个体养护配置没加载" };
+    var p = ensure(state, cfg);
+    var pc = p.pc;
+    if (!p.started) return { ok: false, msg: "尚未选择身份" };
+    if (!pc.alive) return { ok: false, msg: "你已经死了" };
+    var c = pc.care;
+    var tp = techPoints(state, k);
+    var key = payload.key || payload.drug || payload.gene || payload.leisure || "";
+
+    if (id === "drug") {
+      var d = k.drugs[key];
+      if (!d) return { ok: false, msg: "没有这支药剂" };
+      if (tp < d.tech) return { ok: false, msg: "科技 " + tp + " 点，还差 " + (d.tech - tp) + " 点才能用「" + d.name + "」" };
+      if (num(c.stock[key], 0) < 1) return { ok: false, msg: "「" + d.name + "」没有库存了" };
+      if (num(state.stocks && state.stocks.drug, 0) < 1) return { ok: false, msg: "药剂池见底，先补药剂" };
+      c.stock[key] = num(c.stock[key], 0) - 1;
+      state.stocks.drug = Math.max(0, num(state.stocks.drug, 0) - 1);
+      pc.addiction = clamp(num(pc.addiction, 0) + num(d.addict, 0), 0, 100);
+      pc.health = clamp(num(pc.health, 0) + num(d.hp, 0), 0, 100);
+      careAddBuff(c, "mind", d.mind, d.weeks);
+      careAddBuff(c, "spirit", d.spirit, d.weeks);
+      c.active = { id: key, until: state.weeks + num(d.weeks, 4) };
+      pushEvent(state, cfg, "player_drug", "身份", "用了「" + d.name + "」",
+        d.effectText + "；代价：" + d.sideText + "；成瘾 " + (num(d.addict, 0) >= 0 ? "+" : "") +
+        d.addict + "。", null, "管 " + d.weeks + " 周");
+      return { ok: true, msg: "用了「" + d.name + "」：" + d.effectText + "（" + d.weeks + " 周）", care: careBrief(state, cfg) };
+    }
+
+    if (id === "repair") {
+      var cap = num(k.repairCap, 60), step = num(k.repairStep, 10);
+      if (tp < num(k.repairTech, 20)) return { ok: false, msg: "科技 " + tp + " 点，修复需要 " + k.repairTech + " 点" };
+      if (num(pc.geneDamage, 0) < step) return { ok: false, msg: "基因损伤 " + Math.round(pc.geneDamage) + "，不到一次修复的 " + step + " 点" };
+      if (num(c.repairs, 0) + step > cap) return { ok: false, msg: "累计修复已达上限 " + cap + " 点" };
+      if (num(state.stocks.drug, 0) < num(k.repairDrug, 30)) return { ok: false, msg: "药剂不足（需 " + k.repairDrug + " 份）" };
+      if (num(state.stocks.metal, 0) < num(k.repairMetal, 12)) return { ok: false, msg: "金属不足（需 " + k.repairMetal + " 吨）" };
+      state.stocks.drug = num(state.stocks.drug, 0) - num(k.repairDrug, 30);
+      state.stocks.metal = num(state.stocks.metal, 0) - num(k.repairMetal, 12);
+      pc.geneDamage = Math.max(0, num(pc.geneDamage, 0) - step);
+      c.repairs = num(c.repairs, 0) + step;
+      if (num(pc.age, 0) < lifespanOf(cfg, pc.geneDamage)) c.overLife = false;
+      pushEvent(state, cfg, "player_repair", "身份", "基因损伤修复",
+        "损伤 −" + step + "，寿命上限 +" + Math.round(step * num(k.damageK, 0.8)) +
+        " 年，现为 " + lifespanOf(cfg, pc.geneDamage) + " 岁。",
+        { "药剂": -num(k.repairDrug, 30), "金属": -num(k.repairMetal, 12) }, "一条命按十年买");
+      return { ok: true, msg: "修复完成：损伤 −" + step + "，寿命上限 " + lifespanOf(cfg, pc.geneDamage) + " 岁", care: careBrief(state, cfg) };
+    }
+
+    if (id === "gene") {
+      var g = k.genes[key];
+      if (!g) return { ok: false, msg: "没有这项基因强化" };
+      if (c.genes[key]) return { ok: false, msg: "「" + g.name + "」已经研发过" };
+      if (tp < g.tech) return { ok: false, msg: "科技 " + tp + " 点，还差 " + (g.tech - tp) + " 点才能研发「" + g.name + "」" };
+      if (num(state.stocks.drug, 0) < num(g.drug, 0)) return { ok: false, msg: "药剂不足（需 " + g.drug + " 份）" };
+      if (num(state.stocks.metal, 0) < num(g.metal, 0)) return { ok: false, msg: "金属不足（需 " + g.metal + " 吨）" };
+      if (num(state.stocks.food, 0) < num(g.food, 0)) return { ok: false, msg: "粮食不足（需 " + g.food + " 吨）" };
+      state.stocks.drug = Math.max(0, num(state.stocks.drug, 0) - num(g.drug, 0));
+      state.stocks.metal = Math.max(0, num(state.stocks.metal, 0) - num(g.metal, 0));
+      state.stocks.food = Math.max(0, num(state.stocks.food, 0) - num(g.food, 0));
+      c.genes[key] = true;
+      c.hpBonus = num(c.hpBonus, 0) + num(g.hpBonus, 0);
+      c.mindBonus = num(c.mindBonus, 0) + num(g.mindBonus, 0);
+      c.spiritBonus = num(c.spiritBonus, 0) + num(g.spiritBonus, 0);
+      if (g.willBonus) pc.willBonus = clamp(num(pc.willBonus, 0) + g.willBonus, -20, 80);
+      if (g.infectResist) c.infectResist = clamp(num(c.infectResist, 0) + g.infectResist, 0, 0.6);
+      if (g.hpBonus) pc.health = clamp(num(pc.health, 0) + g.hpBonus, 0, 100);
+      pushEvent(state, cfg, "player_gene", "身份", "基因强化：" + g.name,
+        g.text + "。", null, "这一步改的是身体本身");
+      return { ok: true, msg: "已研发「" + g.name + "」：" + g.text, care: careBrief(state, cfg) };
+    }
+
+    if (id === "leisure") {
+      var l = k.leisure[key];
+      if (!l) return { ok: false, msg: "没有这项娱乐安排" };
+      if (num(state.stocks.food, 0) < num(l.food, 0)) return { ok: false, msg: "粮食不足（需 " + l.food + " 吨）" };
+      state.stocks.food = Math.max(0, num(state.stocks.food, 0) - num(l.food, 0));
+      if (l.order) state.order = clamp(num(state.order, 0.5) + num(l.order, 0), 0.05, 1);
+      careAddBuff(c, "mind", l.mind, l.weeks);
+      careAddBuff(c, "spirit", l.spirit, l.weeks);
+      c.leisure = { id: key, until: state.weeks + num(l.weeks, 4), freq: num(l.freq, 1) };
+      var chaos = num(l.risk, 0) > 0 && randNext(state) < num(l.risk, 0);
+      if (chaos) state.order = clamp(num(state.order, 0.5) - 0.02, 0.05, 1);
+      pushEvent(state, cfg, "player_leisure", "日常", "安排了「" + l.name + "」",
+        l.text + (chaos ? "；现场闹出了事：秩序 −2%。" : "。"), null,
+        "娱乐事件频率 ×" + num(l.freq, 1).toFixed(2));
+      return { ok: true, msg: "已安排「" + l.name + "」" + (chaos ? "，现场闹事：秩序 −2%" : ""), care: careBrief(state, cfg) };
+    }
+
+    return { ok: false, msg: "未知养护操作：" + id };
+  }
+
   function brief(state, cfg) {
     var p = ensure(state, cfg);
     var at = attrs(state, cfg);
@@ -871,6 +1148,7 @@
       alive: p.pc.alive,
       age: rnd(p.pc.age),
       attrs: at,
+      care: careBrief(state, cfg),
       identity: identity(state, cfg),
       personal: {
         influence: rnd(p.pc.dominion),
@@ -903,6 +1181,9 @@
     listActions: listActions,
     act: act,
     brief: brief,
+    careBrief: careBrief,
+    playerCare: playerCare,
+    lifespanOf: lifespanOf,
     modeLabel: modeLabel,
     zoneOfDept: zoneOfDept
   };

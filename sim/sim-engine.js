@@ -294,6 +294,13 @@
         return r;
       },
       playerAct: function (id, payload) { return this.doAction(id, payload); },
+      /** v6.52 个体养护：id = drug / repair / gene / leisure */
+      playerCare: function (id, payload) {
+        if (typeof sim.playerCare !== "function") return { ok: false, msg: "引擎未提供个体养护" };
+        var r = sim.playerCare(id, payload || {});
+        emit("player", r, {});
+        return r;
+      },
 
       // —— 奇遇与牌库（v2.2.0） ——
       /** 待选三张 / 牌库进度 / 运气 / 历史 */
