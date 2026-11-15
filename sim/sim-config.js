@@ -86,7 +86,7 @@
     food: {
       perCapitaTpy: 0.2263,     // 【档案】0.62 kg/人·日 × 365（年量，未换周）
       dormantFactor: 0.05,      // 【推定】休眠低耗
-      unitYieldTpy: 3.45,       // v6.52：水培单产校准（原 2.52）——让基线产出 567 t/年 覆盖 561 t/年 需求       // 【推定】1 单元 = 1000 m² 等效栽培面（年量）
+      unitYieldTpy: 3.55,       // v6.52：水培单产校准（原 2.52）——让基线产出 567 t/年 覆盖 561 t/年 需求       // 【推定】1 单元 = 1000 m² 等效栽培面（年量）
       hydroInit: 191,           // 【档案】191,388 m² 等效
       hydroMax: 600,
       agriMWFull: 30,           // 【档案】农环 30 MW
@@ -94,7 +94,8 @@
       waterBuffer: 600,         // 【推定】水储备低于 600 t 开始限产
       stockInit: 112245,        // v6.52：初始存粮 = 200 年口粮（年需求 561.2 t × 200）
       cap: 0,                   // v1.2：0 = 不设上限（原 400 t 天花板已拆）
-      spoilagePerYear: 0.04,    // v6.22：储备年损耗按真空/惰性气体仓储的粮食保质期口径取 4%（原 25%）
+      spoilagePerYear: 0.015,   // v6.53：按深仓分层（真空/惰性气体密封舱）口径重取 1.5%；
+                                // 原 4% 会让「200 年存粮」实际 80 年见底，与设定自相矛盾
       // v1.2：产出冗余随年份与船况衰减，在既有能源/水/人力/社会反馈系数之上
       // 再叠一层长期折损。年份+农环受 maxLoss 封顶，磨损/人口结构按当期实际值另算。
       decay: {
@@ -1254,7 +1255,20 @@
         jetPeakMW: 102            // 主推进峰值功率上限（MW）
       },
       // 遭遇权重按类别乘 r^K：危机/探索随速度升，贸易/舒适随速度降
-      encounterK: { crisis: 1.5, explore: 0.9, tech: 0.2, trade: -0.8, society: -0.6 }
+      encounterK: { crisis: 1.5, explore: 0.9, tech: 0.2, trade: -0.8, society: -0.6 },
+      /* 磨损大修（金属＋时间）：科技门槛按 200 年实际产出校准，48 点对应 unlock 中段；
+         金属消耗随当前磨损线性升，工期 3 周，期间产出 −4% */
+      wearRepairTech: 48,
+      wearRepairMetalBase: 60,
+      wearRepairMetalK: 900,
+      wearRepairDrop: 0.06,
+      wearRepairWeeks: 3,
+      /* 日常维修回收：缺口 < wearRoutineGap 时按比例每年回收，满维修时 = wearRoutineDrop */
+      wearRoutineDrop: 0.08,
+      wearRoutineGap: 0.25,
+      /* 结构修补：满维修时每年 +0.42；产出受结构影响的下限 */
+      structureRepair: 0.42,
+      structureProdFloor: 0.70
     },
 
     /* ---------------- 首页 HUD 三项操控（配给 / 休眠 / 航速） ----------------

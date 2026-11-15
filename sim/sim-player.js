@@ -109,7 +109,7 @@
       complianceBonus: 0, willBonus: 0, dominionBonus: 0, authorityBonus: 0,
       compliance: 50, will: 30, dominion: 0, authority: 0,
       infectionC: 0, stage: 0, age: 34, infectionYears: 0,
-      geneDamage: 18, addiction: 0,
+      geneDamage: 18, addiction: 0, charm: 52,
       care: {
         stock: { calm: 2, stim: 2, suppress: 2, deep: 2 },
         active: null, leisure: null, genes: {}, repairs: 0,
@@ -378,6 +378,8 @@
       spirit: clamp(Math.round(num(p.pc.will) + num(p.pc.willBonus) + num(p.pc.complianceBonus) * 0.5 +
         num(p.pc.care && p.pc.care.spiritBonus, 0) + careBuffSum(p.pc.care, "spirit")), 0, 100),
       addiction: clamp(Math.round(num(p.pc.addiction, 0)), 0, 100),
+      // 魅力值：个体向的派系资本（0–100），协商 / 安抚 / 公开账目吃这个数
+      charm: clamp(Math.round(num(p.pc.charm, 52) + num(p.pc.will) * 0.15), 0, 100),
       compliance: rnd(p.pc.compliance),
       will: rnd(p.pc.will),
       dominion: rnd(p.pc.dominion),

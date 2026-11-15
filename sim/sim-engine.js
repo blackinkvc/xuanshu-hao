@@ -89,6 +89,7 @@
         if (!global.XuanShuSociety) require("./sim-society.js");
         if (!global.XuanShuPlayer) require("./sim-player.js");
         if (!global.XuanShuEncounter) require("./sim-encounter.js");
+        if (!global.XuanShuTrade) require("./sim-trade.js");
         if (!global.XuanShuGods) require("./sim-gods.js");
         if (!global.XuanShuRun) require("./sim-run.js");
         if (!global.XuanShuCrisis) require("./sim-crisis.js");
@@ -302,6 +303,14 @@
         return r;
       },
 
+      /** 磨损大修（金属＋时间，科技门槛 48 点） */
+      repairWear: function () {
+        if (typeof sim.repairWear !== "function") return { ok: false, msg: "引擎未提供磨损大修" };
+        var r = sim.repairWear();
+        emit("maint", r, {});
+        return r;
+      },
+
       // —— 奇遇与牌库（v2.2.0） ——
       /** 待选三张 / 牌库进度 / 运气 / 历史 */
       getEncounter: function () { return sim.getEncounter(); },
@@ -436,6 +445,47 @@
         var r = sim.crisisResolve(id, optionId, subIds || []);
         emit("crisis", r, {});
         return r;
+      },
+
+      /* ---------- 商栈与掠夺（v6.53 第四波） ---------- */
+      tradeBrief: function () {
+        return typeof sim.tradeBrief === "function" ? sim.tradeBrief() : null;
+      },
+      tradeVisit: function () {
+        if (typeof sim.tradeVisit !== "function") return { ok: false, msg: "引擎未提供商栈" };
+        var rt = sim.tradeVisit();
+        emit("trade", rt, {});
+        return rt;
+      },
+      tradeDeal: function (p) {
+        if (typeof sim.tradeDeal !== "function") return { ok: false, msg: "引擎未提供商栈" };
+        var rd = sim.tradeDeal(p || {});
+        emit("trade", rd, {});
+        return rd;
+      },
+      tradeRaid: function (p) {
+        if (typeof sim.tradeRaid !== "function") return { ok: false, msg: "引擎未提供掠夺" };
+        var rr2 = sim.tradeRaid(p || {});
+        emit("trade", rr2, {});
+        return rr2;
+      },
+      tradeDisguise: function () {
+        if (typeof sim.tradeDisguise !== "function") return { ok: false, msg: "引擎未提供伪装" };
+        var rg = sim.tradeDisguise();
+        emit("trade", rg, {});
+        return rg;
+      },
+      tradePeople: function (p) {
+        if (typeof sim.tradePeople !== "function") return { ok: false, msg: "引擎未提供买卖人口" };
+        var rp2 = sim.tradePeople(p || {});
+        emit("trade", rp2, {});
+        return rp2;
+      },
+      tradeStatue: function (p) {
+        if (typeof sim.tradeStatue !== "function") return { ok: false, msg: "引擎未提供雕像处置" };
+        var rs = sim.tradeStatue(p || {});
+        emit("trade", rs, {});
+        return rs;
       },
 
       // —— 千年节点 / 自动推演 / 胜负（v2.2.0） ——

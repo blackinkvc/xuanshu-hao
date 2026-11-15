@@ -350,8 +350,11 @@
     if (awakeTotal <= 0) return 0;
     var t = totals(state, cfg);
     var free = Math.max(0, Math.floor(num(state.infra && state.infra.pods, 0) - t.dormant));
+    // 三门槛之一：药剂份数（入舱每人 1 份）
+    var per = Math.max(1, num(cfg.hibernation && cfg.hibernation.drugPerEntry, 1));
+    var drugFree = Math.floor(num(state.stocks && state.stocks.drug, 0) / per);
     var want = wantAll ? Math.round(awakeTotal) : Math.max(0, Math.round(num(wantAll)));
-    var can = Math.min(want, free);
+    var can = Math.min(want, free, drugFree);
     var left = can;
     ids.forEach(function (id) {
       if (left <= 0) return;
@@ -362,8 +365,12 @@
       left -= take;
     });
     var done = can - left;
-    if (done > 0) fam.slept = num(fam.slept, 0) + done;
+    if (done > 0) {
+      fam.slept = num(fam.slept, 0) + done;
+      state.stocks.drug = Math.max(0, num(state.stocks.drug, 0) - done * per);
+    }
     if (want > can) fam.sleepBlocked = num(fam.sleepBlocked, 0) + (want - can);
+    fam.sleepGates = { pods: free, drug: drugFree, per: per, moral: Math.round(num(state.morality, 60)) };
     return done;
   }
 
@@ -500,7 +507,12 @@
         var n = layerPop(state, L);
         if (n <= 0) return;
         fam.layers.push(L);
-        lines.push("停供 " + L + "（" + Math.round(n) + " 人）");
+        // 停供是道德代价：每停一级 −2；该层派系好感 −6
+        state.morality = clamp(num(state.morality, 60) - 2, 0, 100);
+        queuesOf(state, L).forEach(function (q) {
+          q.O = clamp(num(q.O, 50) - 6, 0, 100);
+        });
+        lines.push("停供 " + L + "（" + Math.round(n) + " 人，道德 −2）");
       });
       fam.stage = fam.layers.length;
       fam.stoppedPop = fam.layers.reduce(function (a, L) { return a + layerPop(state, L); }, 0);
@@ -508,15 +520,29 @@
     }
 
     if (choice.sleep) {
-      var t0 = totals(state, cfg);
-      var free = Math.max(0, Math.floor(num(state.infra && state.infra.pods, 0) - t0.dormant));
-      var eligibleAwake = sleepEligibleAwake(state, cfg);
-      var want = choice.sleep === "all" ? Math.round(eligibleAwake)
-        : Math.min(eligibleAwake, Math.round(num(choice.sleep)));
-      var can = sleepCrew(state, cfg, fam, choice.sleep === "all" ? true : Math.max(0, want));
-      if (can > 0) lines.push("强制沉睡 " + can + " 名有休眠资格者（贵族优先）");
-      if (want > can) {
-        lines.push("舱位不足，还有 " + Math.round(want - can) + " 名有资格者没能沉睡（余位 " + free + "）");
+      var mSleep = num(state.morality, 60);
+      if (mSleep < 30) {
+        lines.push("道德值 " + Math.round(mSleep) + " 低于 30：没人愿意再把人冻进舱里");
+      } else {
+        var t0 = totals(state, cfg);
+        var free = Math.max(0, Math.floor(num(state.infra && state.infra.pods, 0) - t0.dormant));
+        var perS = Math.max(1, num(cfg.hibernation && cfg.hibernation.drugPerEntry, 1));
+        var drugFree = Math.floor(num(state.stocks && state.stocks.drug, 0) / perS);
+        var eligibleAwake = sleepEligibleAwake(state, cfg);
+        var want = choice.sleep === "all" ? Math.round(eligibleAwake)
+          : Math.min(eligibleAwake, Math.round(num(choice.sleep)));
+        var can = sleepCrew(state, cfg, fam, choice.sleep === "all" ? true : Math.max(0, want));
+        if (can > 0) {
+          lines.push("强制沉睡 " + can + " 名有休眠资格者（贵族优先，药剂 −" + can * perS + " 份，道德 −1）");
+          state.morality = clamp(mSleep - 1, 0, 100);
+        }
+        if (want > can) {
+          var why = [];
+          if (free <= 0) why.push("舱位余量 0");
+          if (drugFree < want) why.push("药剂只够 " + drugFree + " 人（" + Math.round(num(state.stocks.drug)) + " 份）");
+          if (!why.length && free < want) why.push("舱位余量 " + free);
+          lines.push("还有 " + Math.round(want - can) + " 名有资格者没能沉睡（" + (why.join("；") || "门槛不足") + "）");
+        }
       }
     }
 
@@ -526,13 +552,26 @@
       var add = num(state.production, 0) * 0.02;
       fam.harvested = true;
       state.stocks.food += add;
-      lines.push("提前抢收 +" + Math.round(add) + " 吨");
+      state.morality = clamp(num(state.morality, 60) + 1, 0, 100);
+      lines.push("提前抢收 +" + Math.round(add) + " 吨（道德 +1）");
     }
 
     if (choice.recycle) {
       if (!canRecycle) return { ok: false, msg: "当前身份不能下令回收" };
-      if (!fam.layers.length) return { ok: false, msg: "先停供，才能回收" };
-      var target = fam.layers[fam.layers.length - 1];
+      var mNow = num(state.morality, 60);
+      if (mNow < 30) {
+        return { ok: false, msg: "道德值 " + Math.round(mNow) + " 低于 30：回收令没人愿意执行" };
+      }
+      // 回收与停供并列：可以直接指定某一层，不必先停供
+      var target = (choice.recycleLayer && order.indexOf(choice.recycleLayer) >= 0)
+        ? choice.recycleLayer
+        : fam.layers[fam.layers.length - 1];
+      if (!target) return { ok: false, msg: "先选停供层或回收层，才能回收" };
+      if (fam.layers.indexOf(target) < 0) {
+        fam.layers.push(target);
+        fam.stage = fam.layers.length;
+        lines.push("指定回收 " + target);
+      }
       var avail = layerPop(state, target);
       var wantR = choice.recycle === "all" ? avail : Math.round(num(choice.recycle));
       var got = killLayer(state, cfg, target, Math.min(avail, Math.max(0, wantR)));
@@ -544,11 +583,13 @@
         fam.lastRecycle = fam.weeks;
         state.stocks.food += foodAdd;
         state.order = clamp(num(state.order) - 0.05, 0.05, 1);
+        state.morality = clamp(mNow - (0.5 + got * 0.01), 0, 100);
         ((state.society && state.society.queues) || []).forEach(function (q) {
           q.O = clamp(num(q.O, 50) - 4, 0, 100);
         });
         fam.stoppedPop = fam.layers.reduce(function (a, L) { return a + layerPop(state, L); }, 0);
-        lines.push("回收 " + Math.round(got) + " 人为粮（+" + foodAdd.toFixed(1) + " 吨，秩序 −5）");
+        lines.push("回收 " + Math.round(got) + " 人为粮（+" + foodAdd.toFixed(1) + " 吨，秩序 −5，道德 −" +
+          (0.5 + got * 0.01).toFixed(1) + "）");
       } else {
         lines.push("可回收人口已经为空");
       }
@@ -747,6 +788,18 @@
           recycleYield: Math.round(cfg.food.perCapitaTpy * num(fm.recycleYield, 0.55) * 1000) / 1000,
           harvestGain: Math.round(num(state.production, 0) * 0.02),
           harvestUsed: !!g.famine.harvested,
+          morality: Math.round(num(state.morality, 60)),
+          sleepGates: {
+            pods: free,
+            drug: Math.floor(num(state.stocks && state.stocks.drug, 0) /
+              Math.max(1, num(cfg.hibernation && cfg.hibernation.drugPerEntry, 1))),
+            moral: Math.round(num(state.morality, 60)) >= 30
+          },
+          layerFavor: order.map(function (L) {
+            var qs = queuesOf(state, L), s = 0, n = 0;
+            qs.forEach(function (q) { s += num(q.O, 50) * num(q.n); n += num(q.n); });
+            return { id: L, favor: n > 0 ? Math.round(s / n) : 0 };
+          }),
           settledAt: g.famine.settled ? g.famine.weeks : null
         };
       })(),

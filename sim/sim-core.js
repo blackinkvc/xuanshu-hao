@@ -141,6 +141,28 @@
     return throughput > 0 ? state.stocks.water / (throughput / 365) : 9999;
   }
 
+  // 派系好感按层聚合：支持度 favor、不服度 unrest、席位 seats
+  function factionSummary(state) {
+    var qs = (state.society && state.society.queues) || [];
+    var map = {};
+    qs.forEach(function (q) {
+      var L = q.layer || "L?";
+      var m = map[L] || (map[L] = { id: L, n: 0, favor: 0, unrest: 0, seats: 0 });
+      var n = num(q.n, 0);
+      m.n += n; m.seats++;
+      m.favor += num(q.O, 50) * n;
+      m.unrest += num(q.W, 10) * n;
+    });
+    return Object.keys(map).map(function (k) {
+      var m = map[k];
+      return {
+        id: m.id, n: Math.round(m.n), seats: m.seats,
+        favor: m.n > 0 ? Math.round(m.favor / m.n) : 0,
+        unrest: m.n > 0 ? Math.round(m.unrest / m.n) : 0
+      };
+    });
+  }
+
   /* 推进工质：最小可用模型（与《推进_内循环_药剂_成瘾_营养_设计表》§1.3 一致）
      r = v / speedBaseC
      P(r) = 68 × (0.25 + 0.75·r³)，封顶 jetPeakMW
@@ -636,10 +658,25 @@
 
   /* ---------------- 初始化 ---------------- */
 
+  // 开局抖动：只由 seed 决定，不占用 rngA 主流，保证同 seed 逐位可复现、
+  // 不同 seed 的人口 / 库存 / 磨损 / 派系真的有差别。
+  function seedJitter(seed, salt) {
+    var x = ((seed >>> 0) ^ Math.imul(salt + 1, 0x9E3779B1)) >>> 0;
+    x ^= x << 13; x >>>= 0;
+    x ^= x >>> 17;
+    x ^= x << 5; x >>>= 0;
+    return x / 4294967296;
+  }
+
   function createState(cfg, seed) {
+    var jit = function (salt) { return seedJitter(seed, salt); };
     var groups = {};
-    cfg.population.groups.forEach(function (g) {
-      groups[g.id] = { awake: g.awake, dormant: g.dormant };
+    cfg.population.groups.forEach(function (g, gi) {
+      // 醒态 ±4%、休眠 ±6%：同 seed 固定，不同 seed 拉开
+      groups[g.id] = {
+        awake: Math.max(0, Math.round(g.awake * (0.96 + 0.08 * jit(10 + gi)))),
+        dormant: Math.max(0, Math.round(g.dormant * (0.94 + 0.12 * jit(20 + gi))))
+      };
     });
     var state = {
       loop: 1,
@@ -647,18 +684,30 @@
       rngA: seed >>> 0,
       groups: groups,
       stocks: {
-        food: cfg.food.stockInit,
-        water: cfg.water.stockInit,
-        drug: cfg.hibernation.drugInit,
-        metal: cfg.metal.stockInit
+        // 开局库存也吃 seed：粮 ±3%、水 ±5%、药 ±6%、金属 ±8%
+        food: Math.round(cfg.food.stockInit * (0.97 + 0.06 * jit(31))),
+        water: Math.round(cfg.water.stockInit * (0.95 + 0.10 * jit(32))),
+        drug: Math.round(cfg.hibernation.drugInit * (0.94 + 0.12 * jit(33))),
+        metal: Math.round(cfg.metal.stockInit * (0.92 + 0.16 * jit(34)))
       },
       infra: {
         hydro: cfg.food.hydroInit,
         pods: cfg.hibernation.podsInit,
         clonePods: cfg.clone.podsInit
       },
-      order: cfg.order.init,
-      wear: 0,
+      order: clamp(cfg.order.init + (jit(35) - 0.5) * 0.04, 0.05, 1),
+      wear: 0.01 + 0.04 * jit(36),
+      // 不可逆磨损底噪：时间 / 航速 / 超载 / 事件往上推，维修只能压住底噪以上的部分
+      wearFloor: 0.01 + 0.04 * jit(36),
+      // 道德值（0–100）：停供、回收、抢收都会动它；低于 30 时回收被拒
+      morality: 55 + Math.round(jit(38) * 12),
+      // 商栈（v6.53 第四波）：商誉 / 热度 / 雕像 / 本船报价；salt 固定取 seed，出货可复现
+      trade: {
+        visits: 0, rep: 50, heat: 0, statues: 0, salt: seed >>> 0,
+        offer: null, lines: [], stats: { buy: 0, sell: 0, raid: 0 }
+      },
+      // 大修工期：{ until, cost, at }
+      repair: null,
       // 航速：首页三项操控写这里，能耗 / 磨损 / 遭遇权重都读它
       // 工质：推进剂储量（不是化学燃料），飞行按周扣，剩余量换算成可飞航程
       ship: {
@@ -666,7 +715,7 @@
         propellant: (cfg.ship && cfg.ship.propellant && isNum(cfg.ship.propellant.initT))
           ? cfg.ship.propellant.initT : 2400,
         // v6.39：船体现状。结构随磨损缓慢下降、维护到位才修复；护盾靠富余电力回充
-        structure: 94, structureMax: 100,
+        structure: 91 + Math.round(jit(37) * 6), structureMax: 100,
         shield: 86, shieldMax: 100
       },
       phase: 0,
@@ -722,6 +771,11 @@
     };
     if (global.XuanShuSociety && cfg.society && cfg.society.enabled !== false) {
       state.society = global.XuanShuSociety.create(cfg);
+      // 派系分布也吃 seed：各队列支持度 / 不服度开局就不同
+      state.society.queues.forEach(function (q, qi) {
+        q.O = clamp(num(q.O, 50) + (jit(50 + qi) - 0.5) * 12, 0, 100);
+        q.W = clamp(num(q.W, 10) + (jit(80 + qi) - 0.5) * 8, 0, 100);
+      });
     }
     // 随机判定槽位 / 日志（与 rngA 一样是状态的一部分，随导出/导入走）
     if (global.XuanShuJudge) state.judge = global.XuanShuJudge.ensure(state, cfg);
@@ -797,6 +851,9 @@
       clonePods: state.infra.clonePods,
       order: state.order,
       wear: state.wear,
+      wearFloor: state.wearFloor,
+      structure: state.ship ? state.ship.structure : 94,
+      morality: state.morality,
       judgePressure: judgePressureOf(state),
       phase: state.phase,
       ration: state.last.rationActual,
@@ -859,6 +916,8 @@
           m.repairLeft = m.mttr;
           m.active = true;
           m.faults++;
+          // 一次故障就是一次不可逆冲击：底噪抬 2 个点
+          state.wearFloor = clamp(num(state.wearFloor, 0) + 0.02, 0, 0.92);
           yieldF = M.downtimeYield;
           pushEvent(state, cfg, "maint_fault", "维修", "设备停摆 · 抢修中",
             "农环一组停了，粮食产出只剩 " + Math.round(M.downtimeYield * 100) + "%",
@@ -1016,9 +1075,16 @@
       var surplus = rest - 40;
       if (surplus > 0) hull.shield = Math.min(hull.shieldMax, hull.shield + 0.5 * clamp(surplus / 60, 0.1, 1));
       else hull.shield = Math.max(0, hull.shield - 0.12);
-      hull.structure = Math.max(0, hull.structure - 0.0035 * (0.5 + 2 * clamp(state.wear, 0, 1)));
-      if (num(state.maintGap) <= 0 && num(state.stocks.metal) > 0.02) {
-        hull.structure = Math.min(hull.structureMax, hull.structure + 0.0025);
+      var wNow = clamp(state.wear, 0, 1);
+      // 结构：磨损越高掉得越快；剩余结构越少越慢（不会靠磨损单项归零，
+      // 真正归零要叠加危机/事故），维修到位才压得住
+      var strFrac = clamp(hull.structure / hull.structureMax, 0, 1);
+      hull.structure = Math.max(0, hull.structure -
+        (0.13 + 2.60 * Math.pow(wNow, 1.5)) * strFrac * dt);
+      var gapPrev = clamp(num(state.last && state.last.maintGap, 0), 0, 1);
+      if (gapPrev < 0.25 && num(state.stocks.metal) > 0.02) {
+        hull.structure = Math.min(hull.structureMax,
+          hull.structure + num(cfg.ship.structureRepair, 0.42) * (1 - gapPrev) * dt);
         state.stocks.metal = Math.max(0, num(state.stocks.metal) - 0.02);
       }
     }
@@ -1094,6 +1160,12 @@
       production *= clamp(num(state.encounter.foodBonus.mul, 1), 1, 1.2);
     }
     production *= maintYield;
+    // 大修工期占用：维修队上船，产出让路
+    if (state.repair && state.weeks < state.repair.until) production *= 0.96;
+    // 船体完整性：结构跌破出厂值后产出跟着掉（94 时无影响）
+    if (state.ship) {
+      production *= clamp(num(state.ship.structure, 94) / 94, num(cfg.ship.structureProdFloor, 0.70), 1);
+    }
     // 营养（体能 fit、神经损伤）与成瘾（三档体能惩罚、化学极乐）对出力的折损
     if (state.nutrition) {
       production *= clamp(state.nutrition.fit * (state.nutrition.unfit || 1), 0.5, 1);
@@ -1331,18 +1403,39 @@
       spend: Math.round(maintSpend * 10) / 10
     };
     var maintGap = maintNeedM > 0 ? (maintNeedM - maintSpend) / maintNeedM : 0;
+    // 产能口径：金属库存能补原料，补不了工时与工业产能——
+    // 农业占比压得太高时，维修预算本身就不够，缺口按产能缺口再算一次。
+    var maintCapGap = maintNeedM > 0 ? clamp(1 - maintBudget / maintNeedM, 0, 1) : 0;
+    maintGap = clamp(maintGap + 0.60 * maintCapGap, 0, 1);
+    if (state.last) state.last.maintGap = maintGap;
     // 失序与感染会拖垮维修效率：金属花了，活没干完
     if (soc) {
       maintGap = clamp(maintGap + 0.30 * (soc.mutiny.level / 5) +
         0.15 * clamp(soc.infection.share || 0, 0, 1) +
         0.50 * clamp(AD.errorK || 0, 0, 0.25), 0, 1);
     }
-    // 磨损恶化项随航速放大：跑得越快，同样的维修缺口磨得更狠（r=1 时与旧版一致）
-    var wearSpeedK = 1 + (((cfg.ship && cfg.ship.wearK) || 0)) *
-      (((state.ship && cfg.ship && cfg.ship.speedBaseC)
-        ? state.ship.speedC / cfg.ship.speedBaseC : 1) - 1);
-    state.wear = clamp(state.wear +
-      (0.50 * maintGap * wearSpeedK - 0.05 * (1 - maintGap)) * dt, 0, 1);
+    // 磨损：不可逆底噪（时间 / 航速 / 超载 / 事件）+ 可逆的维修缺口，两项都累积。
+    // 维修只能把磨损压回底噪附近，压不到 0——所以中期一定会有压力。
+    var speedRatio = (state.ship && cfg.ship && cfg.ship.speedBaseC)
+      ? state.ship.speedC / cfg.ship.speedBaseC : 1;
+    var speedOver = Math.max(0, speedRatio - 1);
+    var overload = clamp(t0.working / Math.max(1, cfg.population.laborFull) - 1, 0, 1) +
+      clamp(0.95 - rationActual, 0, 0.45);
+    var wearSpeedK = 1 + (((cfg.ship && cfg.ship.wearK) || 0)) * speedOver;
+    var floorRate = (0.0040 + 0.0040 * maintGap + 0.0080 * speedOver +
+      0.0045 * overload) * dt;
+    state.wearFloor = clamp(num(state.wearFloor, 0) +
+      floorRate * (1 - num(state.wearFloor, 0) / 0.92), 0, 0.92);
+    var wearTarget = clamp(num(state.wearFloor, 0) + 1.30 * maintGap * wearSpeedK +
+      0.25 * speedOver + 0.12 * overload, 0, 1);
+    // 日常维修到位时可少量回收磨损：满维修每年 −0.05，缺口越大回收越少（缺口 ≥25% 归零）。
+    // 大修（repairWear）仍是唯一大幅降磨损的手段，只补粮的打法拿不到这项回收。
+    var routineDropCap = num(cfg.ship.wearRoutineDrop, 0.05);
+    var routineGapMax = num(cfg.ship.wearRoutineGap, 0.25);
+    var routineDrop = (routineDropCap > 0 && maintGap < routineGapMax && num(state.stocks.metal) > 0.05)
+      ? routineDropCap * clamp(1 - maintGap / routineGapMax, 0, 1) : 0;
+    state.wear = clamp(state.wear + (wearTarget - state.wear) * 0.06 * dt -
+      routineDrop * dt, num(state.wearFloor, 0), 1);
 
     var constructionSpend = 0;
     var availableMetal = Math.max(0, state.stocks.metal + capM - maintSpend);
@@ -1826,6 +1919,8 @@
           infra: clone(state.infra),
           order: state.order,
           wear: state.wear,
+          wearFloor: state.wearFloor,
+          morality: state.morality,
           ship: state.ship ? {
             speedC: state.ship.speedC,
             ratio: Math.round((state.ship.speedC /
@@ -1837,6 +1932,8 @@
             shieldMax: num(state.ship.shieldMax, 100),
             rangeKm: Math.round(remainingRangeKm(cfg, state.ship.propellant, state.ship.speedC))
           } : null,
+          repair: state.repair,
+          factions: factionSummary(state),
           phase: state.phase,
           phaseName: cfg.phase.names[state.phase],
           foodDays: days,
@@ -2037,6 +2134,53 @@
         return global.XuanShuGods
           ? global.XuanShuGods.resolveTithe(state, cfg, !!accept)
           : { ok: false, msg: "古神层未加载" };
+      },
+
+      /* ---------- 磨损大修（金属＋时间，带科技门槛） ---------- */
+      repairWear: function () {
+        var tech = num(state.society && state.society.machine && state.society.machine.tech, 0) * 100;
+        var needTech = num(cfg.ship && cfg.ship.wearRepairTech, 48);
+        if (tech + 1e-9 < needTech) {
+          return { ok: false, msg: "需要科技 " + needTech + " 点（当前 " + tech.toFixed(1) + "）才能开工大修" };
+        }
+        if (state.repair && state.weeks < state.repair.until) {
+          return { ok: false, msg: "上一次大修还在工期内（剩 " + Math.max(0, state.repair.until - state.weeks) + " 周）" };
+        }
+        var w = clamp(num(state.wear, 0), 0, 1);
+        var cost = Math.round(num(cfg.ship && cfg.ship.wearRepairMetalBase, 60) +
+          num(cfg.ship && cfg.ship.wearRepairMetalK, 900) * w);
+        if (num(state.stocks.metal) < cost) {
+          return { ok: false, msg: "金属不足：大修需要 " + cost + " 吨，库存 " + Math.round(num(state.stocks.metal)) + " 吨" };
+        }
+        state.stocks.metal = Math.max(0, num(state.stocks.metal) - cost);
+        var drop = num(cfg.ship && cfg.ship.wearRepairDrop, 0.06);
+        state.wearFloor = clamp(num(state.wearFloor, 0) - drop, 0, 0.92);
+        state.wear = clamp(Math.max(num(state.wearFloor, 0), w - drop * 1.7), 0, 1);
+        state.repair = { until: state.weeks + Math.round(num(cfg.ship && cfg.ship.wearRepairWeeks, 3)), cost: cost, at: state.weeks };
+        return { ok: true, msg: "大修开工：−" + cost + " 吨金属 · 底噪 −" + drop.toFixed(2) + " · 工期 " + (state.repair.until - state.weeks) + " 周（期间产出 −4%）" };
+      },
+
+      /* ---------- 商栈与掠夺（v6.53 第四波） ---------- */
+      tradeBrief: function () {
+        return global.XuanShuTrade ? global.XuanShuTrade.brief(state, cfg) : null;
+      },
+      tradeVisit: function () {
+        return global.XuanShuTrade ? global.XuanShuTrade.roll(state, cfg) : { ok: false, msg: "商栈层未加载" };
+      },
+      tradeDeal: function (p) {
+        return global.XuanShuTrade ? global.XuanShuTrade.deal(state, cfg, p || {}) : { ok: false, msg: "商栈层未加载" };
+      },
+      tradeRaid: function (p) {
+        return global.XuanShuTrade ? global.XuanShuTrade.raid(state, cfg, p || {}) : { ok: false, msg: "商栈层未加载" };
+      },
+      tradeDisguise: function () {
+        return global.XuanShuTrade ? global.XuanShuTrade.disguise(state, cfg) : { ok: false, msg: "商栈层未加载" };
+      },
+      tradePeople: function (p) {
+        return global.XuanShuTrade ? global.XuanShuTrade.people(state, cfg, p || {}) : { ok: false, msg: "商栈层未加载" };
+      },
+      tradeStatue: function (p) {
+        return global.XuanShuTrade ? global.XuanShuTrade.statue(state, cfg, p || {}) : { ok: false, msg: "商栈层未加载" };
       },
 
       /* ---------- 千年节点 / 自动推演 / 胜负 ---------- */
