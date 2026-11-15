@@ -537,7 +537,7 @@
     if (!g.available) {
       return { effectText: g.reason, costText: "", followText: "科技差距太大", info: g };
     }
-    var eff = (g.deltaTech > 0 ? "科技 +" + g.deltaTech.toFixed(3) : "科技无增量（对方低于你）") +
+    var eff = (g.deltaTech > 0 ? "科技 +" + (Math.round(g.deltaTech * 1000) / 10) + " 点" : "科技无增量（对方低于你）") +
       "、金属 +" + g.metal + " 吨";
     var fail = gapFailText(cfg, type);
     var cost = "成功率 " + Math.round(g.success * 100) + "%" + (fail ? "；失败：" + fail : "");
@@ -743,7 +743,7 @@
         notes.push("磨损 " + (op.v >= 0 ? "+" : "") + Math.round(op.v * 100) + "%");
       } else if (k === "tech") {
         if (soc.machine) soc.machine.tech = clamp(num(soc.machine.tech) + num(op.v), 0, 1);
-        notes.push("科技 " + (op.v >= 0 ? "+" : "") + op.v);
+        notes.push("科技 " + (op.v >= 0 ? "+" : "") + (Math.round(op.v * 1000) / 10) + " 点");
       } else if (k === "queue") {
         if (op.k === "O") {
           if (soc.effects) soc.effects.oShift += num(op.v);
@@ -812,7 +812,7 @@
         } else if (randNext(state) < gOut.success) {
           if (gOut.deltaTech > 0 && soc.machine) {
             soc.machine.tech = clamp(num(soc.machine.tech) + gOut.deltaTech, 0, 1);
-            notes.push("科技 +" + gOut.deltaTech.toFixed(3));
+            notes.push("科技 +" + (Math.round(gOut.deltaTech * 1000) / 10) + " 点");
           } else {
             notes.push("科技没有长进");
           }
@@ -890,7 +890,7 @@
     var v = 0;
     switch (card.id) {
       case "ex_signal":
-        if (choice === "tech") { if (soc.machine) soc.machine.tech = clamp(num(soc.machine.tech) + 0.10, 0, 1); notes.push("科技 +0.10"); }
+        if (choice === "tech") { if (soc.machine) soc.machine.tech = clamp(num(soc.machine.tech) + 0.10, 0, 1); notes.push("科技 +10 点"); }
         else if (choice === "thralls") { if (soc.infection) soc.infection.thralls += 3; notes.push("眷属 +3"); }
         else { notes.push(pactByChoice(state, cfg, "random")); }
         break;
@@ -907,7 +907,7 @@
         else { popAdjust(state, cfg, "L4", -20); state.stocks.metal = num(state.stocks.metal) + 25; notes.push("人口 −20、金属 +25 吨"); }
         break;
       case "tr_relic_auction":
-        if (choice === "tech") { if (soc.machine) soc.machine.tech = clamp(num(soc.machine.tech) + 0.04, 0, 1); notes.push("科技 +0.04"); }
+        if (choice === "tech") { if (soc.machine) soc.machine.tech = clamp(num(soc.machine.tech) + 0.04, 0, 1); notes.push("科技 +4 点"); }
         else if (choice === "thralls") { if (soc.infection) soc.infection.thralls += 3; notes.push("眷属 +3"); }
         else { notes.push(pactByChoice(state, cfg, "random")); }
         break;
@@ -1352,7 +1352,7 @@
       addTech(state, gain);
       techGain += gain;
       lines.push("探索第 " + d.exploreRuns + " 次：" + (ok ? "摸进主控舱" : "只到外环") +
-        "，科技 +" + (gain * 100).toFixed(2) + "%，伤亡 " + lost + " 人");
+        "，科技 +" + (Math.round(gain * 1000) / 10) + " 点，伤亡 " + lost + " 人");
     }
 
     // 回收物资：每次拿走剩余的四成
@@ -1422,7 +1422,7 @@
       d.geneTaken = true;
       techGain += geneTech;
       drAdd += num(d.gene.drug);
-      lines.push("留下基因：科技 +" + (geneTech * 100).toFixed(2) + "%、药剂 +" + num(d.gene.drug) +
+      lines.push("留下基因：科技 +" + (Math.round(geneTech * 1000) / 10) + " 点、药剂 +" + num(d.gene.drug) +
         "；休眠者留在原位");
     }
 
@@ -1587,7 +1587,7 @@
     if (mode === "tech" || mode === "full") {
       techGain = Math.round(cp.tier * num(T.techGainK, 0.02) * 1000) / 1000;
       addTech(state, techGain);
-      lines.push("得到：科技 +" + techGain + "（对方科技档 " + cp.tier + "）");
+      lines.push("得到：科技 +" + (Math.round(techGain * 1000) / 10) + " 点（对方科技档 " + cp.tier + "）");
     }
     if (mode === "full") {
       var want = Math.round(cp.pop * num(T.popTransferK, 0.10));
@@ -2086,13 +2086,13 @@
         opt("retreat", "返回航线", true);
         return opts;
       }
-      opt("archive", "取走殖民地档案（科技 +2~5%）", true);
+      opt("archive", "取走殖民地档案（科技 +2~5 点）", true);
       opt("loot", "搜刮仓储（金属 +30~80 / 粮 +40~120）", true);
       opt("survivors", "带走幸存者（人口，需舱位）", freePods(state, cfg) > 0, "没有空舱位");
       opt("retreat", "不接触，返回航线", true);
     } else if (p.type === "alien") {
       opt("negotiate", "按心理价交易（付资源，换科技与人口）", true);
-      opt("techswap", "技术交换（金属 −60~120，科技 +3%）", num(state.stocks.metal) >= 60, "金属不足 60 吨");
+      opt("techswap", "技术交换（金属 −60~120，科技 +3 点）", num(state.stocks.metal) >= 60, "金属不足 60 吨");
       opt("refuse", "婉拒并离开", true);
     } else if (p.type === "hostile") {
       var hp = P.hostile || {};
@@ -2117,10 +2117,10 @@
         opt("retreat", "返回航线", true);
         return opts;
       }
-      opt("gift_tech", "带走技术残片（科技 +5%）", true);
+      opt("gift_tech", "带走技术残片（科技 +5 点）", true);
       opt("gift_pop", "带走沉睡信众（人口）", freePods(state, cfg) > 0, "没有空舱位");
       opt("gift_res", "带走物资（金属 +150 / 药剂 +20）", true);
-      opt("gift_gene", "带走基因样本（金属 +20 / 科技 +1%）", true);
+      opt("gift_gene", "带走基因样本（金属 +20 / 科技 +1 点）", true);
       opt("retreat", "不取，返回航线", true);
     }
     return opts;
@@ -2173,7 +2173,7 @@
         lines.push("损失：秩序 −" + (orderLoss * 100).toFixed(1) + "%、感染 +" + p.tier);
         lines.push("得到：一段无法解读的信号记录（无实装收益）");
       } else {
-        lines.push("选择：轨道级测绘，科技低于 " + Math.round(p.minTech * 100) + "%，无法落地");
+        lines.push("选择：轨道级测绘，科技低于 " + Math.round(p.minTech * 100) + " 点，无法落地");
         lines.push("得到：星表数据（无实装收益）");
         lines.push("关系：无变化");
       }
@@ -2183,7 +2183,7 @@
       tg = Math.round(tg * 10000) / 10000;
       addTech(state, tg);
       lines.push("选择：进入殖民地档案库");
-      lines.push("得到：科技 +" + (tg * 100).toFixed(2) + "%");
+      lines.push("得到：科技 +" + (Math.round(tg * 1000) / 10) + " 点");
       lines.push("关系：无变化；停留消耗已扣");
       kind = "archive";
     } else if (key === "loot") {
@@ -2214,7 +2214,7 @@
       lines.push("付出：" + Object.keys(pa.spent).map(function (k) {
         return ({ metal: "金属", food: "粮", drug: "药剂", water: "水" }[k] || k) + " −" + pa.spent[k];
       }).join("、"));
-      lines.push("得到：科技 +" + (techA * 100).toFixed(1) + "%、外来人口 +" + popA + " 人");
+      lines.push("得到：科技 +" + (Math.round(techA * 1000) / 10) + " 点、外来人口 +" + popA + " 人");
       lines.push("关系：建立了第一次接触；停留消耗已扣");
     } else if (key === "negotiate" && p.type === "hostile") {
       var payH = payValue(state, cfg, p.paid);
@@ -2224,7 +2224,7 @@
       lines.push("付出：" + Object.keys(payH.spent).map(function (k) {
         return ({ metal: "金属", food: "粮", drug: "药剂", water: "水" }[k] || k) + " −" + payH.spent[k];
       }).join("、") + "（心理价 " + p.paid + "）");
-      lines.push("得到：航线情报，科技 +1%、秩序 +1%");
+      lines.push("得到：航线情报，科技 +1 点、秩序 +1%");
       lines.push("关系：对方收钱放行，不结仇；停留消耗已扣");
     } else if (key === "techswap") {
       var costA = Math.round(num((P.alienMetal || [60, 120])[0]) +
@@ -2233,7 +2233,7 @@
       addStock(state, cfg, "metal", -costA);
       addTech(state, 0.03);
       lines.push("付出：金属 −" + costA + " 吨");
-      lines.push("得到：科技 +3%");
+      lines.push("得到：科技 +3 点");
       lines.push("关系：等价交换，无附加");
     } else if (key === "refuse") {
       state.order = clamp(num(state.order) + 0.01, 0, 1);
@@ -2251,7 +2251,7 @@
       state.order = clamp(num(state.order) - 0.03, 0.05, 1);
       addC(state, 2);
       lines.push("选择：武力夺取（M " + p.M + " ≥ F " + p.F + "）");
-      lines.push("得到：金属 +" + dm + " 吨、粮 +" + df + " 吨、药剂 +" + dd + " 份、休眠俘获 +" + dp + " 人、科技 +1%");
+      lines.push("得到：金属 +" + dm + " 吨、粮 +" + df + " 吨、药剂 +" + dd + " 份、休眠俘获 +" + dp + " 人、科技 +1 点");
       lines.push("关系：秩序 −3%、感染 +2");
     } else if (key === "eco") {
       var units = Math.round(num((AB.hydroUnits || [2, 6])[0]) +
@@ -2286,7 +2286,7 @@
       addC(state, 1 + p.tier);
       if (key === "gift_tech") {
         addTech(state, num(RU.techGain, 0.05));
-        lines.push("得到：科技 +" + (num(RU.techGain, 0.05) * 100).toFixed(1) + "%");
+        lines.push("得到：科技 +" + (Math.round(num(RU.techGain, 0.05) * 1000) / 10) + " 点");
       } else if (key === "gift_pop") {
         var rg2 = RU.popRange || [40, 100];
         var n2 = Math.round(num(rg2[0]) + randNext(state) * (num(rg2[1]) - num(rg2[0])));
@@ -2300,7 +2300,7 @@
       } else {
         addStock(state, cfg, "metal", 20);
         addTech(state, 0.01);
-        lines.push("得到：基因样本（金属 +20 吨、科技 +1%）");
+        lines.push("得到：基因样本（金属 +20 吨、科技 +1 点）");
       }
       lines.push("代价：低语 " + mind + "，秩序 −" + (ord * 100).toFixed(1) + "%、感染 +" + (1 + p.tier));
       lines.unshift("选择：进入遗迹取走一件");

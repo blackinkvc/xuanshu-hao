@@ -451,7 +451,7 @@
       } else if (id === "star") {
         if (soc.machine) soc.machine.tech = clamp(num(soc.machine.tech) + num(rew.tech), 0, 1);
         if (state.player) state.player.intelBuff = { level: rew.intel || "high", until: state.weeks + num(rew.intelWeeks, 52) };
-        gift.push("科技 +" + num(rew.tech) + "、情报「高层」" + num(rew.intelWeeks, 52) + " 周");
+        gift.push("科技 +" + (Math.round(num(rew.tech) * 1000) / 10) + " 点、情报「高层」" + num(rew.intelWeeks, 52) + " 周");
       } else if (id === "fecund") {
         if (state.groups && state.groups.undecided) {
           state.groups.undecided.awake = num(state.groups.undecided.awake) + num(rew.birth);
