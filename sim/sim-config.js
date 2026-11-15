@@ -549,6 +549,34 @@
       }
     },
 
+    // v6.58 贵族生命周期：清醒/休眠双周期 + 三条时间轴 + 八档休眠衰老系数。
+    // 主角不进入这套周期（按正常衰老）；休眠期资历不增长，只涨 existYears。
+    nobleLife: {
+      groups: ["original", "noble"],
+      lifespanBio: 120,
+      awakeYears: { L1: 20, L2: 20, L3: 15 },
+      sleepYears: { L1: 20, L2: 20, L3: 15 },
+      tiers: [
+        { mult: 0.30, tech: 0.00, name: "密封低温" },
+        { mult: 0.24, tech: 0.08, name: "循环灌注" },
+        { mult: 0.18, tech: 0.16, name: "代谢抑制" },
+        { mult: 0.12, tech: 0.24, name: "细胞休眠" },
+        { mult: 0.07, tech: 0.34, name: "深层停育" },
+        { mult: 0.04, tech: 0.46, name: "端粒维护" },
+        { mult: 0.02, tech: 0.60, name: "全基因组修复" },
+        { mult: 0.01, tech: 0.75, name: "近零代谢" }
+      ],
+      gene: {
+        floor: 0.004,
+        paths: {
+          telomere: { name: "端粒维护", sleepRelief: 0.005, tech: 0.30, drug: 600, dna: 80,
+                      text: "休眠衰老系数再降 0.5 个百分点" },
+          repair:   { name: "细胞修复", sleepRelief: 0.01, tech: 0.42, drug: 400, dna: 120,
+                      text: "休眠衰老系数再降 1 个百分点" }
+        }
+      }
+    },
+
     /* ---------------- 情报与可见性 ----------------
        可见比例 = 植入覆盖率 × 科技/警备增益 × 服从度增益 − 自由意志折损；
        未植入者只可能被巡逻/报告间接看到，其余为盲区（只给人数，不撒点）。

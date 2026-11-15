@@ -155,6 +155,12 @@
       if (!state.groups) return;
     }
     var ppl = state.people;
+    // v6.58 贵族生命周期：每周推进一次，休眠/清醒切换与生物年龄死亡都在这里
+    var wk = Math.floor(num(state.weeks, 0));
+    if (ppl.lifeWeek !== wk) {
+      lifeTick(state, cfg);
+      ppl.lifeWeek = wk;
+    }
     (cfg.population.groups || []).forEach(function (g) {
       var arr = ppl.groups[g.id] || (ppl.groups[g.id] = []);
       var st = state.groups[g.id] || { awake: 0, dormant: 0 };
@@ -163,9 +169,15 @@
       while (arr.length < target) arr.push(makePerson(ppl, cfg, g.id));
       while (arr.length > target) arr.pop();
       var cut = target - dormTarget;
+      var isLife = isLifeGroup(cfg, g.id);
       for (var i = 0; i < arr.length; i++) {
         if (typeof arr[i].charm !== "number") arr[i].charm = charmOf(cfg, arr[i].seq);
         if (typeof arr[i].mutation !== "number") arr[i].mutation = mutationOf(cfg, arr[i].g, arr[i].seq);
+        if (isLife) {
+          // 生命周期组：休眠与否由 phase 决定，sync 不再按 dormTarget 强行分配
+          if (!arr[i].phase) lifeInit(arr[i], cfg, i >= cut);
+          continue;
+        }
         var want = i >= cut;
         if (arr[i].dormant !== want) arr[i].dormant = want;
         if (want) {
@@ -349,6 +361,7 @@
           action: actionOf(p, cfg),
           charm: p.charm,
           mutation: p.mutation,
+          existYears: p.existYears, bioYears: p.bioYears, awakeYears: p.awakeYears, phase: p.phase,
           hp: ps.hp, mind: ps.mind, will: ps.will
         });
       });
@@ -459,6 +472,7 @@
           action: actionOf(p, cfg),
           charm: p.charm,
           mutation: p.mutation,
+          existYears: p.existYears, bioYears: p.bioYears, awakeYears: p.awakeYears, phase: p.phase,
           hp: ps.hp,
           mind: ps.mind,
           will: ps.will,
@@ -646,6 +660,167 @@
     return b;
   }
 
+  // ---------------- v6.58 贵族生命周期 ----------------
+  var WEEKS_PER_YEAR = 52.14;
+  var GENE_REPAIR_BONUS = 8;   // 「细胞修复」路线的生物寿命加成
+
+  function isLifeGroup(cfg, gid) {
+    return !!(cfg.nobleLife && (cfg.nobleLife.groups || []).indexOf(gid) >= 0);
+  }
+
+  function lifeTierOf(cfg, tech) {
+    var tiers = (cfg.nobleLife && cfg.nobleLife.tiers) || [];
+    var idx = 0;
+    for (var i = 0; i < tiers.length; i++) {
+      if (tech + 1e-9 >= num(tiers[i].tech, 0)) idx = i;
+    }
+    return { idx: idx, tier: tiers[idx] || { mult: 0.3, tech: 0, name: "密封低温" } };
+  }
+
+  function lifeReliefOf(state, cfg) {
+    var g = cfg.nobleLife && cfg.nobleLife.gene;
+    if (!g) return 0;
+    var got = (state.nobleLife && state.nobleLife.genes) || {};
+    var sum = 0;
+    Object.keys(g.paths || {}).forEach(function (k) { if (got[k]) sum += num(g.paths[k].sleepRelief, 0); });
+    return sum;
+  }
+
+  function lifeMultOf(state, cfg, tech) {
+    var g = cfg.nobleLife && cfg.nobleLife.gene;
+    var floor = num(g && g.floor, 0.004);
+    return Math.max(floor, lifeTierOf(cfg, tech).tier.mult - lifeReliefOf(state, cfg));
+  }
+
+  function lifeInit(p, cfg, asleep) {
+    var L = cfg.nobleLife || {};
+    var awakeY = num((L.awakeYears || {})[p.layer], 20);
+    var sleepY = num((L.sleepYears || {})[p.layer], 20);
+    var bio0 = 26 + h01(p.seq, 51) * 54;         // 开局生物年龄 26–80
+    p.existYears = bio0;
+    p.bioYears = bio0;
+    p.awakeYears = bio0 * 0.5;                    // 清醒资历不会等于生物年龄
+    p.phase = asleep ? "asleep" : "awake";
+    p.phaseYears = h01(p.seq, 53) * (asleep ? sleepY : awakeY);
+    p.dormant = !!asleep;
+    if (asleep) p.action = "休眠";
+  }
+
+  function lifeTick(state, cfg) {
+    var L = cfg.nobleLife;
+    if (!L) return;
+    var dt = 1 / WEEKS_PER_YEAR;
+    var tech = clamp(num(state.society && state.society.machine && state.society.machine.tech, 0), 0, 1);
+    var mult = lifeMultOf(state, cfg, tech);
+    var genes = (state.nobleLife && state.nobleLife.genes) || {};
+    var lim = num(L.lifespanBio, 120) + (genes.repair ? GENE_REPAIR_BONUS : 0);
+    (L.groups || []).forEach(function (gid) {
+      var arr = (state.people && state.people.groups && state.people.groups[gid]) || null;
+      if (!arr) return;
+      for (var i = arr.length - 1; i >= 0; i--) {
+        var p = arr[i];
+        if (!p.phase) lifeInit(p, cfg, !!p.dormant);
+        var awakeLimit = num((L.awakeYears || {})[p.layer], 20);
+        var sleepLimit = num((L.sleepYears || {})[p.layer], 20);
+        p.existYears += dt;
+        if (p.phase === "asleep") {
+          p.bioYears += dt * mult;
+          p.phaseYears += dt;
+          if (p.phaseYears >= sleepLimit) {
+            p.phase = "awake"; p.phaseYears = 0; p.dormant = false;
+            if (p.action === "休眠" || !ACTIONS[p.action]) p.action = defaultAction(cfg, p.g);
+          }
+        } else {
+          p.bioYears += dt;
+          p.awakeYears += dt;
+          p.phaseYears += dt;
+          if (p.phaseYears >= awakeLimit) {
+            p.phase = "asleep"; p.phaseYears = 0; p.dormant = true; p.action = "休眠";
+          }
+        }
+        if (p.bioYears >= lim) {
+          arr.splice(i, 1);
+          var st = state.groups && state.groups[gid];
+          if (st) {
+            if (p.phase === "asleep") st.dormant = Math.max(0, num(st.dormant) - 1);
+            else st.awake = Math.max(0, num(st.awake) - 1);
+          }
+          if (!state.nobleLife) state.nobleLife = { genes: {}, deaths: 0 };
+          state.nobleLife.deaths = num(state.nobleLife.deaths, 0) + 1;
+        }
+      }
+      var aw = 0, dm = 0;
+      arr.forEach(function (p) { if (p.dormant) dm++; else aw++; });
+      var st2 = state.groups && state.groups[gid];
+      if (st2) { st2.awake = aw; st2.dormant = dm; }
+    });
+    state.nobleLife = state.nobleLife || { genes: {}, deaths: 0 };
+    state.nobleLife.lastTech = tech;
+    state.nobleLife.lastMult = mult;
+  }
+
+  function nobleSummary(state, cfg) {
+    var L = cfg.nobleLife || {};
+    var tech = clamp(num(state.society && state.society.machine && state.society.machine.tech, 0), 0, 1);
+    var t = lifeTierOf(cfg, tech);
+    var mult = lifeMultOf(state, cfg, tech);
+    var n = 0, bio = 0, exist = 0, awkyr = 0, awake = 0, asleep = 0, oldest = 0;
+    (L.groups || []).forEach(function (gid) {
+      ((state.people && state.people.groups && state.people.groups[gid]) || []).forEach(function (p) {
+        if (!p.phase) lifeInit(p, cfg, !!p.dormant);
+        n++; bio += p.bioYears; exist += p.existYears; awkyr += p.awakeYears;
+        if (p.dormant) asleep++; else awake++;
+        if (p.bioYears > oldest) oldest = p.bioYears;
+      });
+    });
+    var g = state.nobleLife || {};
+    return {
+      techTier: t.idx + 1, tierName: t.tier.name, tierTech: t.tier.tech,
+      baseMultPct: t.tier.mult * 100, multPct: mult * 100,
+      genes: Object.keys(g.genes || {}).filter(function (k) { return g.genes[k]; }),
+      paths: Object.keys((L.gene && L.gene.paths) || {}).map(function (k) {
+        var d = L.gene.paths[k];
+        return { id: k, name: d.name, text: d.text, tech: d.tech, drug: d.drug, dna: d.dna,
+                 got: !!(g.genes && g.genes[k]) };
+      }),
+      floorPct: num(L.gene && L.gene.floor, 0.004) * 100,
+      lifespan: num(L.lifespanBio, 120) + ((g.genes && g.genes.repair) ? GENE_REPAIR_BONUS : 0),
+      count: n, awake: awake, asleep: asleep, deaths: num(g.deaths, 0),
+      avgBio: n ? bio / n : 0, avgExist: n ? exist / n : 0, avgAwake: n ? awkyr / n : 0,
+      oldest: oldest
+    };
+  }
+
+  function nobleGene(state, cfg, path) {
+    var d = cfg.nobleLife && cfg.nobleLife.gene && cfg.nobleLife.gene.paths[path];
+    if (!d) return { ok: false, msg: "没有这条基因强化路线" };
+    state.nobleLife = state.nobleLife || { genes: {}, deaths: 0 };
+    if (!state.nobleLife.genes) state.nobleLife.genes = {};
+    if (state.nobleLife.genes[path]) return { ok: false, msg: "「" + d.name + "」已经做过" };
+    var tech = num(state.society && state.society.machine && state.society.machine.tech, 0);
+    if (tech + 1e-9 < num(d.tech, 0)) {
+      return { ok: false, msg: "需要 " + Math.round(num(d.tech) * 100) + " 科技点，当前 " + Math.round(tech * 100) };
+    }
+    if (num(state.stocks && state.stocks.drug, 0) < num(d.drug, 0)) return { ok: false, msg: "药剂不足（需 " + d.drug + " 份）" };
+    if (num(state.stocks && state.stocks.dna, 0) < num(d.dna, 0)) return { ok: false, msg: "DNA 不足（需 " + d.dna + " 单位）" };
+    state.stocks.drug -= num(d.drug, 0);
+    state.stocks.dna -= num(d.dna, 0);
+    state.nobleLife.genes[path] = true;
+    return { ok: true, msg: "已完成「" + d.name + "」：" + d.text, noble: nobleSummary(state, cfg) };
+  }
+
+  /** 某层贵族的平均清醒年限（资历口径，不含休眠那些年）。 */
+  function avgAwake(state, cfg, layer) {
+    var n = 0, sum = 0;
+    ((cfg.nobleLife && cfg.nobleLife.groups) || []).forEach(function (gid) {
+      (((state.people || {}).groups || {})[gid] || []).forEach(function (p) {
+        if (layer && p.layer !== layer) return;
+        sum += num(p.awakeYears, 0); n++;
+      });
+    });
+    return n > 0 ? sum / n : null;
+  }
+
   /** 某层（可按部门再筛）的人均魅力；休眠者也算在内，因为魅力是固有属性。 */
   function charmAvg(ppl, layer, dept) {
     if (!ppl || !ppl.groups) return null;
@@ -661,7 +836,7 @@
   }
 
   global.XuanShuPeople = {
-    version: "1.2.0",
+    version: "1.3.0",
     create: create,
     sync: sync,
     truth: truth,
@@ -672,6 +847,9 @@
     setAction: setAction,
     actionOf: actionOf,
     charmAvg: charmAvg,
+    nobleSummary: nobleSummary,
+    nobleGene: nobleGene,
+    avgAwake: avgAwake,
     ACTIONS: ACTIONS,
     ACTION_LIST: ACTION_LIST,
     posOf: posOf

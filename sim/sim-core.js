@@ -681,6 +681,7 @@
     var state = {
       loop: 1,
       weeks: 0,
+      schema: 7,
       rngA: seed >>> 0,
       groups: groups,
       stocks: {
@@ -2007,6 +2008,9 @@
           // 真值聚合：分区人数（个人明细走 snapshot({view:"truth"})）
           people: (global.XuanShuPeople && state.people)
             ? global.XuanShuPeople.brief(state, cfg) : null,
+          // 贵族生命周期：三时间轴均值、休眠档位、基因强化状态
+          noble: (global.XuanShuPeople && state.people && global.XuanShuPeople.nobleSummary)
+            ? global.XuanShuPeople.nobleSummary(state, cfg) : null,
           // 随机判定摘要：计数、最近 10 条、各槽压力/冷却
           judge: (global.XuanShuJudge && state.judge)
             ? global.XuanShuJudge.brief(state, cfg) : null,
@@ -2100,6 +2104,14 @@
 
       listActions: function () {
         return global.XuanShuPlayer ? global.XuanShuPlayer.listActions(state, cfg) : [];
+      },
+
+      // v6.58 贵族基因强化：两条路各自一次性，消耗药剂与 DNA
+      nobleGene: function (path) {
+        var r = global.XuanShuPeople && global.XuanShuPeople.nobleGene
+          ? global.XuanShuPeople.nobleGene(state, cfg, path) : { ok: false, msg: "人口层没加载" };
+        if (r && r.ok) { ensureGroups(state, cfg); }
+        return r;
       },
 
       playerAct: function (id, payload) {
@@ -2358,7 +2370,15 @@
       importState: function (json) {
         var obj = typeof json === "string" ? JSON.parse(json) : json;
         if (!obj || !obj.groups || !obj.stocks) throw new Error("状态格式不正确");
+        // v6.58 旧档迁移：先原样备份到 localStorage，再补贵族生命周期字段，schema 升到 7
+        var needMigrate = !isNum(obj.schema) || obj.schema < 7;
+        if (needMigrate) {
+          try {
+            global.localStorage.setItem("xs.save.backup." + Date.now(), JSON.stringify(obj));
+          } catch (e) { /* 备份失败不阻断读档，但迁移仍是纯增量补字段 */ }
+        }
         state = obj;
+        state.schema = 7;
         // 旧档兼容：没有 ship 时补基准速度，读档后行为与旧版一致
         if (!state.ship || !isNum(state.ship.speedC)) {
           state.ship = { speedC: (cfg.ship && cfg.ship.speedC) || 0.045 };

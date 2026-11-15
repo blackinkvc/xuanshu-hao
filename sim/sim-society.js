@@ -279,6 +279,12 @@
         var cA = global.XuanShuPeople.charmAvg(state.people, q.layer, q.dept);
         if (cA != null) oCharm = (cA - 50) * num(cfg.society.charm.oK, 0.12);
       }
+      // v6.58 资历口径：贵族排序/职位资历按清醒年限（awakeYears），休眠的年份不算
+      if (global.XuanShuPeople && global.XuanShuPeople.avgAwake &&
+          (q.kind === "L1" || q.layer === "L1" || q.layer === "L2" || q.layer === "L3")) {
+        var sA = global.XuanShuPeople.avgAwake(state, cfg, q.layer);
+        if (sA != null) q.seniority = Math.round(sA * 10) / 10;
+      }
 
       var O = baseOOf(q, cfg) + oPhys - 0.45 * q.C + oTrauma + q.oPerm + soc.effects.oShift +
         oPoolSum(soc) - q.mig * cfg.society.eduMigration.oLoss + oCharm;
@@ -1134,7 +1140,7 @@
           n: q.n, O: q.O, W: q.W, D: q.D, span: q.span, spanCap: q.spanCap,
           S: q.S, C: q.C, broken: q.broken, stage: q.stage,
           thrallFrac: q.thrallFrac, edu: q.edu, exp: q.exp, mig: q.mig || 0,
-          superior: q.superior, age: q.age
+          superior: q.superior, age: q.age, seniority: q.seniority
         };
       }),
       depts: cfg.society.depts.map(function (d) {
