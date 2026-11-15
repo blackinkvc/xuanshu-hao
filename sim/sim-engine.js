@@ -28,7 +28,7 @@
 (function (global) {
   "use strict";
 
-  var VERSION = "2.12.0";
+  var VERSION = "2.13.0";
 
   // 一周为 1：单位 → 周数。month 不是整数周，按 52/12 折算后再取整。
   var UNITS = {
@@ -78,7 +78,8 @@
   var ACTION_KEYS = ["suppress", "concede", "execute", "replace", "interrogate", "lockdown", "ritual"];
 
   function ensureDeps() {
-    if (global.XUANSHU_CONFIG && global.XuanShuSim && global.XuanShuSociety && global.XuanShuPrison) return;
+    if (global.XUANSHU_CONFIG && global.XuanShuSim && global.XuanShuSociety && global.XuanShuPrison &&
+      global.XuanShuCrisis) return;
     if (typeof require === "function") {
       try {
         if (!global.XUANSHU_CONFIG) require("./sim-config.js");
@@ -90,6 +91,7 @@
         if (!global.XuanShuEncounter) require("./sim-encounter.js");
         if (!global.XuanShuGods) require("./sim-gods.js");
         if (!global.XuanShuRun) require("./sim-run.js");
+        if (!global.XuanShuCrisis) require("./sim-crisis.js");
         if (!global.XuanShuSim) require("./sim-core.js");
       } catch (e) { /* 浏览器里没有 require，走下面的报错 */ }
     }
@@ -413,6 +415,19 @@
       resolveTithe: function (accept) {
         var r = sim.resolveTithe(accept);
         emit("gods", r, {});
+        return r;
+      },
+
+      // —— 常驻危机（v6.49） ——
+      /** 当前挂着的危机卡、历史与已解除数 */
+      getCrisis: function () {
+        return typeof sim.getCrisis === "function" ? sim.getCrisis() : null;
+      },
+      /** 主选项 + 子项一次提交，返回逐条结果（同页展示） */
+      crisisResolve: function (id, optionId, subIds) {
+        if (typeof sim.crisisResolve !== "function") return { ok: false, msg: "引擎未提供危机结算" };
+        var r = sim.crisisResolve(id, optionId, subIds || []);
+        emit("crisis", r, {});
         return r;
       },
 

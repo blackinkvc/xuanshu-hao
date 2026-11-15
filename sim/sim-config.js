@@ -1549,6 +1549,245 @@
       }
     },
 
+    /* ---------------- 常驻危机体系（v6.49） ----------------
+       危机不是抽牌：由船上参数跨阈值挂上，未处理前每周生效。
+       三条主线统一取舍：付资源 / 付人口或秩序 / 拖延换时间。
+       数值口径：资源为「吨」，结构/护盾为点数，秩序为 0–1 的小数。 */
+    crisisStanding: {
+      enabled: true,
+      maxActive: 2,
+      evalEveryWeeks: 2,
+      cooldownWeeks: 104,
+      defs: [
+        {
+          id: "cr_standing_mutiny",
+          name: "哗变前夜",
+          tag: "秩序",
+          trigger: { orderBelow: 0.40, mutinyLevel: 3 },
+          triggerText: "秩序低于 40%，或哗变等级达到 3",
+          debuff: { prodMul: 0.94, orderPerWeek: -0.003 },
+          debuffText: "全船产出 −6% · 每周秩序 −0.3%",
+          choices: [
+            {
+              id: "concede", label: "让步安抚", desc: "先稳住人，再谈条件", mode: "one",
+              subs: [
+                { id: "ration_up", label: "提高口粮配给", effect: "粮 −30 吨、秩序 +5%", ops: [{ t: "stock", k: "food", v: -30 }, { t: "order", v: 0.05 }] },
+                { id: "pods_200", label: "增设休眠席位 200", effect: "苏醒 −200（受空舱位限制）、秩序 +3%", ops: [{ t: "sleep", v: 200 }, { t: "order", v: 0.03 }] },
+                { id: "open_books", label: "公开账目", effect: "秩序 +2%、产出 −2%（2 周）", ops: [{ t: "order", v: 0.02 }, { t: "prodTmp", v: -0.02, weeks: 2 }] }
+              ]
+            },
+            {
+              id: "crackdown", label: "强硬镇压", desc: "用警备和宵禁压住，代价记在秩序上", mode: "multi", min: 1, max: 2,
+              subs: [
+                { id: "arrest", label: "抓捕带头者 8 人", effect: "人口 −8、秩序 +4%", ops: [{ t: "pop", v: -8 }, { t: "order", v: 0.04 }] },
+                { id: "guard", label: "警备队加班", effect: "金属 −12、警备 +6", ops: [{ t: "stock", k: "metal", v: -12 }, { t: "garrison", v: 6 }] },
+                { id: "curfew", label: "宵禁四周", effect: "秩序 +3%、产出 −4%（4 周）", ops: [{ t: "order", v: 0.03 }, { t: "prodTmp", v: -0.04, weeks: 4 }] }
+              ]
+            },
+            {
+              id: "delay", label: "先拖一拖", desc: "不解决，只把爆发点往后推", mode: "one",
+              subs: [
+                { id: "watch", label: "只派人盯着", effect: "无消耗、暂缓 8 周", ops: [], holdWeeks: 8 },
+                { id: "promise", label: "口头承诺", effect: "秩序 +1%、暂缓 4 周、冷却 16 周", ops: [{ t: "order", v: 0.01 }], holdWeeks: 4 }
+              ]
+            }
+          ]
+        },
+        {
+          id: "cr_standing_hull",
+          name: "舱段失压",
+          tag: "船体",
+          trigger: { structureBelow: 68 },
+          triggerText: "结构完整度低于 68",
+          debuff: { prodMul: 0.95, structurePerWeek: -0.06 },
+          debuffText: "全船产出 −5% · 每周结构 −0.06",
+          choices: [
+            {
+              id: "repair", label: "组织抢修", desc: "花金属换结构，最稳但最贵", mode: "one",
+              subs: [
+                { id: "one_bay", label: "抢一处舱段", effect: "金属 −25、结构 +6", ops: [{ t: "stock", k: "metal", v: -25 }, { t: "structure", v: 6 }] },
+                { id: "two_bays", label: "同时抢两处", effect: "金属 −45、结构 +10", ops: [{ t: "stock", k: "metal", v: -45 }, { t: "structure", v: 10 }] }
+              ]
+            },
+            {
+              id: "seal", label: "封舱弃段", desc: "少一段舱，换船体止漏", mode: "one",
+              subs: [
+                { id: "drop_hab", label: "弃居住环", effect: "人口 −20、结构 +4", ops: [{ t: "pop", v: -20 }, { t: "structure", v: 4 }] },
+                { id: "drop_farm", label: "弃农环", effect: "粮 −25 吨、结构 +4", ops: [{ t: "stock", k: "food", v: -25 }, { t: "structure", v: 4 }] }
+              ]
+            },
+            {
+              id: "endure", label: "减压硬撑", desc: "不投料，靠限速和值守熬", mode: "one",
+              subs: [
+                { id: "slow", label: "减压慢行", effect: "产出 −3%（4 周）、结构 +1", ops: [{ t: "prodTmp", v: -0.03, weeks: 4 }, { t: "structure", v: 1 }] },
+                { id: "watch_all", label: "全员戒备", effect: "秩序 −2%、结构 +2", ops: [{ t: "order", v: -0.02 }, { t: "structure", v: 2 }] }
+              ]
+            }
+          ]
+        },
+        {
+          id: "cr_standing_water",
+          name: "断水",
+          tag: "生保",
+          trigger: { waterBelow: 1000 },
+          triggerText: "淡水库存低于 1000 吨",
+          debuff: { prodMul: 0.90, orderPerWeek: -0.002 },
+          debuffText: "全船产出 −10% · 每周秩序 −0.2%",
+          choices: [
+            {
+              id: "ration_water", label: "全船限水", desc: "立刻省出水，代价是秩序", mode: "one",
+              subs: [
+                { id: "all", label: "全员均摊", effect: "秩序 −3%、水 +180 吨", ops: [{ t: "order", v: -0.03 }, { t: "stock", k: "water", v: 180 }] },
+                { id: "lower", label: "只限下两层", effect: "秩序 −5%、水 +120 吨", ops: [{ t: "order", v: -0.05 }, { t: "stock", k: "water", v: 120 }] }
+              ]
+            },
+            {
+              id: "repair_loop", label: "抢修循环", desc: "修泵或挪用生保水", mode: "one",
+              subs: [
+                { id: "pump", label: "换泵", effect: "金属 −30、水 +260 吨", ops: [{ t: "stock", k: "metal", v: -30 }, { t: "stock", k: "water", v: 260 }] },
+                { id: "life_water", label: "挪用生保水", effect: "水 +150 吨、秩序 −2%", ops: [{ t: "stock", k: "water", v: 150 }, { t: "order", v: -0.02 }] }
+              ]
+            },
+            {
+              id: "reclaim", label: "强制回收", desc: "把不该算水的东西算成水", mode: "one",
+              subs: [
+                { id: "corpse", label: "尸体回收", effect: "人口 −6、水 +200 吨、秩序 −2%", ops: [{ t: "pop", v: -6 }, { t: "stock", k: "water", v: 200 }, { t: "order", v: -0.02 }] },
+                { id: "urine", label: "尿液循环", effect: "水 +90 吨、秩序 −1%", ops: [{ t: "stock", k: "water", v: 90 }, { t: "order", v: -0.01 }] }
+              ]
+            }
+          ]
+        },
+        {
+          id: "cr_standing_blight",
+          name: "农环病害",
+          tag: "粮食",
+          trigger: { foodBelow: 150 },
+          triggerText: "粮食库存低于 150 吨",
+          debuff: { foodPerWeek: -6 },
+          debuffText: "每周粮食 −6 吨",
+          choices: [
+            {
+              id: "burn", label: "烧毁病株", desc: "止损最快，粮也一起烧掉", mode: "one",
+              subs: [
+                { id: "area", label: "烧病区", effect: "粮 −40 吨", ops: [{ t: "stock", k: "food", v: -40 }] },
+                { id: "half", label: "烧半个农环", effect: "粮 −70 吨、秩序 −2%", ops: [{ t: "stock", k: "food", v: -70 }, { t: "order", v: -0.02 }] }
+              ]
+            },
+            {
+              id: "reseed", label: "换种止损", desc: "用药剂或外来种源", mode: "one",
+              subs: [
+                { id: "drug", label: "用药剂", effect: "药剂 −30、粮 +25 吨", ops: [{ t: "stock", k: "drug", v: -30 }, { t: "stock", k: "food", v: 25 }] },
+                { id: "borrow", label: "向别船借种", effect: "粮 +40 吨、金属 −10", ops: [{ t: "stock", k: "food", v: 40 }, { t: "stock", k: "metal", v: -10 }] }
+              ]
+            },
+            {
+              id: "cover", label: "压住消息", desc: "不处理，只把消息压下去", mode: "one",
+              subs: [
+                { id: "silence", label: "封锁消息", effect: "秩序 −1%、暂缓 6 周", ops: [{ t: "order", v: -0.01 }], holdWeeks: 6 },
+                { id: "harvest", label: "照常收割", effect: "粮 −10 吨、暂缓 4 周", ops: [{ t: "stock", k: "food", v: -10 }], holdWeeks: 4 }
+              ]
+            }
+          ]
+        },
+        {
+          id: "cr_standing_infection",
+          name: "传染爆发",
+          tag: "医疗",
+          trigger: { infectAbove: 0.22 },
+          triggerText: "感染占比高于 22%",
+          debuff: { prodMul: 0.93, orderPerWeek: -0.002 },
+          debuffText: "全船产出 −7% · 每周秩序 −0.2%",
+          choices: [
+            {
+              id: "isolate", label: "分区隔离", desc: "用空间换时间", mode: "one",
+              subs: [
+                { id: "three", label: "封三舱", effect: "秩序 −4%、感染扩散暂停 8 周", ops: [{ t: "order", v: -0.04 }, { t: "infectLock", weeks: 8 }] },
+                { id: "screen", label: "全船筛检", effect: "产出 −5%（2 周）、感染扩散暂停 6 周", ops: [{ t: "prodTmp", v: -0.05, weeks: 2 }, { t: "infectLock", weeks: 6 }] }
+              ]
+            },
+            {
+              id: "treat", label: "集中用药", desc: "拿药剂压感染", mode: "one",
+              subs: [
+                { id: "full", label: "全量用药", effect: "药剂 −60、感染扩散暂停 12 周", ops: [{ t: "stock", k: "drug", v: -60 }, { t: "infectLock", weeks: 12 }] },
+                { id: "key", label: "只治关键岗", effect: "药剂 −25、扩散暂停 6 周、产出 −3%（2 周）", ops: [{ t: "stock", k: "drug", v: -25 }, { t: "infectLock", weeks: 6 }, { t: "prodTmp", v: -0.03, weeks: 2 }] }
+              ]
+            },
+            {
+              id: "abandon", label: "放弃病区", desc: "把感染连同人一起切掉", mode: "one",
+              subs: [
+                { id: "cut", label: "断供病区", effect: "人口 −20、秩序 −3%、扩散暂停 8 周", ops: [{ t: "pop", v: -20 }, { t: "order", v: -0.03 }, { t: "infectLock", weeks: 8 }] },
+                { id: "euth", label: "安乐死", effect: "人口 −35、秩序 −6%、扩散暂停 12 周", ops: [{ t: "pop", v: -35 }, { t: "order", v: -0.06 }, { t: "infectLock", weeks: 12 }] }
+              ]
+            }
+          ]
+        },
+        {
+          id: "cr_standing_blackout",
+          name: "全船停电",
+          tag: "能源",
+          trigger: { energyBelow: 45, wearAbove: 0.80 },
+          triggerText: "供电低于 45 MW，或磨损高于 80%",
+          debuff: { prodMul: 0.85, orderPerWeek: -0.002 },
+          debuffText: "全船产出 −15% · 每周秩序 −0.2%",
+          choices: [
+            {
+              id: "shed", label: "限电保生保", desc: "先保人命，再谈产出", mode: "one",
+              subs: [
+                { id: "life", label: "保生保", effect: "产出 −12%（4 周）", ops: [{ t: "prodTmp", v: -0.12, weeks: 4 }] },
+                { id: "rotate", label: "轮流供电", effect: "产出 −8%（4 周）、秩序 −1%", ops: [{ t: "prodTmp", v: -0.08, weeks: 4 }, { t: "order", v: -0.01 }] }
+              ]
+            },
+            {
+              id: "strip", label: "拆件补电", desc: "拆东墙补西墙", mode: "one",
+              subs: [
+                { id: "noncritical", label: "拆非关键舱", effect: "金属 +40、磨损 +4%", ops: [{ t: "stock", k: "metal", v: 40 }, { t: "wear", v: 0.04 }] },
+                { id: "spare", label: "拆备用堆", effect: "金属 +20、产出 −2%（2 周）", ops: [{ t: "stock", k: "metal", v: 20 }, { t: "prodTmp", v: -0.02, weeks: 2 }] }
+              ]
+            },
+            {
+              id: "overload", label: "强行超载", desc: "电回来了，船体记账", mode: "one",
+              subs: [
+                { id: "over", label: "超载运行", effect: "护盾 −8、磨损 +2%", ops: [{ t: "shield", v: -8 }, { t: "wear", v: 0.02 }] },
+                { id: "bypass", label: "绕过保险", effect: "结构 −3、产出 +2%（2 周）", ops: [{ t: "structure", v: -3 }, { t: "prodTmp", v: 0.02, weeks: 2 }] }
+              ]
+            }
+          ]
+        },
+        {
+          id: "cr_standing_machine",
+          name: "机器暴走",
+          tag: "机械",
+          trigger: { autonomyAbove: 0.45 },
+          triggerText: "机器自主性高于 0.45",
+          debuff: { prodMul: 0.92, wearPerWeek: 0.0015 },
+          debuffText: "全船产出 −8% · 每周磨损 +0.15%",
+          choices: [
+            {
+              id: "reboot", label: "断电重启", desc: "停一次产，把控制权抢回来", mode: "one",
+              subs: [
+                { id: "all", label: "全船断电", effect: "金属 −20、产出 −6%（2 周）", ops: [{ t: "stock", k: "metal", v: -20 }, { t: "prodTmp", v: -0.06, weeks: 2 }, { t: "machineReset" }] },
+                { id: "bay", label: "只断机舱", effect: "金属 −10、产出 −3%（2 周）", ops: [{ t: "stock", k: "metal", v: -10 }, { t: "prodTmp", v: -0.03, weeks: 2 }, { t: "machineReset" }] }
+              ]
+            },
+            {
+              id: "delegate", label: "让出调度", desc: "用权限换短期产出", mode: "one",
+              subs: [
+                { id: "primary", label: "交出一级调度", effect: "产出 +4%（4 周）、暂缓 8 周", ops: [{ t: "prodTmp", v: 0.04, weeks: 4 }], holdWeeks: 8 },
+                { id: "farm", label: "只让农环", effect: "产出 +2%（4 周）、暂缓 6 周", ops: [{ t: "prodTmp", v: 0.02, weeks: 4 }], holdWeeks: 6 }
+              ]
+            },
+            {
+              id: "teardown", label: "拆解主板", desc: "拆掉才不再夺权，产能长期受损", mode: "one",
+              subs: [
+                { id: "core", label: "拆控制核心", effect: "金属 +30、产出 −8%（8 周）", ops: [{ t: "stock", k: "metal", v: 30 }, { t: "prodTmp", v: -0.08, weeks: 8 }, { t: "machineDept" }] },
+                { id: "firmware", label: "降级固件", effect: "金属 −15、自主回落一档", ops: [{ t: "stock", k: "metal", v: -15 }, { t: "machineDept" }] }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+
     /* ---------------- 页面滑块定义 ---------------- */
     ui: {
       sliders: [

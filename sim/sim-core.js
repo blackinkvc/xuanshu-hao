@@ -720,6 +720,10 @@
     if (global.XuanShuRun && cfg.run && cfg.run.enabled !== false) {
       state.run = global.XuanShuRun.create(cfg);
     }
+    // 常驻危机：由船上参数跨阈值挂上，独立于奇遇牌库
+    if (global.XuanShuCrisis) {
+      state.crisis = global.XuanShuCrisis.create(cfg);
+    }
     pushSeries(state, cfg);
     return state;
   }
@@ -1087,6 +1091,10 @@
       var baseLoss = Math.min(FD.maxLoss == null ? 0.12 : FD.maxLoss, ageLoss + ringLoss);
       var decayF = 1 - clamp(baseLoss + structLoss + wearLoss, 0, 0.95);
       production *= decayF;
+    }
+    // 常驻危机：debuff 里的产出折损按周叠加（消除后自动撤掉）
+    if (global.XuanShuCrisis) {
+      production *= global.XuanShuCrisis.prodMul(state, cfg);
     }
     var planet = I.planetCut ? 0 : (cfg.food.planetTpy + mAdd("foodPerYear", 0));
 
@@ -1572,6 +1580,9 @@
     // 失败检查（每周一次，优先级 0–6）：命中即终局，时间冻结
     if (global.XuanShuRun) global.XuanShuRun.weekly(state, cfg);
 
+    // 常驻危机：先评估触发，再施加本周 debuff
+    if (global.XuanShuCrisis) global.XuanShuCrisis.weekly(state, cfg);
+
     // 千年节点 / 胜利 / 回滚：节点年数读 run.nodeYears，不再写死 1000
     var nodeYears = Number(cfg.run && cfg.run.nodeYears);
     if (!(nodeYears > 0)) nodeYears = cfg.time.loopYears || 1000;
@@ -1869,7 +1880,10 @@
             ? global.XuanShuPrison.brief(state, cfg) : null,
           // 千年节点 / 自动推演 / 胜负摘要
           run: (global.XuanShuRun && state.run)
-            ? global.XuanShuRun.brief(state, cfg) : null
+            ? global.XuanShuRun.brief(state, cfg) : null,
+          // 常驻危机：active 卡片、历史与已解除数
+          crisis: (global.XuanShuCrisis && state.crisis)
+            ? global.XuanShuCrisis.brief(state, cfg) : null
         };
       },
 
@@ -1991,6 +2005,18 @@
       /* ---------- 千年节点 / 自动推演 / 胜负 ---------- */
       getRun: function () {
         return global.XuanShuRun ? global.XuanShuRun.brief(state, cfg) : null;
+      },
+
+      /* ---------- 常驻危机 ---------- */
+      getCrisis: function () {
+        return global.XuanShuCrisis ? global.XuanShuCrisis.brief(state, cfg) : null;
+      },
+
+      /** 主选项 + 子项一次提交；同页返回逐条结果 */
+      crisisResolve: function (id, optionId, subIds) {
+        return global.XuanShuCrisis
+          ? global.XuanShuCrisis.resolve(state, cfg, id, optionId, subIds || [])
+          : { ok: false, msg: "危机层未加载" };
       },
 
       /** 结算千年节点："auto" 自动推演 / "manual" 继续手动；结算后立即回滚进下一轮 */
@@ -2127,6 +2153,7 @@
         if (global.XuanShuGods) global.XuanShuGods.ensure(state, cfg);
         if (global.XuanShuPrison) global.XuanShuPrison.ensure(state, cfg);
         if (global.XuanShuRun) global.XuanShuRun.ensure(state, cfg);
+        if (global.XuanShuCrisis) global.XuanShuCrisis.ensure(state, cfg);
         return api.getState();
       },
 
@@ -2153,6 +2180,7 @@
         if (global.XuanShuGods) global.XuanShuGods.ensure(state, cfg);
         if (global.XuanShuPrison) global.XuanShuPrison.ensure(state, cfg);
         if (global.XuanShuRun) global.XuanShuRun.ensure(state, cfg);
+        if (global.XuanShuCrisis) global.XuanShuCrisis.ensure(state, cfg);
         return api.getState();
       }
     };
