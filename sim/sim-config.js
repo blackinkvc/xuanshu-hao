@@ -566,7 +566,7 @@
         { mult: 0.07, tech: 0.34, name: "深层停育" },
         { mult: 0.04, tech: 0.46, name: "端粒维护" },
         { mult: 0.02, tech: 0.60, name: "全基因组修复" },
-        { mult: 0.001, tech: 0.75, name: "近零代谢" }
+        { mult: 0.01, tech: 0.75, name: "近零代谢" }
       ],
       gene: {
         floor: 0.004,
@@ -1044,6 +1044,22 @@
       calmAt: 40,
       devourCap: 100,
       mawDevourPerYear: 0.5,
+      /* 神性孕育（v6.60）：繁育神抬出生（birthMul 走 gMul）；其他古神出圣子 / 圣女。
+         孕期 10 年，会流产；只给暗示，不给数字。 */
+      holy: {
+        startFavor: 45,           // 主神神恩到这个数才会开始
+        startEveryYears: 10,      // 每 10 年试一次
+        startChance: 0.35,
+        pregWeeks: 520,           // 10 年孕期
+        foodPerWeek: 0.35,        // 孕期每周额外进食（吨）
+        miscarryBase: perWeek(0.0008),
+        healthHit: 12,            // 载体健康惩罚（孕期在身上挂着）
+        hintWeeks: 26,            // 每 26 周给一条传闻
+        adultYears: 18,           // 圣子 / 圣女成年
+        childDeath: perWeek(0.001), // 存活期每周夭折基数（18 年约两成）
+        favorPerWeek: 0.02,       // 孕期与存活期神恩
+        cDamp: 0.02               // 孕期全船感染度每周回落（神恩耐受）
+      },
       ids: ["maw", "weaver", "star", "fecund"],
       /* 教会：眷属足够多时自然长出，成形后神恩才在界面可见。
          权重理由：眷属占比＝人口基础 45%；感染压力＝教义土壤 20%；

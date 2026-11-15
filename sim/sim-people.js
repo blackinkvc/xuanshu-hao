@@ -557,7 +557,7 @@
       will = meanW + (h01(p.seq, 53) - 0.5) * 18;
     }
     return {
-      hp: Math.round(clamp(hp + act.hp * 6, 5, 100) * 10) / 10,
+      hp: Math.round(clamp(hp + act.hp * 6 + num(p.hpMod, 0), 5, 100) * 10) / 10,
       mind: Math.round(clamp(mind + act.mind * 6, 0, 100) * 10) / 10,
       will: Math.round(clamp(will, 0, 100) * 10) / 10,
       infected: infected

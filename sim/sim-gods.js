@@ -104,6 +104,7 @@
     }
     if (!g.church.formed) { g.church.weeksUp = num(g.church.weeksUp); g.church.weeksDown = num(g.church.weeksDown); }
     if (!g.rapture || typeof g.rapture !== "object") g.rapture = {};
+    if (!g.holy || typeof g.holy !== "object") g.holy = { phase: "none", lastTry: 0 };
     return g;
   }
 
@@ -339,7 +340,149 @@
         ch.weeksDown = 0;
       }
     }
+    holyTick(state, cfg);
     return ch;
+  }
+
+  /* ---------------- 神性孕育（v6.60） ---------------- */
+  function holyOf(cfg) { return (cfg.gods && cfg.gods.holy) || {}; }
+
+  function personBySeq(state, seq) {
+    if (!state.people || !state.people.groups || !seq) return null;
+    var found = null;
+    Object.keys(state.people.groups).forEach(function (gid) {
+      if (found) return;
+      state.people.groups[gid].forEach(function (p) { if (!found && p.seq === seq) found = p; });
+    });
+    return found;
+  }
+
+  // 载体：从贵族层里挑一个还醒着、尚未入教的
+  function pickHolyCarrier(state) {
+    var arrs = state.people && state.people.groups;
+    if (!arrs) return null;
+    var best = null;
+    Object.keys(arrs).forEach(function (gid) {
+      arrs[gid].forEach(function (p) {
+        if (p.dormant || num(p.cultStage, 0) >= 1) return;
+        if (p.layer !== "L1" && p.layer !== "L2") return;
+        if (!best || p.seq > best.seq) best = p;
+      });
+    });
+    return best;
+  }
+
+  // 出生：从「未定」里挑一个最小的，标成圣子 / 圣女
+  function pickHolyChild(state) {
+    var arr = (state.people && state.people.groups && state.people.groups.undecided) || [];
+    var best = null;
+    for (var i = 0; i < arr.length; i++) {
+      if (arr[i].dormant) continue;
+      if (!best || arr[i].seq < best.seq) best = arr[i];
+    }
+    return best;
+  }
+
+  // 圣子可能在成长中被移到别的组，seq 变了也能按 holyOf 找回来
+  function findHoly(state, hs) {
+    var bySeq = personBySeq(state, hs.childSeq);
+    if (bySeq) return bySeq;
+    var found = null;
+    var groups = (state.people && state.people.groups) || {};
+    Object.keys(groups).forEach(function (gid) {
+      if (found) return;
+      groups[gid].forEach(function (q) { if (!found && q.holyOf === hs.godId) found = q; });
+    });
+    return found;
+  }
+
+  function holyTick(state, cfg) {
+    var g = state.gods;
+    if (!g || !g.enabled || g.legacy) return null;
+    var H = holyOf(cfg);
+    var hs = g.holy || (g.holy = { phase: "none", lastTry: 0 });
+    var now = state.weeks | 0;
+
+    if (hs.phase === "pregnant") {
+      hs.weeks = num(hs.weeks, 0) + 1;
+      // 进食消耗：断粮会推高流产
+      var need = num(H.foodPerWeek, 0.35);
+      var have = num(state.stocks && state.stocks.food, 0);
+      if (have >= need) state.stocks.food = have - need;
+      else hs.miss = num(hs.miss, 0) + 1;
+      // 孕期神恩与耐受：全船感染度缓慢回落
+      ((state.society && state.society.queues) || []).forEach(function (q) {
+        q.C = clamp(num(q.C, 0) - num(H.cDamp, 0.02), 0, 100);
+      });
+      var rec = g.pacts[hs.godId];
+      if (rec) rec.favor = clamp(num(rec.favor, 0) + num(H.favorPerWeek, 0.02), -100, 100);
+      // 健康 debuff 挂在载体身上
+      var carrier = personBySeq(state, hs.carrierSeq);
+      if (carrier) carrier.hpMod = -num(H.healthHit, 12);
+
+      var orderF = clamp(num(state.society && state.society.meanO, 60) / 100, 0, 1);
+      var p = num(H.miscarryBase, 0.0008) * (1 + num(hs.miss, 0) * 2) * (1 + (1 - orderF) * 2);
+      if (randNext(state) < p) {
+        hs.phase = "none";
+        if (carrier) carrier.hpMod = 0;
+        if (rec) rec.favor = num(rec.favor, 0) - 5;
+        g.history.push({ year: Math.round(absYear(state, cfg)), type: "holy", text: "孕育中断" });
+        pushEvent(state, cfg, "教会里少了一个人",
+          "有个一直被单独照顾的人忽然不见了，没人肯说细节。", "", null, "不祥");
+        return hs;
+      }
+      // 只给暗示，不给数字
+      var hw = Math.max(1, num(H.hintWeeks, 26));
+      if (hs.weeks % hw === 0 && hs.weeks < num(H.pregWeeks, 520)) {
+        var hints = ["有人在夜里听见摇篮曲，但船上没有婴儿。",
+          "教团把某段走廊封了，说是消毒。",
+          "会长每月往一个不登记的房间送一次饭。",
+          "有人梦见那间房里有第二个心跳。"];
+        pushEvent(state, cfg, "教会 · 传闻",
+          hints[Math.floor(hs.weeks / hw) % hints.length], "", null, "只是传闻");
+      }
+      if (hs.weeks >= num(H.pregWeeks, 520)) {
+        var child = pickHolyChild(state);
+        if (carrier) carrier.hpMod = -num(H.healthHit, 12) * 0.5;
+        if (child) {
+          child.holyOf = hs.godId;
+          child.cultStage = 1; child.cultSince = now; child.cultC = 30;
+          hs.childSeq = child.seq;
+          hs.phase = "child";
+          hs.adultWeek = now + Math.round(num(H.adultYears, 18) * 52.14);
+          pushEvent(state, cfg, "教会 · 圣子降生",
+            "教团说，神给了他们一个孩子。没有人见过。", "", null, "圣子 / 圣女");
+        } else {
+          hs.phase = "none";
+        }
+      }
+    } else if (hs.phase === "child") {
+      // 存活期：神恩继续，感染仍被压制
+      var rec2 = g.pacts[hs.godId];
+      if (rec2) rec2.favor = clamp(num(rec2.favor, 0) + num(H.favorPerWeek, 0.02) * 0.5, -100, 100);
+      ((state.society && state.society.queues) || []).forEach(function (q) {
+        q.C = clamp(num(q.C, 0) - num(H.cDamp, 0.02) * 0.4, 0, 100);
+      });
+      var kid = findHoly(state, hs);
+      // 名册会随成熟 / 人口结算换人，找不到人不等于夭折；夭折单独按概率判
+      if (randNext(state) < num(H.childDeath, 0.0002)) {
+        hs.phase = "none";
+        pushEvent(state, cfg, "教会 · 圣子夭折", "那个孩子没能长大。", "", null, "不祥");
+      } else if (now >= num(hs.adultWeek, now + 1)) {
+        if (!kid) kid = pickHolyChild(state);
+        if (kid) {
+          kid.holyOf = hs.godId;
+          kid.cultStage = 3; kid.cultC = 90; kid.cultSince = now;
+          hs.childSeq = kid.seq;
+        }
+        hs.phase = "none";
+        var mum = personBySeq(state, hs.carrierSeq);
+        if (mum) mum.hpMod = 0;
+        pushEvent(state, cfg, "教会 · 圣子成年",
+          "教团里出现了一个从不出面的高位者。", "", null, "教团高阶");
+      }
+    }
+    return hs;
   }
 
   /* ---------------- 耐受 / 索取曲线 ---------------- */
@@ -724,6 +867,26 @@
 
     // 神直接收人：每年一次，受同神 15 年 / 全局 8 年冷却约束
     raptureCheck(state, cfg, now);
+
+    // 神性孕育：繁育神抬出生（birthMul 已由 gMul 生效），其他古神走圣子 / 圣女
+    var H = holyOf(cfg);
+    var hs = g.holy || (g.holy = { phase: "none", lastTry: 0 });
+    if (hs.phase === "none") {
+      var prim = primaryOf(state, cfg);
+      var everyY = Math.max(1, num(H.startEveryYears, 10));
+      if (prim && prim !== "fecund" && g.pacts[prim] && g.pacts[prim].pact &&
+          num(g.pacts[prim].favor, 0) >= num(H.startFavor, 45) &&
+          now - num(hs.lastTry, 0) >= everyY) {
+        hs.lastTry = now;
+        if (randNext(state) < num(H.startChance, 0.35)) {
+          var carrier = pickHolyCarrier(state);
+          g.holy = { phase: "pregnant", godId: prim, weeks: 0, startWeek: state.weeks,
+            miss: 0, carrierSeq: carrier ? carrier.seq : 0, lastTry: now };
+          pushEvent(state, cfg, "教会 · 一个传闻",
+            "教团开始为一个「还没发生的事」收供品。", "", null, "只是传闻");
+        }
+      }
+    }
 
     return g.pendingTithe;
   }
