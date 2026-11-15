@@ -601,6 +601,42 @@
     return Object.keys(g.pacts).some(function (k) { return g.pacts[k] && g.pacts[k].pact; });
   }
 
+  /* ---------------- 代价的两把尺子 ----------------
+     规模：按这张牌的分量（稀有度）加价，越少见的收获，同一件事要付的越多。
+     处境：磨损重、秩序低、存粮紧的时候，负向操作放大、正向收益打折。
+     渲染与结算共用这一份系数，页面上写的和实际扣的永远是同一个数。 */
+  var RARITY_COST = { common: 0, rare: 0.12, epic: 0.24, legendary: 0.36 };
+  // 哪些操作天生就是代价：磨损、感染、不服涨、服从跌、资源与人口为负
+  function opIsCost(op) {
+    if (!op) return false;
+    if (op.t === "wear" || op.t === "infect" || op.t === "randomInfect") return num(op.v) > 0;
+    if (op.t === "queue") {
+      if (op.k === "W") return num(op.v) > 0;
+      if (op.k === "O") return num(op.v) < 0;
+      return false;
+    }
+    return num(op.v) < 0;
+  }
+  function hasCostOps(c) {
+    return (c.ops || []).some(opIsCost);
+  }
+  function costScale(state, cfg, rarity) {
+    var strain = 0;
+    if (num(state.wear) > 0.45) strain += (num(state.wear) - 0.45) / 0.55;
+    if (num(state.order) < 0.35) strain += (0.35 - num(state.order)) / 0.35;
+    var fd = 1e9;
+    try { fd = global.XuanShuSim.foodDays(state, cfg); } catch (e) { fd = 1e9; }
+    if (isFinite(fd) && fd < 180) strain += (180 - fd) / 180;
+    strain = Math.max(0, Math.min(1, strain));
+    var size = 1 + (RARITY_COST[rarity] || 0);
+    return {
+      strain: strain,
+      size: size,
+      costMul: (1 + 0.5 * strain) * size,
+      gainMul: 1 - 0.3 * strain
+    };
+  }
+
   function cardView(state, cfg, cat, c) {
     var n = checkNeed(state, cfg, c);
     var gview = c.gap ? gapView(state, cfg, c.gap) : null;
@@ -612,8 +648,24 @@
       available: n.ok,
       reason: n.reason,
       effectText: gview ? gview.effectText : (c.effectText || ""),
-      costText: gview ? gview.costText : (c.costText || ""),
-      followText: gview ? gview.followText : (c.followText || ""),
+      costText: (function () {
+        var base = gview ? gview.costText : (c.costText || "");
+        if (!base || base === "—") return base;
+        if (gview || !hasCostOps(c)) return base;
+        var sc = costScale(state, cfg, c.rarity);
+        if (sc.costMul <= 1.02) return base;
+        return base + "（眼下按 ×" + (Math.round(sc.costMul * 100) / 100) + " 算）";
+      })(),
+      followText: (function () {
+        var ft = gview ? gview.followText : (c.followText || "");
+        if (!ft || ft === "—" || ft === "-") return "";
+        // 有持续效果才留「后效」：按实际会落地的持续类操作判断，不看配置里填没填
+        var lasting = (c.follow && c.follow.length > 0) ||
+          (c.ops || []).some(function (op) {
+            return op && (op.t === "mod" || op.t === "intel" || op.t === "flag");
+          });
+        return lasting ? ft : "";
+      })(),
       gap: c.gap || "",
       gapInfo: gview ? gview.info : null,
       choices: (c.choices || []).slice(),
@@ -715,6 +767,14 @@
   function applyOps(state, cfg, card, choice, notes) {
     var ops = (card.ops || []).slice();
     var soc = state.society || {};
+    // 代价：规模（稀有度）× 处境（磨损 / 秩序 / 存粮），与卡片上显示的系数同源
+    var sc = costScale(state, cfg, card.rarity);
+    var costMul = sc.costMul;
+    var gainMul = sc.gainMul;
+    var scale = function (v, op) {
+      var n = num(v);
+      return opIsCost(op) ? n * costMul : n * gainMul;
+    };
     var caps = {
       food: cfg.food.cap > 0 ? cfg.food.cap : 1e9, water: cfg.water.cap,
       metal: cfg.metal.cap, drug: cfg.hibernation.drugCap
@@ -723,70 +783,82 @@
       var k = op.t;
       if (k === "stock") {
         var key = op.k;
-        state.stocks[key] = clamp(num(state.stocks[key]) + num(op.v), 0, caps[key] || 1e9);
-        notes.push((STOCK_LABEL[key] || key) + " " + (op.v >= 0 ? "+" : "") + op.v +
+        var vStock = scale(op.v, op);
+        state.stocks[key] = clamp(num(state.stocks[key]) + vStock, 0, caps[key] || 1e9);
+        notes.push((STOCK_LABEL[key] || key) + " " + (vStock >= 0 ? "+" : "") + Math.round(vStock) +
           " " + (STOCK_UNIT[key] || ""));
       } else if (k === "stockPct") {
         var key2 = op.k;
-        state.stocks[key2] = clamp(num(state.stocks[key2]) * (1 + num(op.v)), 0, caps[key2] || 1e9);
-        notes.push((STOCK_LABEL[key2] || key2) + " " + (op.v >= 0 ? "+" : "") + Math.round(op.v * 100) + "%");
+        state.stocks[key2] = clamp(num(state.stocks[key2]) * (1 + scale(op.v, op)), 0, caps[key2] || 1e9);
+        notes.push((STOCK_LABEL[key2] || key2) + " " + (scale(op.v, op) >= 0 ? "+" : "") + Math.round(scale(op.v, op) * 100) + "%");
       } else if (k === "infra") {
         var cap = op.k === "hydro" ? cfg.food.hydroMax
           : (op.k === "clonePods" ? cfg.clone.maxPods : 1e9);
-        state.infra[op.k] = clamp(num(state.infra[op.k]) + num(op.v), 0, cap);
-        notes.push((INFRA_LABEL[op.k] || op.k) + " " + (op.v >= 0 ? "+" : "") + op.v);
+        var vInfra = scale(op.v, op);
+        state.infra[op.k] = clamp(num(state.infra[op.k]) + vInfra, 0, cap);
+        notes.push((INFRA_LABEL[op.k] || op.k) + " " + (vInfra >= 0 ? "+" : "") + Math.round(vInfra));
       } else if (k === "order") {
-        state.order = clamp(num(state.order) + num(op.v), 0.05, 1);
-        notes.push("秩序 " + (op.v >= 0 ? "+" : "") + Math.round(op.v * 100) + "%");
+        var vOrder = scale(op.v, op);
+        state.order = clamp(num(state.order) + vOrder, 0.05, 1);
+        notes.push("秩序 " + (vOrder >= 0 ? "+" : "") + Math.round(vOrder * 100) + "%");
       } else if (k === "wear") {
-        state.wear = clamp(num(state.wear) + num(op.v), 0, 1);
-        notes.push("磨损 " + (op.v >= 0 ? "+" : "") + Math.round(op.v * 100) + "%");
+        var vWear = scale(op.v, op);
+        state.wear = clamp(num(state.wear) + vWear, 0, 1);
+        notes.push("磨损 " + (vWear >= 0 ? "+" : "") + Math.round(vWear * 100) + "%");
       } else if (k === "tech") {
-        if (soc.machine) soc.machine.tech = clamp(num(soc.machine.tech) + num(op.v), 0, 1);
-        notes.push("科技 " + (op.v >= 0 ? "+" : "") + (Math.round(op.v * 1000) / 10) + " 点");
+        var vTech = scale(op.v, op);
+        if (soc.machine) soc.machine.tech = clamp(num(soc.machine.tech) + vTech, 0, 1);
+        notes.push("科技 " + (vTech >= 0 ? "+" : "") + (Math.round(vTech * 1000) / 10) + " 点");
       } else if (k === "queue") {
+        var vQ = scale(op.v, op);
         if (op.k === "O") {
-          if (soc.effects) soc.effects.oShift += num(op.v);
+          if (soc.effects) soc.effects.oShift += vQ;
         } else if (op.k === "W") {
-          if (soc.effects) soc.effects.wShift += num(op.v);
+          if (soc.effects) soc.effects.wShift += vQ;
         } else {
           queueAll(state, function (q) {
             if (op.scope === "one" && q.id !== (state.player && state.player.pc.queueId)) return;
-            if (op.k === "C") q.C = clamp(num(q.C) + num(op.v), 0, 100);
-            if (op.k === "S") q.S = clamp(num(q.S) + num(op.v), 0, 1);
+            if (op.k === "C") q.C = clamp(num(q.C) + vQ, 0, 100);
+            if (op.k === "S") q.S = clamp(num(q.S) + vQ, 0, 1);
           });
         }
-        notes.push("队伍" + (QUEUE_LABEL[op.k] || "") + " " + (op.v >= 0 ? "+" : "") + op.v);
+        notes.push("队伍" + (QUEUE_LABEL[op.k] || "") + " " + (vQ >= 0 ? "+" : "") + (Math.round(vQ * 10) / 10));
       } else if (k === "infect") {
-        addC(state, num(op.v));
-        notes.push("感染 +" + op.v);
+        var vInf = scale(op.v, op);
+        addC(state, vInf);
+        notes.push("感染 +" + (Math.round(vInf * 10) / 10));
       } else if (k === "randomInfect") {
         if (randNext(state) < num(op.p, 0.3)) {
           addC(state, num(op.v));
           notes.push("有人被感染 +" + op.v);
         }
       } else if (k === "thralls") {
-        if (soc.infection) soc.infection.thralls = Math.max(0, num(soc.infection.thralls) + num(op.v));
-        notes.push("眷属 " + (op.v >= 0 ? "+" : "") + op.v);
+        var vT = scale(op.v, op);
+        if (soc.infection) soc.infection.thralls = Math.max(0, num(soc.infection.thralls) + vT);
+        notes.push("眷属 " + (vT >= 0 ? "+" : "") + (Math.round(vT * 10) / 10));
       } else if (k === "garrison") {
+        var vG = scale(op.v, op);
         if (soc.garrison && typeof soc.garrison[op.k] === "number") {
-          soc.garrison[op.k] = Math.max(0, num(soc.garrison[op.k]) + num(op.v));
+          soc.garrison[op.k] = Math.max(0, num(soc.garrison[op.k]) + vG);
           notes.push("警备" + (op.k === "durability" ? "耐久" : "兵力") + " " +
-            (op.v >= 0 ? "+" : "") + op.v);
+            (vG >= 0 ? "+" : "") + (Math.round(vG * 10) / 10));
         }
       } else if (k === "pop") {
-        popAdjust(state, cfg, op.group, num(op.v));
-        notes.push("人口 " + (op.v >= 0 ? "+" : "") + op.v);
+        var vP = scale(op.v, op);
+        popAdjust(state, cfg, op.group, vP);
+        notes.push("人口 " + (vP >= 0 ? "+" : "") + Math.round(vP));
       } else if (k === "dormant") {
+        var vD = scale(op.v, op);
         if (state.groups && state.groups.original) {
-          state.groups.original.dormant = Math.max(0, num(state.groups.original.dormant) + num(op.v));
+          state.groups.original.dormant = Math.max(0, num(state.groups.original.dormant) + vD);
         }
-        notes.push("休眠 " + (op.v >= 0 ? "+" : "") + op.v);
+        notes.push("休眠 " + (vD >= 0 ? "+" : "") + Math.round(vD));
       } else if (k === "captive") {
+        var vCap = scale(op.v, op);
         if (global.XuanShuPrison) {
           var P = global.XuanShuPrison.ensure(state, cfg);
-          P.captives = Math.max(0, num(P.captives) + num(op.v));
-          notes.push("俘虏 " + (op.v >= 0 ? "+" : "") + op.v);
+          P.captives = Math.max(0, num(P.captives) + vCap);
+          notes.push("俘虏 " + (vCap >= 0 ? "+" : "") + Math.round(vCap));
         }
       } else if (k === "prisonCrime") {
         if (global.XuanShuPrison) {
