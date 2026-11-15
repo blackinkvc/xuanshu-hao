@@ -274,8 +274,14 @@
       var wInf = q.stage === 1 ? 6 : (q.stage === 2 ? 12 : 0);
       if (q.thrallFrac > 0.5) wInf = 0;
 
+      var oCharm = 0;
+      if (cfg.society.charm && global.XuanShuPeople && global.XuanShuPeople.charmAvg) {
+        var cA = global.XuanShuPeople.charmAvg(state.people, q.layer, q.dept);
+        if (cA != null) oCharm = (cA - 50) * num(cfg.society.charm.oK, 0.12);
+      }
+
       var O = baseOOf(q, cfg) + oPhys - 0.45 * q.C + oTrauma + q.oPerm + soc.effects.oShift +
-        oPoolSum(soc) - q.mig * cfg.society.eduMigration.oLoss;
+        oPoolSum(soc) - q.mig * cfg.society.eduMigration.oLoss + oCharm;
       var W = baseWOf(q, cfg) +
         cfg.society.will.expK * Math.log(1 + q.exp) +
         cfg.society.will.comfortGain * clamp((c - cfg.society.will.comfortStart) / cfg.society.will.comfortSpan, 0, 1) +

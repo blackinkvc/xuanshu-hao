@@ -1,4 +1,4 @@
-/* =========================================================================
+﻿/* =========================================================================
    玄枢号 · 玩家身份层（sim-player.js）
    -------------------------------------------------------------------------
    玩家不是额外人口，而是名册中某个真实个体的「身份壳」。
@@ -109,7 +109,7 @@
       complianceBonus: 0, willBonus: 0, dominionBonus: 0, authorityBonus: 0,
       compliance: 50, will: 30, dominion: 0, authority: 0,
       infectionC: 0, stage: 0, age: 34, infectionYears: 0,
-      geneDamage: 18, addiction: 0, charm: 52,
+      geneDamage: 18, addiction: 0, charm: 52, mutation: 24,
       care: {
         stock: { calm: 2, stim: 2, suppress: 2, deep: 2 },
         active: null, leisure: null, genes: {}, repairs: 0,
@@ -172,7 +172,7 @@
     if (typeof p.pc.geneDamage !== "number") p.pc.geneDamage = 18;
     if (typeof p.pc.addiction !== "number") p.pc.addiction = 0;
     if (!c.genes || typeof c.genes !== "object") c.genes = {};
-    // v6.59 三条主角养护通道：老存档补开关与空转标记
+    // v6.56 三条主角养护通道：老存档补开关与空转标记
     if (!c.self || typeof c.self !== "object") c.self = { medical: false, nutrition: false, rest: false };
     if (!c.selfMiss || typeof c.selfMiss !== "object") c.selfMiss = {};
     if (!p.actionCd || typeof p.actionCd !== "object") p.actionCd = {};
@@ -386,6 +386,8 @@
       addiction: clamp(Math.round(num(p.pc.addiction, 0)), 0, 100),
       // 魅力值：个体向的派系资本（0–100），协商 / 安抚 / 公开账目吃这个数
       charm: clamp(Math.round(num(p.pc.charm, 52) + num(p.pc.will) * 0.15), 0, 100),
+      // 基因变异度：成瘾会把它推高（易感上升），耐受度另算
+      mutation: clamp(Math.round(num(p.pc.mutation, 24) + num(p.pc.addiction, 0) * 0.35), 0, 100),
       compliance: rnd(p.pc.compliance),
       will: rnd(p.pc.will),
       dominion: rnd(p.pc.dominion),
@@ -960,7 +962,7 @@
       c.mindPenalty = 0;
     }
     if (!c.active) pc.addiction = clamp(num(pc.addiction, 0) - 0.02, 0, 100);
-    // v6.59 三条个人养护通道：只结算主角本人，不读全船配给/医疗覆盖
+    // v6.56 三条个人养护通道：只结算主角本人，不读全船配给/医疗覆盖
     var sc = k.selfCare || {};
     c.self = c.self || { medical: false, nutrition: false, rest: false };
     c.selfMiss = c.selfMiss || {};

@@ -96,6 +96,20 @@
     return num(b[layer], num(b.L4n, num(b.L4clone, 0.4)));
   }
 
+  function charmOf(cfg, seq) {
+    var c = (cfg.people && cfg.people.charm) || {};
+    var lo = num(c.min, 22), hi = num(c.max, 88);
+    if (hi < lo) { var tmp = lo; lo = hi; hi = tmp; }
+    return Math.round(lo + h01(seq, 41) * (hi - lo));
+  }
+
+  function mutationOf(cfg, gid, seq) {
+    var M = (cfg.people && cfg.people.mutation) || {};
+    var base = num((M.byGroup || {})[gid], num(M.base, 34));
+    var spread = num(M.spread, 16);
+    return clamp(Math.round(base + h01(seq, 43) * spread), 0, 100);
+  }
+
   function makePerson(ppl, cfg, gid) {
     var seq = ppl.seq++;
     var layer = pickLayer(cfg, gid, seq);
@@ -105,6 +119,10 @@
       g: gid,
       layer: layer,
       dept: (cfg.people.groupDept && cfg.people.groupDept[gid]) || "勤务",
+      // 魅力：开局一次定值，休眠/唤醒都不改；派系好感与买卖交涉会用到
+      charm: charmOf(cfg, seq),
+      // 基因变异度：易感性主因（越高越易感染），耐受度另算
+      mutation: mutationOf(cfg, gid, seq),
       // 植入是「真值」属性：装没装芯片在建造/入伍时就定了，不随周变化
       implanted: h01(seq, 23) < implantBaseOf(cfg, layer),
       dormant: false,
@@ -146,6 +164,8 @@
       while (arr.length > target) arr.pop();
       var cut = target - dormTarget;
       for (var i = 0; i < arr.length; i++) {
+        if (typeof arr[i].charm !== "number") arr[i].charm = charmOf(cfg, arr[i].seq);
+        if (typeof arr[i].mutation !== "number") arr[i].mutation = mutationOf(cfg, arr[i].g, arr[i].seq);
         var want = i >= cut;
         if (arr[i].dormant !== want) arr[i].dormant = want;
         if (want) {
@@ -327,6 +347,8 @@
           zone: pos.zone, zoneName: pos.zoneName, room: pos.room, post: pos.post,
           dormant: !!p.dormant, implanted: !!p.implanted,
           action: actionOf(p, cfg),
+          charm: p.charm,
+          mutation: p.mutation,
           hp: ps.hp, mind: ps.mind, will: ps.will
         });
       });
@@ -435,6 +457,8 @@
           post: precise ? pos.post : null,
           dormant: !!p.dormant,
           action: actionOf(p, cfg),
+          charm: p.charm,
+          mutation: p.mutation,
           hp: ps.hp,
           mind: ps.mind,
           will: ps.will,
@@ -622,8 +646,22 @@
     return b;
   }
 
+  /** 某层（可按部门再筛）的人均魅力；休眠者也算在内，因为魅力是固有属性。 */
+  function charmAvg(ppl, layer, dept) {
+    if (!ppl || !ppl.groups) return null;
+    var n = 0, sum = 0;
+    Object.keys(ppl.groups).forEach(function (gid) {
+      (ppl.groups[gid] || []).forEach(function (p) {
+        if (layer && p.layer !== layer) return;
+        if (dept && p.dept !== dept) return;
+        sum += num(p.charm, 55); n++;
+      });
+    });
+    return n > 0 ? sum / n : null;
+  }
+
   global.XuanShuPeople = {
-    version: "1.1.0",
+    version: "1.2.0",
     create: create,
     sync: sync,
     truth: truth,
@@ -633,6 +671,7 @@
     actionMix: actionMix,
     setAction: setAction,
     actionOf: actionOf,
+    charmAvg: charmAvg,
     ACTIONS: ACTIONS,
     ACTION_LIST: ACTION_LIST,
     posOf: posOf

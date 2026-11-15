@@ -90,6 +90,10 @@
     else if (r0 < 0.18) ship = SHIPS[9];
     else ship = SHIPS[Math.floor(rnd(t, 1) * 8) % 8];
     var slots = [];
+    // v6.57 魅力消费点二：主角魅力影响交涉折让（±6%），买卖同价口径
+    var pc = state.player && state.player.pc;
+    var charm = clamp(num(pc && pc.charm, 52) + num(pc && pc.will, 0) * 0.15, 0, 100);
+    var charmMul = clamp(1 - (charm - 50) * 0.0012, 0.92, 1.08);
     for (var i = 0; i < 3; i++) {
       var gid = ship.goods[Math.floor(rnd(t, 10 + i * 3) * ship.goods.length) % ship.goods.length];
       var g = GOODS[gid];
@@ -97,10 +101,12 @@
       var greed = 1 + (rnd(t, 30 + i) - 0.5) * 0.3;
       var heatMul = 1 + num(t.heat, 0) * 0.004;
       var repMul = 1 - (num(t.rep, 50) - 50) * 0.002;
-      var price = Math.max(1, Math.round(qty * g.uv * ship.k * greed * heatMul * repMul));
+      var price = Math.max(1, Math.round(qty * g.uv * ship.k * greed * heatMul * repMul * charmMul));
       slots.push({ good: gid, name: g.name, unit: g.unit, qty: qty, price: price });
     }
-    t.offer = { ship: ship.id, shipName: ship.name, risk: ship.risk, slots: slots, at: num(state.weeks, 0) };
+    t.offer = { ship: ship.id, shipName: ship.name, risk: ship.risk, slots: slots,
+      charm: Math.round(charm), charmMul: Math.round(charmMul * 1000) / 1000,
+      at: num(state.weeks, 0) };
     t.visits += 1;
     return t.offer;
   }
