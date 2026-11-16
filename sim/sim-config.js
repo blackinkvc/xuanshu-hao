@@ -155,9 +155,50 @@
       // 纯吃库存 27,887 / 561.2 ≈ 49.7 年；产线 + 回收把总续航推到 200 年。
       stockInit: 27887,
       cap: 27887,               // v6.63：不再是 0（无上限），由舱容反算
-      recycleTpy: 4,            // v6.63：组织回收（残渣/废弃物再处理）年量
-      spoilagePerYear: 0.015,   // v6.53：按深仓分层（真空/惰性气体密封舱）口径重取 1.5%；
-                                // 原 4% 会让「200 年存粮」实际 80 年见底，与设定自相矛盾
+      // v6.65：三条通道不再写常数，全部按「结构 × 系数」推导。
+      // 科技档位共用一张表：单产 / 回收系数 / 损耗系数随档取值，不线性插值。
+      techTiers: [
+        { max: 0.20, yield: 0.80, recycle: 0.03, spoil: 1.30 },
+        { max: 0.35, yield: 0.88, recycle: 0.04, spoil: 1.15 },
+        { max: 0.50, yield: 0.96, recycle: 0.05, spoil: 1.05 },
+        { max: 0.65, yield: 1.00, recycle: 0.06, spoil: 1.00 },   // 基准档
+        { max: 0.80, yield: 1.06, recycle: 0.07, spoil: 0.90 },
+        { max: 1.01, yield: 1.12, recycle: 0.08, spoil: 0.80 }
+      ],
+      // 水培折损：农环编制、值勤疲劳、维生系统状态
+      agriCrewPerUnit: 1.6,     // 每水培单元的农环编制【推定】
+      staffFloor: 0.70,         // 农环全缺时产出下限
+      fatigueK: 1.5,            // 疲劳斜率：hpAvg 每降 0.1/周 ≈ 折 15%
+      fatigueBaseHp: -0.05,     // 值勤基准（该值不扣）
+      fatigueMin: 0.80,
+      fatigueMax: 1.00,         // 值勤基准之上不给奖励，休整只回到 1.00
+      lifeYieldBase: 0.60,      // 维生状态：健康度满 → 1.00，D=0.85 → 0.66
+      lifeYieldK: 0.40,
+      lifeYieldMin: 0.55,
+      // 回收：实耗 × 系数，设施容量与编制封顶
+      recycleCapShare: 0.20,    // 系数绝对上限，永不超过 1
+      recycleTpyPerSet: 60,     // 单套年处理能力（t/年）
+      recycleCrewPerSet: 40,    // 单套编制（勤务）
+      recycleFloorM2: 400,      // 单套占地
+      recycleWearK: 0.50,       // 磨损对处理能力的折损
+      recycleSetsInit: 1,
+      recyclerDept: "勤务",
+      // 仓储损耗：科技降、仓储条件与占用率抬，有下限
+      spoilagePerYear: 0.015,   // 基准 1.5%（深仓分层口径）
+      spoilageMin: 0.006,       // 永不为 0
+      spoilageMax: 0.040,
+      storeCondBase: 0.60,      // 仓储条件：生保部件满状态 ×1.00
+      storeCondK: 0.40,
+      occKnee: 0.60,            // 占用率 60% 以下不加成
+      occK: 0.50,               // 满仓（100%）×1.20
+      // 场地：水培 / 回收 / 仓储共用舰体实际地板，互相挤占
+      space: {
+        agriFloorM2: 47847,     // 档案 E1–E4 生产面
+        cargoFloorM2: 15212,    // 干货舱 50,200 m³ / 3.3 m
+        reserveM2: 3000,        // 回收设施与通道预留
+        perUnitM2: 250,         // 1 单元 = 1,000 m² 等效 / 4 层
+        deckM: 3.3
+      },
 
       // v1.2：产出冗余随年份与船况衰减，在既有能源/水/人力/社会反馈系数之上
       // 再叠一层长期折损。年份+农环受 maxLoss 封顶，磨损/人口结构按当期实际值另算。

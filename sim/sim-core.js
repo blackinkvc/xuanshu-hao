@@ -107,7 +107,98 @@
     return demand > 0 ? state.stocks.food / (demand / 365) : 9999;
   }
 
+  // v6.65：粮食三条通道的公共推导。科技档位、场地、编制、疲劳、损耗、回收各只定义一处，
+  // 产出结算与 foodYears 共用，避免页面/引擎两套口径。
+  function foodTier(tech, cfg) {
+    var tiers = (cfg.food && cfg.food.techTiers) || [];
+    var x = num(tech, 0);
+    for (var i = 0; i < tiers.length; i++) {
+      if (x < num(tiers[i].max, 1)) return tiers[i];
+    }
+    return tiers[tiers.length - 1] || { yield: 1, recycle: 0, spoil: 1 };
+  }
+
+  function foodSpace(state, cfg) {
+    var S = (cfg.food && cfg.food.space) || {};
+    var F = cfg.food || {};
+    var cargo = cfg.cargo || {};
+    var foodCargo = cargo.food || {};
+    var totalM2 = num(S.agriFloorM2, 47847) + num(S.cargoFloorM2, 15212) + num(S.reserveM2, 3000);
+    var perUnit = num(S.perUnitM2, 250);
+    var sets = Math.max(1, Math.round(num(state.infra && state.infra.recycle, 1)));
+    var recycleM2 = sets * num(F.recycleFloorM2, 400);
+    var storeM2 = num(F.cap, 0) * num(foodCargo.m3PerT, 1.8) / num(S.deckM, 3.3);
+    var hydroM2 = num(state.infra && state.infra.hydro, 0) * perUnit;
+    var used = hydroM2 + recycleM2 + storeM2;
+    var hydroCap = Math.floor(Math.max(0, totalM2 - recycleM2 - storeM2) / perUnit);
+    return {
+      totalM2: totalM2, usedM2: used, freeM2: Math.max(0, totalM2 - used),
+      hydroM2: hydroM2, recycleM2: recycleM2, storeM2: storeM2,
+      hydroCapUnits: hydroCap, perUnitM2: perUnit
+    };
+  }
+
+  function foodDeptStaff(state, dept) {
+    var q = (state.society && state.society.queues) || [];
+    var n = 0;
+    for (var i = 0; i < q.length; i++) if (q[i].dept === dept) n += num(q[i].n, 0);
+    if (n <= 0 && dept === "农环") {
+      var g = state.groups && state.groups.clone;
+      n = g ? num(g.awake, 0) : 0;
+    }
+    return n;
+  }
+
+  function foodLifeD(state) {
+    return num(state.ship && state.ship.hull && state.ship.hull.detail &&
+      state.ship.hull.detail.life && state.ship.hull.detail.life.d, 0);
+  }
+
+  function foodFatigue(act, cfg) {
+    var F = cfg.food || {};
+    var base = num(F.fatigueBaseHp, -0.05);
+    var hp = act && act.totals ? num(act.totals.hpAvg, base) : base;
+    return clamp(1 + num(F.fatigueK, 1.5) * (hp - base),
+      num(F.fatigueMin, 0.80), num(F.fatigueMax, 1.05));
+  }
+
+  function foodLifeF(state, cfg) {
+    var F = cfg.food || {};
+    return clamp(num(F.lifeYieldBase, 0.60) + num(F.lifeYieldK, 0.40) * (1 - foodLifeD(state)),
+      num(F.lifeYieldMin, 0.55), 1);
+  }
+
+  function foodSpoilK(state, cfg) {
+    var F = cfg.food || {};
+    var tech = state.society && state.society.machine ? num(state.society.machine.tech, 0) : 0;
+    var tier = foodTier(tech, cfg);
+    var cond = clamp(num(F.storeCondBase, 0.60) + num(F.storeCondK, 0.40) * (1 - foodLifeD(state)), 0.30, 1);
+    var cap = num(F.cap, 0);
+    var occ = cap > 0 ? clamp(num(state.stocks.food, 0) / cap, 0, 1.2) : 0;
+    var occF = 1 + num(F.occK, 0.50) * Math.max(0, occ - num(F.occKnee, 0.60));
+    return clamp(num(F.spoilagePerYear, 0.015) * num(tier.spoil, 1) * cond * occF,
+      num(F.spoilageMin, 0.006), num(F.spoilageMax, 0.040));
+  }
+
+  function foodRecycle(state, cfg, consumedY) {
+    var F = cfg.food || {};
+    var tech = state.society && state.society.machine ? num(state.society.machine.tech, 0) : 0;
+    var tier = foodTier(tech, cfg);
+    var share = Math.min(clamp(num(tier.recycle, 0), 0, 1), num(F.recycleCapShare, 0.20));
+    var sets = Math.max(1, Math.round(num(state.infra && state.infra.recycle, 1)));
+    var crewNeed = sets * num(F.recycleCrewPerSet, 40);
+    var crew = foodDeptStaff(state, F.recyclerDept || "勤务");
+    var crewF = crewNeed > 0 ? clamp(crew / crewNeed, 0, 1) : 1;
+    var capTpy = sets * num(F.recycleTpyPerSet, 60) * crewF *
+      (1 - num(F.recycleWearK, 0.50) * clamp(num(state.wear, 0), 0, 1));
+    return {
+      tpy: Math.min(Math.max(0, num(consumedY, 0)) * share, Math.max(0, capTpy)),
+      share: share, capTpy: Math.max(0, capTpy), sets: sets, crew: crew, crewNeed: crewNeed
+    };
+  }
+
   // v6.63：存粮口径改为「吨位 + 舱容」。
+
   // 库存受干货舱容约束；按一阶损耗 dS/dt = A − k·S 精确积分算归零时间，
   // A = 产 + 回收 − 需求（吨/年），k = 年损耗率。A ≥ 0 时库存不再下降。
   function foodYears(state, cfg, t) {
@@ -119,8 +210,9 @@
     // 行星补给只覆盖离港前窗口，不计入长期续航；单独作为 planetTpy 展示
     var prod = num(state.last && state.last.production, 0);
     var planetNow = state.last ? num(state.last.planetTpy, 0) : 0;
-    var rec = num(cfg.food.recycleTpy, 0);
-    var k = num(cfg.food.spoilagePerYear, 0);
+    // v6.65：回收与损耗取当期实际值，不再读常数
+    var rec = num(state.last && state.last.recycleTpy, 0);
+    var k = num(state.last && state.last.spoilK, num(cfg.food.spoilagePerYear, 0));
     var spoilTpy = stock * k;            // 当前库存下的年损耗，随库存下降而变小
     var inflow = prod + rec - need;      // 未计损耗的年净流入（t/年）
     var net = inflow - spoilTpy;
@@ -130,15 +222,25 @@
     else years = Math.log(1 + k * stock / (-inflow)) / k;
     var r1 = function (v) { return Math.round(v * 10) / 10; };
     var baseYears = stock / need;
+    var space = foodSpace(state, cfg);
+    var recInfo = foodRecycle(state, cfg, num(state.last && state.last.consumption, need));
     return {
       stockT: Math.round(stock),
       capT: Math.round(num(cfg.food.cap, 0)),
       productionTpy: Math.round(prod),
       planetTpy: Math.round(planetNow),
       recycleTpy: r1(rec),
+      recycleCapTpy: r1(recInfo.capTpy),
+      recycleShare: recInfo.share,
       needTpy: Math.round(need),
       spoilTpy: Math.round(spoilTpy),
+      spoilK: Math.round(k * 10000) / 10000,
       netTpy: Math.round(net),
+      hydroUnits: Math.round(num(state.infra && state.infra.hydro, 0)),
+      hydroCap: space.hydroCapUnits,
+      spaceUsedM2: Math.round(space.usedM2),
+      spaceTotalM2: Math.round(space.totalM2),
+      spaceFreeM2: Math.round(space.freeM2),
       years: r1(Math.min(years, 999)),
       // 口径对照：只按「当前库存 ÷ 当期净额」的 Linear 粗算（净额含当期损耗）
       netYears: r1(net < 0 ? stock / (-net) : Math.min(years, 999)),
@@ -831,6 +933,7 @@
       },
       infra: {
         hydro: cfg.food.hydroInit,
+        recycle: cfg.food.recycleSetsInit || 1,
         pods: cfg.hibernation.podsInit,
         clonePods: cfg.clone.podsInit
       },
@@ -1484,15 +1587,24 @@
     stepDream(state, cfg, soc, state.last ? state.last.medCoverage : 0.5);
 
     // 粮食产出
-    // 水培高度自动化：在岗人口只影响边际人力，避免「冻 400 人就把粮食冻没」
-    var laborF = (0.80 + 0.20 * clamp(t0.working / cfg.population.laborFull, 0, 1)) *
-      (0.75 + 0.25 * clamp(state.order / 0.8, 0, 1));
-    if (act) laborF *= clamp(act.totals.outputAvg, 0, 1.2);
+    // v6.65：水培 = 面积 × 单产 × 科技档 × 农环编制 × 值勤疲劳 × 维生状态，
+    // 再叠能源/水/营养/秩序/社会/长期折损。面积是硬上限，扩产只能吃场地余量。
+    var foodCfg = cfg.food;
+    var foodTech = soc && soc.machine ? num(soc.machine.tech, 0) : 0;
+    var foodT = foodTier(foodTech, cfg);
+    var agriStaff = foodDeptStaff(state, "农环");
+    var agriNeed = Math.max(1, num(foodCfg.agriCrewPerUnit, 1.6) * num(state.infra.hydro, 0));
+    var staffFloor = num(foodCfg.staffFloor, 0.70);
+    var staffF = staffFloor + (1 - staffFloor) * clamp(agriStaff / agriNeed, 0, 1);
+    var fatigueF = foodFatigue(act, cfg);
+    var lifeF = foodLifeF(state, cfg);
+    var orderF = 0.75 + 0.25 * clamp(state.order / 0.8, 0, 1);
+    if (act) orderF *= clamp(act.totals.outputAvg, 0, 1.2);
     var energyF = clamp(agriMW / cfg.food.agriMWFull, 0, 1);
     var waterF = clamp(state.stocks.water / cfg.food.waterBuffer, 0, 1);
     var nutrientF = 0.95 + 0.05 * medCoverage;
-    var production = state.infra.hydro * cfg.food.unitYieldTpy *
-      energyF * waterF * laborF * nutrientF;
+    var production = state.infra.hydro * foodCfg.unitYieldTpy * num(foodT.yield, 1) *
+      staffF * fatigueF * lifeF * energyF * waterF * orderF * nutrientF;
     if (state.streaks.strike > 0) production *= 0.85;
     // 社会层反馈：哗变等级、感染面、机器夺权、封锁/召唤后的产出系数
     if (soc) {
@@ -1511,11 +1623,7 @@
     production *= maintYield;
     // 大修工期占用：维修队上船，产出让路
     if (state.repair && state.weeks < state.repair.until) production *= 0.96;
-    // 船体完整性：取最差部件（全船健康度），不再是结构一个汇总数
-    if (state.ship && state.ship.hull) {
-      production *= clamp(0.55 + 0.45 * clamp(num(state.ship.hull.health, 1), 0, 1),
-        num(cfg.ship.structureProdFloor, 0.70), 1);
-    }
+    // 船体完整性已由 lifeF（生保部件）计入水培主式，这里不再重复乘全船最差部件
     // 营养（体能 fit、神经损伤）与成瘾（三档体能惩罚、化学极乐）对出力的折损
     if (state.nutrition) {
       production *= clamp(state.nutrition.fit * (state.nutrition.unfit || 1), 0.5, 1);
@@ -1559,11 +1667,17 @@
         t0.dormant * cfg.food.perCapitaTpy * cfg.food.dormantFactor);
     var standardNeed = baseDemand * dt;
     var need = standardNeed * I.ration * mMul("foodUse", 1) * gMul("foodUse", 1);
-    // v1.2 储备自然损耗：按现存库存的年率折损，库存越高损耗越多
-    var spoil = cfg.food.spoilagePerYear || 0;
-    if (spoil > 0) state.stocks.food *= Math.max(0, 1 - spoil * dt);
-    // v6.63：组织回收（残渣/废弃物再处理）并入年产，与产线一起计入续航
-    var recycleY = num(cfg.food.recycleTpy, 0);
+    // v6.65 仓储损耗：科技档 × 仓储条件 × 占用率，下限 0.6%/年；按现存库存折损
+    var spoilK = foodSpoilK(state, cfg);
+    var spoilageLoss = state.stocks.food * spoilK * dt;
+    if (spoilageLoss > 0) state.stocks.food = Math.max(0, state.stocks.food - spoilageLoss);
+    // v6.65 回收：实耗 × 科技档系数，处理能力（套数 × 编制 × 磨损）封顶。
+    // 回收依赖实耗，实耗又依赖回收，先按需求估一次再收敛一次。
+    var recPass = foodRecycle(state, cfg, need / dt);
+    var availPass = state.stocks.food + (production + planet + recPass.tpy) * dt;
+    var consumedPass = Math.min(need, availPass);
+    var recInfo = foodRecycle(state, cfg, consumedPass / dt);
+    var recycleY = recInfo.tpy;
     var available = state.stocks.food + (production + planet + recycleY) * dt;
     var consumed = Math.min(need, available);
     var rationActual = standardNeed > 0 ? clamp(consumed / standardNeed, 0, 1.2) : 1;
@@ -1779,13 +1893,15 @@
     var availableMetal = Math.max(0, state.stocks.metal + capM - maintSpend);
 
     // 水培：在途数量 = 目标年速率 × 滞后年数
+    // v6.65：上限不再用设计值 600，而是「场地池减去回收与仓储占地」后的实装上限
     var hydroInProgress = state.projects.hydro.length;
+    var hydroSpaceCap = foodSpace(state, cfg).hydroCapUnits;
     var desiredHydro = Math.ceil(I.hydroTarget * cfg.metal.hydroLeadWeeks / cfg.time.weeksPerYear);
     var guard = 0;
     while (hydroInProgress < desiredHydro &&
            state.budget.hydro >= cfg.metal.hydroMetal &&
            availableMetal >= cfg.metal.hydroMetal && guard < 60) {
-      if (state.infra.hydro + hydroInProgress >= cfg.food.hydroMax) break;
+      if (state.infra.hydro + hydroInProgress >= Math.min(cfg.food.hydroMax, hydroSpaceCap)) break;
       state.budget.hydro -= cfg.metal.hydroMetal;
       availableMetal -= cfg.metal.hydroMetal;
       constructionSpend += cfg.metal.hydroMetal;
@@ -1988,6 +2104,17 @@
       production: production,
       planetTpy: planet,
       recycleTpy: recycleY,
+      recycleCapTpy: recInfo.capTpy,
+      recycleShare: recInfo.share,
+      recycleSets: recInfo.sets,
+      spoilK: spoilK,
+      spoilTpy: spoilageLoss / dt,
+      foodTier: foodT ? foodT.yield : 1,
+      agriStaff: agriStaff,
+      agriStaffNeed: agriNeed,
+      staffF: staffF,
+      fatigueF: fatigueF,
+      lifeF: lifeF,
       consumption: consumed / dt,
       shortfall: shortfall / dt,
       entries: entries,
