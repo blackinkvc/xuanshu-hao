@@ -409,18 +409,27 @@
    *  - 未植入者默认是盲区（high 档位下可由巡逻/报告间接看到，误差更大）；
    *  - 可见者给误差半径与时间延迟，不给「随机撒点」的假位置。
    */
-  /** 情报可见率：与 playerView 共用同一段系数，隐蔽事件也走这里，不另起一套。 */
-  function visibleRate(state, cfg) {
+  /**
+   * 情报可见率：情报为主、环境为辅，全船只有这一处口径。
+   * I = 情报档位分值；E = 科技/驻军/服从/不服的归一环境值。
+   * rate = floor + (1 − floor) × (intelWeight×I + envWeight×E)
+   */
+  function visibleRate(state, cfg, opts) {
     var V = (cfg && cfg.visibility) || {};
+    var R = V.rate || {};
+    var intelId = (opts && opts.intel) ||
+      (state && state.player && state.player.intel) || "mid";
+    var scores = R.intelScores || { low: 0.05, mid: 0.45, high: 0.95, truth: 1.0 };
+    var I = scores[intelId] != null ? num(scores[intelId]) : num(scores.mid, 0.45);
     var env = intelEnv(state, cfg);
-    return clamp(
-      num(V.baseEff, 0.45) +
-      num(V.techWeight, 0.30) * env.tech +
-      num(V.garrisonWeight, 0.15) * env.garrison +
-      num(V.complianceWeight, 0.20) * (env.compliance - 0.5) -
-      num(V.willPenalty, 0.35) * env.will,
-      0.05, 1
-    );
+    var E = num(R.envTech, 0.30) * env.tech +
+      num(R.envGarrison, 0.25) * env.garrison +
+      num(R.envCompliance, 0.25) * env.compliance +
+      num(R.envWill, 0.20) * (1 - env.will);
+    var floor = num(V.baseEff, 0.05);
+    var iw = num(R.intelWeight, 0.70);
+    var ew = num(R.envWeight, 0.30);
+    return clamp(floor + (1 - floor) * (iw * I + ew * E), 0.02, 0.97);
   }
 
   function playerView(state, cfg, opts) {
@@ -433,7 +442,7 @@
     if (!state.people) sync(state, cfg);
 
     var env = intelEnv(state, cfg);
-    var effBase = visibleRate(state, cfg);
+    var effBase = visibleRate(state, cfg, { intel: lvlId });
     var patrolBase = clamp(
       num(V.patrolShare, 0.12) * (0.6 + 0.8 * env.garrison) +
       0.10 * (env.compliance - 0.5),

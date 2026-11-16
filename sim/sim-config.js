@@ -740,12 +740,19 @@
         high: { label: "高 · 警备共视", techMin: 0.65, roomDetail: true,  errorMul: 0.5, delayMul: 0.4 }
       },
       implantBase: { L1: 0.98, L2: 0.92, L3: 0.72, L4n: 0.40, L4c: 0.85, L4clone: 0.85 },
-      techWeight: 0.30,          // 科技等级对监控覆盖的增益
-      garrisonWeight: 0.15,      // 警备可用度对巡逻覆盖的增益
-      complianceWeight: 0.20,    // 服从度对信号回传的增益
-      willPenalty: 0.35,         // 自由意志对覆盖的折损
+      // 可见率：情报为主、环境为辅。正向权重之和 = 1.0（情报 0.70 + 环境 0.30），
+      // 环境内部再按 科技 .30 / 驻军 .25 / 服从 .25 / 不服 .20 归一；baseEff 只作底噪，不再是主项。
+      baseEff: 0.05,             // 底噪：最终可见率的下限项
+      rate: {
+        intelWeight: 0.70,       // 情报档位权重
+        envWeight: 0.30,         // 环境权重
+        envTech: 0.30,           // 环境内：科技
+        envGarrison: 0.25,       // 环境内：驻军
+        envCompliance: 0.25,     // 环境内：服从
+        envWill: 0.20,           // 环境内：不服（取 1−不服）
+        intelScores: { low: 0.05, mid: 0.45, high: 0.95, truth: 1.0 }
+      },
       patrolShare: 0.12,         // 未植入者被巡逻/举报间接看到的基准比例
-      baseEff: 0.45,             // 覆盖率基准
       blindThreshold: 0.10,      // 单人可见概率低于此值计入盲区
       errorBaseM: 30,            // 基础误差半径
       errorSpreadM: 140,         // 随不确定度增加的误差
