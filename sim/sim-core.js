@@ -140,6 +140,8 @@
       spoilTpy: Math.round(spoilTpy),
       netTpy: Math.round(net),
       years: r1(Math.min(years, 999)),
+      // 口径对照：只按「当前库存 ÷ 当期净额」的 Linear 粗算（净额含当期损耗）
+      netYears: r1(net < 0 ? stock / (-net) : Math.min(years, 999)),
       // 兼容旧字段
       baseYears: r1(baseYears),
       growthYears: r1(Math.max(0, years - baseYears)),
