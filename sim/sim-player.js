@@ -116,7 +116,16 @@
         hpBonus: 0, mindBonus: 0, spiritBonus: 0, willBonus: 0,
         infectResist: 0, leisureWeek: -1,
         self: { medical: false, nutrition: false, rest: false },
-        selfMiss: {}
+        selfMiss: {},
+        // v1.4 个人养护配给档位：trackId -> 档位序号
+        upkeep: { food: 1, drug: 1, clean: 1 },
+        upkeepMiss: {},
+        upkeepChangedWeek: -1,
+        // v1.4 义体改造：installed partId -> { week }；改造中任务；拆下的件回收仓库
+        cyber: {},
+        cyberBonus: { hpBonus: 0, mindBonus: 0, spiritBonus: 0, infectResist: 0 },
+        cyberJob: null,
+        cyberRecycle: []
       },
       confinedUntil: -1, interrogatedUntil: -1, hiddenUntil: -1,
       alive: true
@@ -175,6 +184,16 @@
     // v6.56 三条主角养护通道：老存档补开关与空转标记
     if (!c.self || typeof c.self !== "object") c.self = { medical: false, nutrition: false, rest: false };
     if (!c.selfMiss || typeof c.selfMiss !== "object") c.selfMiss = {};
+    // v1.4 养护档位 / 义体改造：老存档补结构
+    if (!c.upkeep || typeof c.upkeep !== "object") c.upkeep = { food: 1, drug: 1, clean: 1 };
+    if (!c.upkeepMiss || typeof c.upkeepMiss !== "object") c.upkeepMiss = {};
+    if (typeof c.upkeepChangedWeek !== "number") c.upkeepChangedWeek = -1;
+    if (!c.cyber || typeof c.cyber !== "object") c.cyber = {};
+    if (!c.cyberBonus || typeof c.cyberBonus !== "object") {
+      c.cyberBonus = { hpBonus: 0, mindBonus: 0, spiritBonus: 0, infectResist: 0 };
+    }
+    if (!Array.isArray(c.cyberRecycle)) c.cyberRecycle = [];
+    if (typeof c.cyberJob === "undefined") c.cyberJob = null;
     if (!p.actionCd || typeof p.actionCd !== "object") p.actionCd = {};
     if (!p.scope) p.scope = { zones: [], depts: [] };
     if (!p.history) p.history = [];
@@ -300,9 +319,10 @@
       p.pc.will = clamp(num(q.W) + num(p.pc.willBonus) + num(cfg.player.modeWill[p.mode]), 0, 100);
       p.pc.dominion = clamp(num(q.D) + num(p.pc.dominionBonus) + num(cfg.player.titleDominion[p.mode]), 0, 100);
       p.pc.infectionC = clamp(num(q.C), 0, 100);
-      // 低语屏障（v6.52 基因强化）：按比例抵掉本周感染读数
-      var ires = num(p.pc.care && p.pc.care.infectResist, 0);
-      if (ires > 0) p.pc.infectionC = clamp(p.pc.infectionC * (1 - ires), 0, 100);
+      // 低语屏障（v6.52 基因强化）+ 义体滤净（v1.4）：按比例抵掉本周感染读数
+      var ires = num(p.pc.care && p.pc.care.infectResist, 0) +
+        num(p.pc.care && p.pc.care.cyberBonus && p.pc.care.cyberBonus.infectResist, 0);
+      if (ires > 0) p.pc.infectionC = clamp(p.pc.infectionC * (1 - clamp(ires, 0, 0.8)), 0, 100);
       p.pc.stage = p.pc.infectionC >= 85 ? 3 : (p.pc.infectionC >= 60 ? 2 : (p.pc.infectionC >= 30 ? 1 : 0));
     }
     p.pc.authority = clamp(num(cfg.player.authority[p.mode]) + num(p.pc.authorityBonus), 0, 100);
@@ -377,11 +397,13 @@
       health: rnd(p.pc.health),
       // 理智：眷属侵染越深，精神状态越差（个体口径，不是群体聚合）
       mind: clamp(Math.round(100 - num(p.pc.stage) * 18 - num(p.pc.infectionC) * 0.35 +
-        num(p.pc.care && p.pc.care.mindBonus, 0) + num(p.pc.care && p.pc.care.mindPenalty, 0) +
+        num(p.pc.care && p.pc.care.mindBonus, 0) + num(p.pc.care && p.pc.care.cyberBonus && p.pc.care.cyberBonus.mindBonus, 0) +
+        num(p.pc.care && p.pc.care.mindPenalty, 0) +
         num(p.pc.selfMind, 0) + careBuffSum(p.pc.care, "mind")), 0, 100),
       // 活跃精神：意志 + 场上加成
       spirit: clamp(Math.round(num(p.pc.will) + num(p.pc.willBonus) + num(p.pc.complianceBonus) * 0.5 +
-        num(p.pc.care && p.pc.care.spiritBonus, 0) + num(p.pc.selfSpirit, 0) +
+        num(p.pc.care && p.pc.care.spiritBonus, 0) + num(p.pc.care && p.pc.care.cyberBonus && p.pc.care.cyberBonus.spiritBonus, 0) +
+        num(p.pc.selfSpirit, 0) +
         careBuffSum(p.pc.care, "spirit")), 0, 100),
       addiction: clamp(Math.round(num(p.pc.addiction, 0)), 0, 100),
       // 魅力值：个体向的派系资本（0–100），协商 / 安抚 / 公开账目吃这个数
@@ -930,6 +952,133 @@
     return s;
   }
 
+  /* ---------------- 个人养护配给档位（v1.4） ---------------- */
+
+  function upkeepCfg(cfg) { var k = careCfg(cfg); return (k && k.upkeep) || null; }
+
+  function upkeepIndex(cfg, tid, raw) {
+    var up = upkeepCfg(cfg);
+    var t = up && up.tracks && up.tracks[tid];
+    if (!t) return 0;
+    var list = t.tiers || [];
+    var def = num(up.defaultTier && up.defaultTier[tid], 0);
+    return clamp(Math.round(num(raw, def)), 0, Math.max(0, list.length - 1));
+  }
+
+  // 配给档位逐周结算：按档位扣该轨道对应的库存，再落健康/理智/精神/成瘾/感染
+  function upkeepTick(state, cfg, p) {
+    var up = upkeepCfg(cfg);
+    if (!up || up.enabled === false) return;
+    var pc = p.pc, c = pc.care;
+    if (!c) return;
+    c.upkeep = c.upkeep || {};
+    c.upkeepMiss = c.upkeepMiss || {};
+    Object.keys(up.tracks || {}).forEach(function (tid) {
+      var t = up.tracks[tid];
+      var idx = upkeepIndex(cfg, tid, c.upkeep[tid]);
+      c.upkeep[tid] = idx;
+      var tier = (t.tiers || [])[idx];
+      c.upkeepMiss[tid] = false;
+      if (!tier) return;
+      var key = t.stock || tid;
+      var cost = num(tier.cost, 0);
+      var have = num(state.stocks && state.stocks[key], 0);
+      if (have < cost) { c.upkeepMiss[tid] = true; return; }
+      if (cost > 0) state.stocks[key] = Math.max(0, have - cost);
+      pc.health = clamp(num(pc.health, 0) + num(tier.hp, 0), 0, 100);
+      pc.selfMind = num(pc.selfMind, 0) + num(tier.mind, 0);
+      pc.selfSpirit = num(pc.selfSpirit, 0) + num(tier.spirit, 0);
+      if (num(tier.addict, 0)) pc.addiction = clamp(num(pc.addiction, 0) + num(tier.addict, 0), 0, 100);
+      if (num(tier.infectRelief, 0) > 0) {
+        pc.infectionC = Math.max(0, num(pc.infectionC, 0) - num(tier.infectRelief, 0));
+      }
+    });
+  }
+
+  /* ---------------- 义体改造（v1.4，替代基因强化组） ---------------- */
+
+  function cyberCfg(cfg) { var k = careCfg(cfg); return (k && k.cyber) || null; }
+
+  function cyberPart(cfg, id) {
+    var u = cyberCfg(cfg);
+    return (u && u.parts && u.parts[id]) || null;
+  }
+
+  function cyberVolume(c) {
+    var v = 0;
+    ((c && c.cyberRecycle) || []).forEach(function (r) { v += num(r.volume, 0); });
+    return Math.round(v * 100) / 100;
+  }
+
+  function cyberWarehouseIdx(c, id) {
+    var list = (c && c.cyberRecycle) || [];
+    for (var i = 0; i < list.length; i++) if (list[i].partId === id) return i;
+    return -1;
+  }
+
+  function cyberSlotOwner(c, cfg, slot) {
+    var owner = "";
+    Object.keys((c && c.cyber) || {}).forEach(function (pid) {
+      var d = cyberPart(cfg, pid);
+      if (d && d.slot === slot) owner = pid;
+    });
+    return owner;
+  }
+
+  // 已装义体的加成汇总（与基因加成分开记，拆除时整体重算，不会漏减）
+  function cyberRecalc(c, cfg) {
+    var t = { hpBonus: 0, mindBonus: 0, spiritBonus: 0, infectResist: 0 };
+    Object.keys((c && c.cyber) || {}).forEach(function (pid) {
+      var d = cyberPart(cfg, pid);
+      if (!d) return;
+      t.hpBonus += num(d.hpBonus, 0);
+      t.mindBonus += num(d.mindBonus, 0);
+      t.spiritBonus += num(d.spiritBonus, 0);
+      t.infectResist += num(d.infectResist, 0);
+    });
+    t.infectResist = clamp(t.infectResist, 0, 0.6);
+    c.cyberBonus = t;
+    return t;
+  }
+
+  function cyberFailApply(state, cfg, pc, c, d, action) {
+    pc.health = clamp(num(pc.health, 0) - num(d.failHp, 0), 0, 100);
+    pc.infectionC = num(pc.infectionC, 0) + num(d.failInfect, 0);
+    if (num(d.failMind, 0) > 0) careAddBuff(c, "mind", -num(d.failMind, 0), 8);
+    pushEvent(state, cfg, "player_cyber_fail", "身份",
+      (action === "install" ? "义体植入失败 · " : "义体拆除失败 · ") + d.name,
+      d.failText || "手术失手，零件报废。", null, "零件报废，损伤自己扛");
+  }
+
+  // 改造任务到期结算：成功才装/拆，失败报废并留下损伤
+  function cyberTick(state, cfg, p) {
+    var pc = p.pc, c = pc.care;
+    var job = c && c.cyberJob;
+    if (!job || state.weeks < num(job.until, 0)) return;
+    var d = cyberPart(cfg, job.partId);
+    c.cyberJob = null;
+    if (!d) return;
+    var failed = randNext(state) < num(job.fail, 0);
+    if (failed) {
+      cyberFailApply(state, cfg, pc, c, d, job.action);
+      return;
+    }
+    if (job.action === "install") {
+      c.cyber[job.partId] = { week: state.weeks };
+      pc.health = clamp(num(pc.health, 0) + num(d.hpBonus, 0), 0, 100);
+      cyberRecalc(c, cfg);
+      pushEvent(state, cfg, "player_cyber_install", "身份", "义体植入 · " + d.name,
+        "手术成功，" + (d.text || "改造完成") + "。", null, "能拆，但拆也有风险");
+    } else {
+      delete c.cyber[job.partId];
+      pc.health = clamp(num(pc.health, 0) - num(d.hpBonus, 0), 0, 100);
+      c.cyberRecycle.push({ partId: job.partId, volume: num(d.volume, 0), week: state.weeks });
+      cyberRecalc(c, cfg);
+      pushEvent(state, cfg, "player_cyber_remove", "身份", "义体拆除 · " + d.name,
+        "拆下的件已入库（回收仓库 " + cyberVolume(c) + " m³）。", null, "仓库占体积，满了就拆不了");
+    }
+  }
+
   function careTick(state, cfg, p) {
     var k = careCfg(cfg);
     if (!k) return;
@@ -970,7 +1119,10 @@
     c.selfMiss = c.selfMiss || {};
     pc.selfMind = 0;
     pc.selfSpirit = 0;
-    Object.keys(sc).forEach(function (id) {
+    // v1.4：启用配给档位后旧的自我养护开关不再结算（replaceSelfCare），避免双算
+    var upCfg = upkeepCfg(cfg);
+    var keepSelf = !(upCfg && upCfg.enabled !== false && upCfg.replaceSelfCare !== false);
+    if (keepSelf) Object.keys(sc).forEach(function (id) {
       var d = sc[id];
       c.selfMiss[id] = false;
       if (!c.self[id]) return;
@@ -989,6 +1141,9 @@
         pc.infectionC = Math.max(0, num(pc.infectionC, 0) - num(d.infectRelief, 0));
       }
     });
+    // v1.4 配给档位逐周结算 + 义体改造任务到期结算
+    upkeepTick(state, cfg, p);
+    cyberTick(state, cfg, p);
     // 寿命：超过上限后每周掉健康
     var life = lifespanOf(cfg, pc.geneDamage);
     if (num(pc.age, 0) >= life) {
@@ -1054,6 +1209,136 @@
         leftWeeks: c.leisure && c.leisure.id === id ? Math.max(0, num(c.leisure.until, 0) - state.weeks) : 0
       };
     });
+    var up = k.upkeep;
+    var upkeep = null;
+    if (up && up.enabled !== false) {
+      upkeep = {
+        enabled: true,
+        replaceSelfCare: up.replaceSelfCare !== false,
+        switchNote: up.switchNote || "",
+        changedWeek: num(c.upkeepChangedWeek, -1),
+        tracks: Object.keys(up.tracks || {}).map(function (tid) {
+          var t = up.tracks[tid];
+          var list = t.tiers || [];
+          var cur = upkeepIndex(cfg, tid, c.upkeep && c.upkeep[tid]);
+          var miss = !!(c.upkeepMiss && c.upkeepMiss[tid]);
+          return {
+            id: tid, name: t.name, unit: t.unit || "", stock: t.stock || tid,
+            current: cur, currentId: (list[cur] || {}).id || "",
+            currentLabel: (list[cur] || {}).label || "",
+            miss: miss,
+            tiers: list.map(function (x, i) {
+              var eff = [];
+              if (num(x.hp, 0)) eff.push("健康 " + (x.hp > 0 ? "+" : "") + num(x.hp, 0));
+              if (num(x.mind, 0)) eff.push("理智 " + (x.mind > 0 ? "+" : "") + num(x.mind, 0));
+              if (num(x.spirit, 0)) eff.push("精神 " + (x.spirit > 0 ? "+" : "") + num(x.spirit, 0));
+              if (num(x.addict, 0)) eff.push("成瘾 " + (x.addict > 0 ? "+" : "") + num(x.addict, 0));
+              if (num(x.infectRelief, 0)) eff.push("感染 −" + num(x.infectRelief, 0));
+              return {
+                id: x.id, index: i, label: x.label || x.id,
+                cost: num(x.cost, 0),
+                costText: num(x.cost, 0) > 0
+                  ? (t.name + " " + num(x.cost, 0) + " " + (t.unit || "")).trim()
+                  : "不消耗",
+                effectText: eff.join("、") || "无变化",
+                hp: num(x.hp, 0), mind: num(x.mind, 0), spirit: num(x.spirit, 0),
+                addict: num(x.addict, 0), infectRelief: num(x.infectRelief, 0),
+                on: i === cur
+              };
+            })
+          };
+        })
+      };
+    }
+    var cyber = null;
+    var cyDef = k.cyber;
+    if (cyDef && cyDef.parts) {
+      var capM3 = num(cyDef.warehouseCapM3, 12);
+      var volM3 = cyberVolume(c);
+      var job = c.cyberJob;
+      var propTons = num(state.ship && state.ship.propellant, 0);
+      var coinsNow = num(state.coins, 0);
+      cyber = {
+        techPoints: tp,
+        warehouse: {
+          cap: capM3, volume: volM3, free: Math.round((capM3 - volM3) * 100) / 100,
+          items: (c.cyberRecycle || []).map(function (r) {
+            var rd = cyberPart(cfg, r.partId);
+            return { partId: r.partId, name: rd ? rd.name : r.partId, volume: num(r.volume, 0), week: num(r.week, -1) };
+          })
+        },
+        job: job ? {
+          partId: job.partId,
+          name: (cyberPart(cfg, job.partId) || {}).name || job.partId,
+          action: job.action,
+          until: num(job.until, 0),
+          leftWeeks: Math.max(0, num(job.until, 0) - state.weeks),
+          fail: num(job.fail, 0)
+        } : null,
+        totals: {
+          hpBonus: num(c.cyberBonus && c.cyberBonus.hpBonus, 0),
+          mindBonus: num(c.cyberBonus && c.cyberBonus.mindBonus, 0),
+          spiritBonus: num(c.cyberBonus && c.cyberBonus.spiritBonus, 0),
+          infectResist: num(c.cyberBonus && c.cyberBonus.infectResist, 0)
+        },
+        parts: Object.keys(cyDef.parts).map(function (pid) {
+          var d = cyDef.parts[pid];
+          var installed = !!c.cyber[pid];
+          var inWh = cyberWarehouseIdx(c, pid) >= 0;
+          var owner = cyberSlotOwner(c, cfg, d.slot);
+          var techOk = tp >= num(d.tech, 0);
+          var inst = d.install || {}, rem = d.remove || {};
+          var fromWh = inWh && !installed;
+          var canInstall = !installed && !job && techOk && (!owner || owner === pid) &&
+            (fromWh || (coinsNow >= num(inst.coins, 0) && num(state.stocks && state.stocks.metal, 0) >= num(inst.metal, 0) &&
+              propTons >= num(inst.prop, 0)));
+          var canRemove = installed && !job && coinsNow >= num(rem.coins, 0) &&
+            volM3 + num(d.volume, 0) <= capM3;
+          var reason = "";
+          if (job) reason = "手术台上还有一件没完工";
+          else if (!techOk) reason = "科技 " + tp + " 点，还差 " + (num(d.tech, 0) - tp) + " 点";
+          else if (installed) reason = "";
+          else if (owner) reason = "「" + d.slot + "」已装 " + ((cyberPart(cfg, owner) || {}).name || owner);
+          else if (!fromWh && coinsNow < num(inst.coins, 0)) reason = "星币不足（需 " + num(inst.coins, 0) + "）";
+          else if (!fromWh && num(state.stocks && state.stocks.metal, 0) < num(inst.metal, 0)) reason = "金属不足（需 " + num(inst.metal, 0) + " 吨）";
+          else if (!fromWh && propTons < num(inst.prop, 0)) reason = "工质不足（需 " + num(inst.prop, 0) + " 吨）";
+          var costParts = ["星币 " + num(inst.coins, 0)];
+          if (!fromWh) {
+            if (num(inst.metal, 0)) costParts.push("金属 " + num(inst.metal, 0) + " 吨");
+            if (num(inst.prop, 0)) costParts.push("工质 " + num(inst.prop, 0) + " 吨");
+          }
+          costParts.push(num(inst.weeks, 0) + " 周");
+          return {
+            id: pid, name: d.name, slot: d.slot, tech: num(d.tech, 0), techOk: techOk,
+            left: techOk ? 0 : num(d.tech, 0) - tp, volume: num(d.volume, 0),
+            installed: installed, installedWeek: installed ? num(c.cyber[pid].week, -1) : -1,
+            inWarehouse: inWh, text: d.text || "",
+            effects: {
+              hpBonus: num(d.hpBonus, 0), mindBonus: num(d.mindBonus, 0),
+              spiritBonus: num(d.spiritBonus, 0), infectResist: num(d.infectResist, 0)
+            },
+            install: {
+              coins: num(inst.coins, 0), metal: fromWh ? 0 : num(inst.metal, 0),
+              prop: fromWh ? 0 : num(inst.prop, 0), weeks: num(inst.weeks, 0),
+              fail: num(inst.fail, 0), failPct: Math.round(num(inst.fail, 0) * 100),
+              fromWarehouse: fromWh, failText: d.failText || "",
+              costText: costParts.join(" + "), can: canInstall
+            },
+            remove: {
+              coins: num(rem.coins, 0), weeks: num(rem.weeks, 0),
+              fail: num(rem.fail, 0), failPct: Math.round(num(rem.fail, 0) * 100),
+              failText: d.failText || "",
+              costText: "星币 " + num(rem.coins, 0) + " + " + num(rem.weeks, 0) + " 周",
+              can: canRemove,
+              reason: canRemove ? "" : (job ? "手术台上还有一件没完工" :
+                (!installed ? "没装这一件" : (volM3 + num(d.volume, 0) > capM3 ? "回收仓库放不下（差 " +
+                  Math.round((volM3 + num(d.volume, 0) - capM3) * 100) / 100 + " m³）" : "星币不足")))
+            },
+            available: canInstall, reason: reason
+          };
+        })
+      };
+    }
     return {
       techPoints: tp,
       damage: dmg,
@@ -1072,6 +1357,9 @@
       withdraw: !!c.withdraw,
       drugs: drugs,
       genes: genes,
+      genesLegacy: true,
+      upkeep: upkeep,
+      cyber: cyber,
       leisure: leisure,
       selfCare: Object.keys(k.selfCare || {}).map(function (id) {
         var d = k.selfCare[id];
@@ -1079,6 +1367,7 @@
           id: id, name: d.name, text: d.text,
           drug: num(d.drug, 0), food: num(d.food, 0),
           on: !!(c.self && c.self[id]),
+          retired: !!(upkeep && upkeep.replaceSelfCare),
           miss: !!(c.selfMiss && c.selfMiss[id])
         };
       }),
@@ -1189,6 +1478,102 @@
           : "已关闭「" + s.name + "」",
         care: careBrief(state, cfg)
       };
+    }
+
+    if (id === "upkeep") {
+      var up = k.upkeep;
+      if (!up || up.enabled === false) return { ok: false, msg: "配给档位没启用" };
+      var tid = payload.track || payload.stock || key;
+      var t = up.tracks && up.tracks[tid];
+      if (!t) return { ok: false, msg: "没有「" + tid + "」这项配给" };
+      var list = t.tiers || [];
+      var cur = upkeepIndex(cfg, tid, c.upkeep && c.upkeep[tid]);
+      var idx = -1;
+      var want = payload.tier;
+      if (typeof want === "string") {
+        for (var ui = 0; ui < list.length; ui++) if (list[ui].id === want) idx = ui;
+      } else if (typeof want === "number") {
+        idx = Math.round(want);
+      } else if (payload.next) {
+        idx = (cur + 1) % Math.max(1, list.length);
+      }
+      if (idx < 0 || idx >= list.length) return { ok: false, msg: "没有这个档位：" + want };
+      c.upkeep = c.upkeep || {};
+      c.upkeep[tid] = idx;
+      c.upkeepChangedWeek = state.weeks;
+      if (c.upkeepMiss) c.upkeepMiss[tid] = false;
+      var tier = list[idx];
+      pushEvent(state, cfg, "player_upkeep", "身份", "调整养护：" + t.name + " → " + tier.label,
+        "配给改为「" + tier.label + "」，每周消耗 " +
+        (num(tier.cost, 0) > 0 ? num(tier.cost, 0) + " " + (t.unit || "") : "0（不占库存）") +
+        "，下周结算起生效。", null, "随时能改，代价按周算");
+      return { ok: true, msg: "「" + t.name + "」改为「" + tier.label + "」", care: careBrief(state, cfg) };
+    }
+
+    if (id === "cyber") {
+      var cy = k.cyber;
+      if (!cy || !cy.parts) return { ok: false, msg: "义体改造配置没加载" };
+      var pid = payload.part || payload.partId || key;
+      var d = cy.parts[pid];
+      if (!d) return { ok: false, msg: "没有「" + pid + "」这件义体" };
+      var act = payload.action || (payload.remove ? "remove" : "install");
+      if (c.cyberJob) {
+        return { ok: false, msg: "手术台上还有一件没完工（" + c.cyberJob.partId + "），等它结算" };
+      }
+      if (tp < num(d.tech, 0)) {
+        return { ok: false, msg: "科技 " + tp + " 点，还差 " + (num(d.tech, 0) - tp) + " 点才能动「" + d.name + "」" };
+      }
+      var capM3 = num(cy.warehouseCapM3, 12);
+
+      if (act === "install") {
+        if (c.cyber[pid]) return { ok: false, msg: "「" + d.name + "」已经装着" };
+        var owner = cyberSlotOwner(c, cfg, d.slot);
+        if (owner && owner !== pid) {
+          return { ok: false, msg: "「" + d.slot + "」已经装了「" + ((cy.parts[owner] || {}).name || owner) + "」，先拆" };
+        }
+        var inst = d.install || {};
+        var wh = cyberWarehouseIdx(c, pid);
+        var fromWh = wh >= 0;
+        if (num(state.coins, 0) < num(inst.coins, 0)) return { ok: false, msg: "星币不足（需 " + num(inst.coins, 0) + "）" };
+        if (!fromWh) {
+          if (num(state.stocks && state.stocks.metal, 0) < num(inst.metal, 0)) {
+            return { ok: false, msg: "金属不足（需 " + num(inst.metal, 0) + " 吨）" };
+          }
+          if (num(state.ship && state.ship.propellant, 0) < num(inst.prop, 0)) {
+            return { ok: false, msg: "工质不足（需 " + num(inst.prop, 0) + " 吨）" };
+          }
+        }
+        state.coins = num(state.coins, 0) - num(inst.coins, 0);
+        if (fromWh) {
+          c.cyberRecycle.splice(wh, 1);   // 从仓库取件，同时腾出体积
+        } else {
+          state.stocks.metal = Math.max(0, num(state.stocks.metal, 0) - num(inst.metal, 0));
+          state.ship.propellant = Math.max(0, num(state.ship.propellant, 0) - num(inst.prop, 0));
+        }
+        var iw = Math.max(1, num(inst.weeks, 4));
+        c.cyberJob = { partId: pid, action: "install", until: state.weeks + iw, fail: num(inst.fail, 0) };
+        pushEvent(state, cfg, "player_cyber_start", "身份", "开始植入 · " + d.name,
+          (fromWh ? "从回收仓库取件，" : "") + "星币 −" + num(inst.coins, 0) + "，手术台占 " + iw +
+          " 周，失败率 " + Math.round(num(inst.fail, 0) * 100) + "%。", null, "手术要占时间，中途不能开第二台");
+        return { ok: true, msg: "开始植入「" + d.name + "」，" + iw + " 周后结算", care: careBrief(state, cfg) };
+      }
+
+      if (act === "remove") {
+        if (!c.cyber[pid]) return { ok: false, msg: "「" + d.name + "」没装着" };
+        var rem = d.remove || {};
+        if (num(state.coins, 0) < num(rem.coins, 0)) return { ok: false, msg: "星币不足（需 " + num(rem.coins, 0) + "）" };
+        if (cyberVolume(c) + num(d.volume, 0) > capM3) {
+          return { ok: false, msg: "回收仓库放不下（已占 " + cyberVolume(c) + " / " + capM3 + " m³）" };
+        }
+        state.coins = num(state.coins, 0) - num(rem.coins, 0);
+        var rw = Math.max(1, num(rem.weeks, 2));
+        c.cyberJob = { partId: pid, action: "remove", until: state.weeks + rw, fail: num(rem.fail, 0) };
+        pushEvent(state, cfg, "player_cyber_start", "身份", "开始拆除 · " + d.name,
+          "星币 −" + num(rem.coins, 0) + "，手术台占 " + rw + " 周，失败率 " +
+          Math.round(num(rem.fail, 0) * 100) + "%；拆下的件进回收仓库占体积。", null, "拆得下来才算回收");
+        return { ok: true, msg: "开始拆除「" + d.name + "」，" + rw + " 周后结算", care: careBrief(state, cfg) };
+      }
+      return { ok: false, msg: "义体操作只有 install / remove" };
     }
 
     return { ok: false, msg: "未知养护操作：" + id };

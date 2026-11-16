@@ -3253,6 +3253,13 @@
           : { ok: false, msg: "星币层未加载" };
       },
 
+      /** 调税率档位：{consume:档位索引, service:档位索引}，下一次月结生效 */
+      coinSetTax: function (payload) {
+        return global.XuanShuCoin
+          ? global.XuanShuCoin.setTax(state, cfg, payload || {})
+          : { ok: false, msg: "星币层未加载" };
+      },
+
       triggerMutiny: function (dept) {
         return global.XuanShuSociety
           ? global.XuanShuSociety.triggerMutiny(state, cfg, dept)

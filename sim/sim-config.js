@@ -411,8 +411,13 @@
       basket: { sideShares: 10, funSessions: 1, clean: 4, misc: 6 },
       prices: { side: 2, fun: 8, drug: 30 },
       sideCapSlave: 30,          // 非贵族副食上限（份/人/月）；贵族不限并可记入囤货
-      consumeTax: 0.10,          // 副食 + 娱乐
-      wealthTax: 0.02,           // 站务费，按个人余额每月
+      // 税率档位：玩家可调，当前档位索引存 state.coin.tax.{consume,service}
+      tax: {
+        consumeRates: [0, 0.05, 0.10, 0.15, 0.20],   // 消费税（只对副食 + 娱乐）
+        serviceRates: [0, 0.01, 0.02, 0.03],         // 站务费（按个人余额每月）
+        defaultConsume: 2,                           // 开局默认 10%
+        defaultService: 2                            // 开局默认 2%
+      },
       taxPoolCap: 20000,         // 税池缓冲上限；超出销毁，不灌进拆解回收账户
       l4HoldCap: 500,            // L4 个人持有上限
       l4ExcessTake: 0.20,        // 超限部分每月收缴比例
@@ -724,10 +729,11 @@
           failEffect: { note: "未到货 → 压力累积，下个窗口更易到货" }
         },
 
-        /* 年度奇遇：每年显式调用；log=false 不写判定日志（另存 encounter.history） */
+        /* 奇遇判定：滚动掷骰（每约 4 周一次），bias 取 -0.777 → 单次命中率 ≈ 1/13，
+           折算长期约 52 周一次；log=false 不写判定日志（另存 encounter.history） */
         encounter_year: {
           label: "年度奇遇", log: false, cooldownWeeks: 0,
-          bias: -0.76, factors: { luck: 0.55, gap: 0.035 },
+          bias: -0.777, factors: { luck: 0.55, gap: 0.035 },
           pressurePerFail: 0, pressureDecayPerWeek: 0
         },
 
@@ -957,6 +963,108 @@
             infectRelief: 0,
             text: "粮 0.05 吨/周 · 健康 +0.32"
           }
+        },
+        /* ---------------- 个人养护配给档位（v1.4） ----------------
+           玩家可随时切换，下一周结算即按新档位扣料与结算，无冷却。
+           每类 3 档，档位越高消耗越快、状态越好；库存不够当周该档空转（miss）。
+           replaceSelfCare=true 时旧的 selfCare 三开关不再结算，避免双算。 */
+        upkeep: {
+          enabled: true,
+          replaceSelfCare: true,
+          defaultTier: { food: 1, drug: 1, clean: 1 },
+          tracks: {
+            food: {
+              name: "口粮", unit: "吨/周", stock: "food",
+              tiers: [
+                { id: "lean", label: "省粮", cost: 0.10, hp: 0.05, mind: -0.05, spirit: 0.00, addict: 0.00 },
+                { id: "std", label: "标准", cost: 0.16, hp: 0.22, mind: 0.04, spirit: 0.02, addict: 0.00 },
+                { id: "rich", label: "优养", cost: 0.28, hp: 0.45, mind: 0.10, spirit: 0.06, addict: 0.00 }
+              ]
+            },
+            drug: {
+              name: "药剂", unit: "份/周", stock: "drug",
+              tiers: [
+                { id: "off", label: "停用", cost: 0, hp: -0.06, mind: 0.00, spirit: -0.02, addict: -0.04 },
+                { id: "keep", label: "维持", cost: 0.06, hp: 0.12, mind: 0.03, spirit: 0.05, addict: 0.02 },
+                { id: "boost", label: "强化", cost: 0.14, hp: 0.30, mind: 0.06, spirit: 0.15, addict: 0.06 }
+              ]
+            },
+            clean: {
+              name: "清洁与耗材", unit: "吨水/周", stock: "water",
+              tiers: [
+                { id: "off", label: "省略", cost: 0, hp: -0.04, mind: -0.02, spirit: 0.00, addict: 0.00, infectRelief: 0 },
+                { id: "std", label: "常规", cost: 0.02, hp: 0.06, mind: 0.02, spirit: 0.01, addict: 0.00, infectRelief: 0.0015 },
+                { id: "full", label: "彻底", cost: 0.05, hp: 0.12, mind: 0.04, spirit: 0.02, addict: 0.00, infectRelief: 0.004 }
+              ]
+            }
+          },
+          switchNote: "可随时切换，下一周结算即按新档位扣料"
+        },
+        /* ---------------- 义体改造（v1.4，替代基因强化组） ----------------
+           部位：肢体 / 感官 / 内脏 / 体表 / 神经；同部位只能装一件。
+           安装与拆除都占时间（weeks），从按下即扣星币/金属/工质，到期结算成败。
+           拆除成功的件进入主角私有回收仓库（占体积，上限 warehouseCapM3）；
+           仓库里有同件时再装不重复扣金属与工质。 */
+        cyber: {
+          warehouseCapM3: 12,
+          parts: {
+            arm: {
+              name: "液压义肢", slot: "肢体", tech: 45, volume: 1.2,
+              install: { coins: 900, metal: 28, prop: 5, weeks: 4, fail: 0.12 },
+              remove: { coins: 150, weeks: 2, fail: 0.05 },
+              hpBonus: 6, failHp: 8, failInfect: 1,
+              text: "健康 +6",
+              failText: "神经接口没长好：健康 −8、感染 +1，义肢报废"
+            },
+            eye: {
+              name: "多光谱义眼", slot: "感官", tech: 52, volume: 0.4,
+              install: { coins: 700, metal: 12, prop: 3, weeks: 3, fail: 0.10 },
+              remove: { coins: 120, weeks: 1, fail: 0.04 },
+              mindBonus: 4, spiritBonus: 3, failMind: 6,
+              text: "理智 +4、活跃精神 +3",
+              failText: "视觉神经排异：理智 −6，义眼报废"
+            },
+            lung: {
+              name: "循环辅助泵", slot: "内脏", tech: 58, volume: 1.6,
+              install: { coins: 1200, metal: 35, prop: 8, weeks: 5, fail: 0.14 },
+              remove: { coins: 220, weeks: 3, fail: 0.08 },
+              hpBonus: 8, infectResist: 0.10, failHp: 12, failInfect: 2,
+              text: "健康 +8、异常累积 −10%",
+              failText: "泵体血栓：健康 −12、感染 +2，泵体报废"
+            },
+            dermal: {
+              name: "皮下装甲", slot: "体表", tech: 64, volume: 1.0,
+              install: { coins: 1500, metal: 45, prop: 6, weeks: 6, fail: 0.16 },
+              remove: { coins: 300, weeks: 3, fail: 0.10 },
+              hpBonus: 10, spiritBonus: -2, failHp: 15, failInfect: 3,
+              text: "健康 +10、活跃精神 −2",
+              failText: "皮下剥离失败：健康 −15、感染 +3，装甲报废"
+            },
+            neural: {
+              name: "神经桥接", slot: "神经", tech: 72, volume: 0.6,
+              install: { coins: 1800, metal: 30, prop: 4, weeks: 6, fail: 0.18 },
+              remove: { coins: 400, weeks: 4, fail: 0.12 },
+              mindBonus: 6, spiritBonus: 6, failMind: 8, failHp: 6,
+              text: "理智 +6、活跃精神 +6",
+              failText: "桥接错位：理智 −8、健康 −6，桥接件报废"
+            },
+            filter: {
+              name: "血液滤净器", slot: "内脏", tech: 80, volume: 1.4,
+              install: { coins: 2200, metal: 40, prop: 7, weeks: 5, fail: 0.15 },
+              remove: { coins: 350, weeks: 2, fail: 0.09 },
+              hpBonus: 3, infectResist: 0.18, failHp: 6, failInfect: 4,
+              text: "健康 +3、异常累积 −18%",
+              failText: "滤芯破裂：感染 +4、健康 −6，滤净器报废"
+            },
+            ghost: {
+              name: "低语抑制器", slot: "神经", tech: 94, volume: 0.5,
+              install: { coins: 3000, metal: 25, prop: 5, weeks: 7, fail: 0.20 },
+              remove: { coins: 600, weeks: 5, fail: 0.14 },
+              mindBonus: 3, infectResist: 0.25, failMind: 12, failInfect: 5,
+              text: "理智 +3、异常累积 −25%",
+              failText: "抑制器过载：理智 −12、感染 +5，抑制器报废"
+            }
+          }
         }
       },
       // 玩家风险判定：fired = 动作成功；未成立 = 失败后果
@@ -1173,15 +1281,17 @@
        牌库剩余/已抽/洗牌轮次/当前候选/历史全部进 state.encounter。 */
     encounter: {
       enabled: true,
-      // v6.37：检查间隔（年，可小于 1，如 0.25 = 每季查一次）；maxPerYear 是每年最多成事次数。
-      checkEveryYears: 1,
-      baseBias: -0.76,
+      // v6.38：改成滚动掷骰——每 1/12 年（约 4 周）掷一次，单次命中率 ≈ 1/13，
+      // 长期期望 13 次检查 ≈ 52 周一次；间隔从「几周」到「两三年」都有，均值仍在一年左右。
+      // maxPerYear 只是封顶，不是节奏：每年最多成事 2 次，防止连撞把牌库抽空。
+      checkEveryYears: 1 / 12,
+      baseBias: -0.777,
       luckMin: 0.55,
       luckMax: 1.45,
       luckDraws: 3,
       droughtAfterYears: 12,
       droughtCoef: 0.035,
-      maxPerYear: 1,
+      maxPerYear: 2,
       historyCap: 200,
 
       /* ---------------- 废弃殖民舰 · 七选项 ----------------
@@ -2290,10 +2400,13 @@
     decisions: {
       enabled: true,
       evalEveryWeeks: 1,
-      cooldownWeeks: 52,
       maxOpen: 3,
       maxItems: 60,
       keepResolved: 20,
+      keepAlerts: 12,
+      defaultResolveWeeks: 18,     // resolve 未写 weeks 时的兜底
+      defaultBuffWeeks: 4,         // 临时效果未写 weeks 时的兜底
+      defaultTriggerWeeks: 1,      // 连续周触发条件未写 weeks 时的兜底
       labels: {
         lord: "大君", noble: "贵族", commoner: "平民",
         slave: "奴隶", clone: "克隆", creator: "创造模式"
@@ -2308,12 +2421,20 @@
           trigger: {
             anyOf: [
               { withdrawAbove: 15 },
-              { withdrawAbove: 8, medCoveragePctBelow: 55 }
+              { all: [{ withdrawAbove: 8 }, { medCoveragePctBelow: 55 }] }
             ]
           },
           triggerText: "全船戒断人数 ≥ 15，或戒断 ≥ 8 且医疗覆盖 < 55%",
-          resolveDefault: { key: "withdraw", below: 5, weeks: 8,
-            text: "全船戒断人数降到 5 人以下并维持 8 周" },
+          tiers: [
+            { id: "w1", level: 1, label: "一档", when: { withdrawAbove: 15 },
+              text: "全船戒断 ≥ 15 人" },
+            { id: "w2", level: 2, label: "二档", when: { withdrawAbove: 40 },
+              text: "全船戒断 ≥ 40 人" },
+            { id: "w3", level: 3, label: "三档", when: { anyOf: [{ withdrawAbove: 80 }, { withdrawSharePctAtLeast: 10 }] },
+              text: "全船戒断 ≥ 80 人，或戒断人数占醒态人口 ≥ 10%" }
+          ],
+          resolveDefault: { key: "withdraw", below: 5, weeks: 18,
+            text: "全船戒断人数降到 5 人以下并维持 18 周" },
           options: [
             {
               id: "taper", label: "逐步减量", risk: "低",
@@ -2322,8 +2443,8 @@
               effectsText: ["秩序 −2%", "休眠药剂 −60 份"],
               need: { drugMin: 60 },
               ops: [{ t: "order", v: -2 }, { t: "stock", k: "drug", v: -60 }],
-              resolve: { key: "withdraw", below: 5, weeks: 8,
-                text: "全船戒断人数降到 5 人以下并维持 8 周" }
+              resolve: { key: "withdraw", below: 5, weeks: 18,
+                text: "全船戒断人数降到 5 人以下并维持 18 周" }
             },
             {
               id: "coldTurkey", label: "硬戒", risk: "高",
@@ -2335,8 +2456,8 @@
                 { t: "addict", k: "heavy", v: -20 }, { t: "addict", k: "mid", v: -15 },
                 { t: "pop", v: -4 }
               ],
-              resolve: { key: "withdraw", below: 5, weeks: 12,
-                text: "全船戒断人数降到 5 人以下并维持 12 周" }
+              resolve: { key: "withdraw", below: 5, weeks: 18,
+                text: "全船戒断人数降到 5 人以下并维持 18 周" }
             },
             {
               id: "isolate", label: "隔离戒断", risk: "中",
@@ -2347,8 +2468,8 @@
                 { t: "order", v: -4 }, { t: "prodTmp", v: -8, weeks: 8 },
                 { t: "addict", k: "heavy", v: -12 }
               ],
-              resolve: { key: "withdraw", below: 5, weeks: 10,
-                text: "全船戒断人数降到 5 人以下并维持 10 周" }
+              resolve: { key: "withdraw", below: 5, weeks: 18,
+                text: "全船戒断人数降到 5 人以下并维持 18 周" }
             },
             {
               id: "supplyFirst", label: "优先供药", risk: "低",
@@ -2357,8 +2478,8 @@
               effectsText: ["休眠药剂 −150 份", "秩序 +2%"],
               need: { drugMin: 150 },
               ops: [{ t: "stock", k: "drug", v: -150 }, { t: "order", v: 2 }],
-              resolve: { key: "withdraw", below: 5, weeks: 3,
-                text: "全船戒断人数降到 5 人以下并维持 3 周" }
+              resolve: { key: "withdraw", below: 5, weeks: 18,
+                text: "全船戒断人数降到 5 人以下并维持 18 周" }
             },
             {
               id: "substitute", label: "替代疗法", risk: "中",
@@ -2370,8 +2491,8 @@
                 { t: "stock", k: "metal", v: -30 }, { t: "med", k: "pain", v: 40 },
                 { t: "addict", k: "light", v: -10 }
               ],
-              resolve: { key: "withdraw", below: 8, weeks: 8,
-                text: "全船戒断人数降到 8 人以下并维持 8 周" }
+              resolve: { key: "withdraw", below: 8, weeks: 18,
+                text: "全船戒断人数降到 8 人以下并维持 18 周" }
             },
             {
               id: "herbal", label: "民间土方", risk: "中",
@@ -2383,8 +2504,8 @@
                 { t: "stock", k: "food", v: -20 }, { t: "order", v: -1 },
                 { t: "addict", k: "mid", v: -6 }
               ],
-              resolve: { key: "withdraw", below: 8, weeks: 10,
-                text: "全船戒断人数降到 8 人以下并维持 10 周" }
+              resolve: { key: "withdraw", below: 8, weeks: 18,
+                text: "全船戒断人数降到 8 人以下并维持 18 周" }
             },
             {
               id: "coverUp", label: "封锁消息", risk: "高",
@@ -2392,8 +2513,8 @@
               desc: "不承认有戒断潮，把病房和死亡记录压下去",
               effectsText: ["秩序 +3%（短期）", "中度成瘾 +8（后患）"],
               ops: [{ t: "order", v: 3 }, { t: "addict", k: "mid", v: 8 }],
-              resolve: { key: "addictSharePct", below: 6, weeks: 12,
-                text: "轻中重成瘾占比降到 6% 以下并维持 12 周" }
+              resolve: { key: "addictSharePct", below: 6, weeks: 18,
+                text: "轻中重成瘾占比降到 6% 以下并维持 18 周" }
             },
             {
               id: "workThem", label: "逼着上工", risk: "高",
@@ -2404,8 +2525,8 @@
                 { t: "order", v: -3 }, { t: "prodTmp", v: 4, weeks: 4 },
                 { t: "pop", v: -8 }
               ],
-              resolve: { key: "withdraw", below: 5, weeks: 12,
-                text: "全船戒断人数降到 5 人以下并维持 12 周" }
+              resolve: { key: "withdraw", below: 5, weeks: 18,
+                text: "全船戒断人数降到 5 人以下并维持 18 周" }
             }
           ]
         },
@@ -2417,13 +2538,21 @@
           severity: "高",
           trigger: {
             anyOf: [
-              { mutinyLevelAtLeast: 3, orderPctBelow: 65 },
+              { all: [{ mutinyLevelAtLeast: 3 }, { orderPctBelow: 65 }] },
               { orderPctBelow: 50 }
             ]
           },
           triggerText: "哗变 ≥ 3 级且秩序 < 65%，或秩序 < 50%",
-          resolveDefault: { key: "orderPct", above: 70, weeks: 4,
-            text: "秩序回到 70% 以上并维持 4 周" },
+          tiers: [
+            { id: "r1", level: 1, label: "一档", when: { anyOf: [{ orderPctBelow: 65 }, { mutinyLevelAtLeast: 3 }] },
+              text: "秩序 < 65%，或哗变 ≥ 3 级" },
+            { id: "r2", level: 2, label: "二档", when: { anyOf: [{ orderPctBelow: 55 }, { mutinyLevelAtLeast: 4 }] },
+              text: "秩序 < 55%，或哗变 ≥ 4 级" },
+            { id: "r3", level: 3, label: "三档", when: { anyOf: [{ orderPctBelow: 40 }, { mutinyLevelAtLeast: 5 }] },
+              text: "秩序 < 40%，或哗变 5 级" }
+          ],
+          resolveDefault: { key: "orderPct", above: 70, weeks: 18,
+            text: "秩序回到 70% 以上并维持 18 周" },
           options: [
             {
               id: "openGranary", label: "开仓放粮", risk: "低",
@@ -2432,8 +2561,8 @@
               effectsText: ["粮食 −60 吨", "秩序 +5%"],
               need: { foodMin: 60 },
               ops: [{ t: "stock", k: "food", v: -60 }, { t: "order", v: 5 }],
-              resolve: { all: [{ key: "orderPct", above: 70 }, { key: "mutiny", below: 2 }], weeks: 4,
-                text: "秩序回到 70% 以上、哗变降到 1 级以下，并维持 4 周" }
+              resolve: { all: [{ key: "orderPct", above: 70 }, { key: "mutiny", below: 2 }], weeks: 18,
+                text: "秩序回到 70% 以上、哗变降到 1 级以下，并维持 18 周" }
             },
             {
               id: "payOff", label: "发钱安抚", risk: "低",
@@ -2442,8 +2571,8 @@
               effectsText: ["舰内星币 −400", "秩序 +6%"],
               need: { coinsMin: 400 },
               ops: [{ t: "coins", v: -400 }, { t: "order", v: 6 }],
-              resolve: { all: [{ key: "orderPct", above: 70 }, { key: "mutiny", below: 2 }], weeks: 4,
-                text: "秩序回到 70% 以上、哗变降到 1 级以下，并维持 4 周" }
+              resolve: { all: [{ key: "orderPct", above: 70 }, { key: "mutiny", below: 2 }], weeks: 18,
+                text: "秩序回到 70% 以上、哗变降到 1 级以下，并维持 18 周" }
             },
             {
               id: "arrestLeaders", label: "抓捕领头", risk: "中",
@@ -2453,8 +2582,8 @@
               ops: [
                 { t: "pop", v: -10 }, { t: "order", v: 4 }, { t: "mutiny", v: -1 }
               ],
-              resolve: { all: [{ key: "orderPct", above: 68 }, { key: "mutiny", below: 2 }], weeks: 4,
-                text: "秩序回到 68% 以上、哗变降到 1 级以下，并维持 4 周" }
+              resolve: { all: [{ key: "orderPct", above: 68 }, { key: "mutiny", below: 2 }], weeks: 18,
+                text: "秩序回到 68% 以上、哗变降到 1 级以下，并维持 18 周" }
             },
             {
               id: "crackdown", label: "警备镇压", risk: "高",
@@ -2466,8 +2595,8 @@
                 { t: "stock", k: "metal", v: -20 }, { t: "garrison", v: 8 },
                 { t: "pop", v: -14 }, { t: "order", v: -3 }, { t: "mutiny", v: -2 }
               ],
-              resolve: { all: [{ key: "orderPct", above: 65 }, { key: "mutiny", below: 1 }], weeks: 6,
-                text: "秩序回到 65% 以上、哗变归零，并维持 6 周" }
+              resolve: { all: [{ key: "orderPct", above: 65 }, { key: "mutiny", below: 1 }], weeks: 18,
+                text: "秩序回到 65% 以上、哗变归零，并维持 18 周" }
             },
             {
               id: "negotiate", label: "谈判", risk: "中",
@@ -2475,8 +2604,8 @@
               desc: "和代表坐下来谈条件，答应一部分诉求",
               effectsText: ["秩序 +3%", "产出 −5%（6 周）"],
               ops: [{ t: "order", v: 3 }, { t: "prodTmp", v: -5, weeks: 6 }],
-              resolve: { key: "orderPct", above: 70, weeks: 4,
-                text: "秩序回到 70% 以上并维持 4 周" }
+              resolve: { key: "orderPct", above: 70, weeks: 18,
+                text: "秩序回到 70% 以上并维持 18 周" }
             },
             {
               id: "petition", label: "联名请愿", risk: "低",
@@ -2485,8 +2614,8 @@
               effectsText: ["粮食 −10 吨", "秩序 +2%"],
               need: { foodMin: 10 },
               ops: [{ t: "stock", k: "food", v: -10 }, { t: "order", v: 2 }],
-              resolve: { key: "orderPct", above: 68, weeks: 6,
-                text: "秩序回到 68% 以上并维持 6 周" }
+              resolve: { key: "orderPct", above: 68, weeks: 18,
+                text: "秩序回到 68% 以上并维持 18 周" }
             },
             {
               id: "strike", label: "停工施压", risk: "中",
@@ -2494,8 +2623,8 @@
               desc: "关键岗位停摆，用产出换谈判筹码",
               effectsText: ["秩序 −2%", "产出 −12%（4 周）"],
               ops: [{ t: "order", v: -2 }, { t: "prodTmp", v: -12, weeks: 4 }],
-              resolve: { key: "orderPct", above: 70, weeks: 8,
-                text: "秩序回到 70% 以上并维持 8 周" }
+              resolve: { key: "orderPct", above: 70, weeks: 18,
+                text: "秩序回到 70% 以上并维持 18 周" }
             },
             {
               id: "joinRiot", label: "跟着闹", risk: "高",
@@ -2503,8 +2632,8 @@
               desc: "下层没有别的筹码，只能把事闹大",
               effectsText: ["秩序 −5%", "死亡 6"],
               ops: [{ t: "order", v: -5 }, { t: "pop", v: -6 }],
-              resolve: { key: "orderPct", above: 62, weeks: 10,
-                text: "秩序回到 62% 以上并维持 10 周" }
+              resolve: { key: "orderPct", above: 62, weeks: 18,
+                text: "秩序回到 62% 以上并维持 18 周" }
             }
           ]
         },
@@ -2515,14 +2644,22 @@
           brief: "镇痛与休眠药剂都见了底，医疗环开始限量；再拖下去会连带成瘾与死亡。",
           severity: "中",
           trigger: {
-            anyOf: [
-              { painBelow: 60 },
-              { drugBelow: 150 }
+            all: [
+              { painDeficit: { below: 60, weeks: 3 } },
+              { withdrawSharePctAtLeast: 5 }
             ]
           },
-          triggerText: "镇痛药剂池 < 60 份，或休眠药剂 < 150 份",
-          resolveDefault: { all: [{ key: "pain", above: 200 }, { key: "drug", above: 300 }], weeks: 2,
-            text: "镇痛药剂 ≥ 200 份、休眠药剂 ≥ 300 份，并维持 2 周" },
+          triggerText: "镇痛药剂池连续 3 周 < 60 份，且全船戒断人数 ≥ 醒态人口 5%",
+          tiers: [
+            { id: "d1", level: 1, label: "一档", when: { painBelow: 60 },
+              text: "镇痛池 < 60 份（按 200 份需求约七成缺口）" },
+            { id: "d2", level: 2, label: "二档", when: { painBelow: 30 },
+              text: "镇痛池 < 30 份（约八成五缺口）" },
+            { id: "d3", level: 3, label: "三档", when: { anyOf: [{ painBelow: 10 }, { withdrawSharePctAtLeast: 15 }] },
+              text: "镇痛池 < 10 份，或戒断人数占醒态人口 ≥ 15%" }
+          ],
+          resolveDefault: { all: [{ key: "pain", above: 200 }, { key: "drug", above: 300 }], weeks: 18,
+            text: "镇痛药剂 ≥ 200 份、休眠药剂 ≥ 300 份，并维持 18 周" },
           options: [
             {
               id: "shiftLine", label: "转产镇痛", risk: "中",
@@ -2534,8 +2671,8 @@
                 { t: "stock", k: "metal", v: -15 }, { t: "prodTmp", v: -3, weeks: 4 },
                 { t: "med", k: "pain", v: 120 }
               ],
-              resolve: { all: [{ key: "pain", above: 240 }, { key: "drug", above: 300 }], weeks: 2,
-                text: "镇痛药剂 ≥ 240 份、休眠药剂 ≥ 300 份，并维持 2 周" }
+              resolve: { all: [{ key: "pain", above: 240 }, { key: "drug", above: 300 }], weeks: 18,
+                text: "镇痛药剂 ≥ 240 份、休眠药剂 ≥ 300 份，并维持 18 周" }
             },
             {
               id: "cutHibernation", label: "挪休眠药", risk: "高",
@@ -2547,8 +2684,8 @@
                 { t: "stock", k: "drug", v: -150 }, { t: "med", k: "pain", v: 100 },
                 { t: "order", v: -3 }
               ],
-              resolve: { key: "pain", above: 240, weeks: 2,
-                text: "镇痛药剂 ≥ 240 份并维持 2 周" }
+              resolve: { key: "pain", above: 240, weeks: 18,
+                text: "镇痛药剂 ≥ 240 份并维持 18 周" }
             },
             {
               id: "buyDrug", label: "外购药剂", risk: "低",
@@ -2557,8 +2694,8 @@
               effectsText: ["舰内星币 −300", "休眠药剂 +200 份"],
               need: { coinsMin: 300 },
               ops: [{ t: "coins", v: -300 }, { t: "stock", k: "drug", v: 200 }],
-              resolve: { key: "drug", above: 400, weeks: 2,
-                text: "休眠药剂 ≥ 400 份并维持 2 周" }
+              resolve: { key: "drug", above: 400, weeks: 18,
+                text: "休眠药剂 ≥ 400 份并维持 18 周" }
             },
             {
               id: "rationPain", label: "限量配给", risk: "中",
@@ -2569,8 +2706,8 @@
                 { t: "order", v: -3 }, { t: "addict", k: "heavy", v: -6 },
                 { t: "med", k: "pain", v: 40 }
               ],
-              resolve: { key: "pain", above: 200, weeks: 2,
-                text: "镇痛药剂 ≥ 200 份并维持 2 周" }
+              resolve: { key: "pain", above: 200, weeks: 18,
+                text: "镇痛药剂 ≥ 200 份并维持 18 周" }
             },
             {
               id: "substitute", label: "民用替代", risk: "中",
@@ -2582,8 +2719,8 @@
                 { t: "stock", k: "metal", v: -10 }, { t: "med", k: "nutri", v: -40 },
                 { t: "med", k: "pain", v: 70 }
               ],
-              resolve: { key: "pain", above: 200, weeks: 2,
-                text: "镇痛药剂 ≥ 200 份并维持 2 周" }
+              resolve: { key: "pain", above: 200, weeks: 18,
+                text: "镇痛药剂 ≥ 200 份并维持 18 周" }
             },
             {
               id: "blackMarket", label: "默许黑市", risk: "中",
@@ -2591,8 +2728,8 @@
               desc: "不查私药，让民间自己流转，秩序上记账",
               effectsText: ["秩序 −2%", "镇痛药剂 +50 份"],
               ops: [{ t: "order", v: -2 }, { t: "med", k: "pain", v: 50 }],
-              resolve: { key: "pain", above: 200, weeks: 3,
-                text: "镇痛药剂 ≥ 200 份并维持 3 周" }
+              resolve: { key: "pain", above: 200, weeks: 18,
+                text: "镇痛药剂 ≥ 200 份并维持 18 周" }
             },
             {
               id: "seize", label: "查封私药", risk: "中",
@@ -2603,8 +2740,8 @@
                 { t: "order", v: -4 }, { t: "garrison", v: 2 },
                 { t: "med", k: "pain", v: 90 }
               ],
-              resolve: { key: "pain", above: 220, weeks: 2,
-                text: "镇痛药剂 ≥ 220 份并维持 2 周" }
+              resolve: { key: "pain", above: 220, weeks: 18,
+                text: "镇痛药剂 ≥ 220 份并维持 18 周" }
             },
             {
               id: "endure", label: "硬扛", risk: "低",
@@ -2612,8 +2749,8 @@
               desc: "什么也不动，等产线自己把池子补回来",
               effectsText: ["秩序 −1%"],
               ops: [{ t: "order", v: -1 }],
-              resolve: { key: "pain", above: 200, weeks: 4,
-                text: "镇痛药剂 ≥ 200 份并维持 4 周" }
+              resolve: { key: "pain", above: 200, weeks: 18,
+                text: "镇痛药剂 ≥ 200 份并维持 18 周" }
             }
           ]
         }

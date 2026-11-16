@@ -1,17 +1,20 @@
 /* =========================================================================
-   玄枢号 · 待决策机制（v1.0.0）
+   玄枢号 · 待决策机制（v1.2.0）
    -------------------------------------------------------------------------
    与「常驻危机」（sim-crisis.js）分工：
    - 危机：参数越线 → 挂卡 → 选完立即解除 / 定时暂缓
-   - 待决策：事件越线 → 生成待决项 → 选完立即落账，但条目转入「未解决」
-     带着解决条件继续挂着；每周检查，条件持续满足才自动关闭并写「已解决」
+   - 待决策：事件越线 → 生成待决项 → 选完立即落账，条目转入「观察中」
+     带着解决条件继续挂着；每周检查，条件连续满足满 N 周才自动关闭并写「已解决」
+   状态机：open（待决策）→ watching（观察中）→ resolved（已解决）
+   观察中若条件中断，留在 watching 并把连续计数归零，不回退到 open
    引擎只提供全集与可用性（按身份 + 当前状态），界面自己从可用项里随机抽 3 个。
    效果结算复用 sim-crisis.js 的 applyOps；本文件只补 4 个待决策专用算子。
    ========================================================================= */
 (function (global) {
   "use strict";
 
-  var VERSION = "1.0.0";
+  var VERSION = "1.2.0";
+  var STATUS_TEXT = { open: "待决策", watching: "观察中", resolved: "已解决" };
   var PP = 0.01; // 百分点换算：配置里 order −3 / prodTmp −10 表示 −3% / −10%
 
   function isNum(v) { return typeof v === "number" && isFinite(v); }
@@ -34,22 +37,38 @@
       items: [],
       resolved: 0,
       lastEval: -1,
-      cooldown: {}
+      watch: {},    // 触发器连续周计数（按条件键分槽）
+      alerts: [],   // 跨档提醒流水
+      alertSeq: 0
     };
   }
 
-  function create(cfg) { return blank(); }
+  function create(cfg) { validateOnce(cfg); return blank(); }
 
   function ensure(state, cfg) {
+    validateOnce(cfg);
     if (!state.decisions || typeof state.decisions !== "object") state.decisions = blank();
     var D = state.decisions;
     if (!Array.isArray(D.items)) D.items = [];
-    if (!D.cooldown || typeof D.cooldown !== "object") D.cooldown = {};
+    if (D.cooldown) delete D.cooldown;   // v1.0 的同类冷却，1.1 起废弃
+    if (!D.watch || typeof D.watch !== "object") D.watch = {};
+    if (!Array.isArray(D.alerts)) D.alerts = [];
+    if (!isNum(D.alertSeq)) D.alertSeq = 0;
+    D.version = VERSION;
     if (!isNum(D.seq)) D.seq = 0;
     if (!isNum(D.resolved)) D.resolved = 0;
     if (!isNum(D.lastEval)) D.lastEval = -1;
     // 丢掉配置里已经不存在的模板，避免旧档卡死
     D.items = D.items.filter(function (it) { return !!findDef(cfg, it.defId); });
+    D.items.forEach(function (it) {
+      // v1.1 的「未解决」= selected，1.2 起统一叫 watching（观察中）
+      if (it.status === "selected") it.status = "watching";
+      if (!STATUS_TEXT[it.status]) it.status = it.chosen ? "watching" : "open";
+      if (!isNum(it.severityLevel)) it.severityLevel = 0;
+      if (typeof it.severityText !== "string") it.severityText = "";
+      if (it.alert === undefined) it.alert = null;
+      if (!isNum(it.alertSeq)) it.alertSeq = 0;
+    });
     return D;
   }
 
@@ -120,6 +139,10 @@
         return aw > 0 ? addictTotal(state) / aw * 100 : 0;
       }
       case "withdraw": return withdrawTotal(state);
+      case "withdrawSharePct": {
+        var aw2 = awakeTotal(state);
+        return aw2 > 0 ? withdrawTotal(state) / aw2 * 100 : 0;
+      }
       case "medCoveragePct": return num(state.last && state.last.medCoverage) * 100;
       default: return 0;
     }
@@ -231,7 +254,7 @@
         state.stocks[op.k] = Math.max(0, num(state.stocks[op.k]) + op.v);
       } else if (op.t === "prodTmp") {
         if (!state.crisis) state.crisis = { active: [], cooldown: {}, buffs: [], history: [], resolved: 0, lastEval: -1 };
-        state.crisis.buffs.push({ prodMul: 1 + op.v, until: num(state.weeks) + Math.max(1, op.weeks || 4) });
+        state.crisis.buffs.push({ prodMul: 1 + op.v, until: num(state.weeks) + Math.max(1, num(op.weeks, num((ccfg(cfg) || {}).defaultBuffWeeks, 4))) });
       }
     });
   }
@@ -274,7 +297,7 @@
 
   function evalCond(state, cfg, cond, prevStreak) {
     var raw = condRaw(state, cfg, cond);
-    var need = Math.max(1, (cond && cond.weeks) || 1);
+    var need = Math.max(1, (cond && cond.weeks) || num((ccfg(cfg) || {}).defaultResolveWeeks, 18));
     var streak = raw.ok ? num(prevStreak) + 1 : 0;
     return {
       ok: raw.ok && streak >= need,
@@ -291,9 +314,72 @@
 
   /* ---------------- 触发 ---------------- */
 
-  function trigOne(state, cfg, tr) {
+  // trigOne 是 if/else-if 链：一个节点对象只能写一个条件键，
+  // 多条件必须用 { all: [...] } / { anyOf: [...] } 组合，否则后面的键会被静默忽略。
+  var LEAF_KEYS = [
+    "painDeficit", "orderPctBelow", "mutinyLevelAtLeast", "withdrawAbove",
+    "withdrawSharePctAtLeast", "addictSharePctAbove", "painBelow", "drugBelow",
+    "medCoveragePctBelow", "foodBelow"
+  ];
+
+  function leafKeys(node) {
+    var out = [];
+    LEAF_KEYS.forEach(function (k) { if (node[k] !== undefined) out.push(k); });
+    return out;
+  }
+
+  function checkNode(node, where) {
+    if (!node || typeof node !== "object") return;
+    var kids = Array.isArray(node.all) ? node.all :
+      (Array.isArray(node.anyOf) ? node.anyOf : (Array.isArray(node.any) ? node.any : null));
+    if (kids) {
+      kids.forEach(function (n, i) { checkNode(n, where + "[" + i + "]"); });
+      return;
+    }
+    var ks = leafKeys(node);
+    if (ks.length > 1) {
+      throw new Error("待决策触发条件写法错误：" + where + " 同一节点含多个条件键 [" +
+        ks.join(", ") + "]，请拆成 { all: [{...}, {...}] }");
+    }
+  }
+
+  /** 校验所有模板的 trigger 与 tiers[].when；配置写错时在首次使用时直接抛错。 */
+  function validate(cfg) {
+    (defsOf(cfg) || []).forEach(function (d) {
+      checkNode(d.trigger, "decisions." + d.id + ".trigger");
+      (d.tiers || []).forEach(function (t) {
+        checkNode(t.when, "decisions." + d.id + ".tiers[" + (t.id || "?") + "].when");
+      });
+    });
+  }
+
+  var checkedCfgs = typeof WeakSet !== "undefined" ? new WeakSet() : null;
+  function validateOnce(cfg) {
+    if (!cfg) return;
+    if (checkedCfgs && checkedCfgs.has(cfg)) return;
+    validate(cfg);
+    if (checkedCfgs) checkedCfgs.add(cfg);
+  }
+
+  function trigOne(state, cfg, tr, watch) {
     if (!tr) return "";
+    if (leafKeys(tr).length > 1) {
+      throw new Error("待决策触发条件写法错误：同一节点含多个条件键 [" +
+        leafKeys(tr).join(", ") + "]，请拆成 { all: [{...}, {...}] }");
+    }
     var st = stockOf(state), med = medPool(state);
+    // 连续周条件：计数写在 watch 里，跨周保留；不满足即归零
+    if (tr.painDeficit) {
+      var pd = tr.painDeficit;
+      var pk = "painDeficit@" + num(pd.below);
+      var slot = watch ? num(watch[pk]) : 0;
+      slot = num(med.pain) < num(pd.below) ? slot + 1 : 0;
+      if (watch) watch[pk] = slot;
+      if (slot >= Math.max(1, num(pd.weeks, num((ccfg(cfg) || {}).defaultTriggerWeeks, 1)))) {
+        return "镇痛池连续 " + slot + " 周 < " + num(pd.below) + " 份";
+      }
+      return "";
+    }
     if (isNum(tr.orderPctBelow) && num(state.order) * 100 < tr.orderPctBelow) {
       return "秩序 " + Math.round(num(state.order) * 100) + "% < " + tr.orderPctBelow + "%";
     }
@@ -302,6 +388,9 @@
     }
     if (isNum(tr.withdrawAbove) && withdrawTotal(state) >= tr.withdrawAbove) {
       return "全船戒断人数 " + withdrawTotal(state) + " ≥ " + tr.withdrawAbove;
+    }
+    if (isNum(tr.withdrawSharePctAtLeast) && metric(state, cfg, "withdrawSharePct") >= tr.withdrawSharePctAtLeast) {
+      return "戒断占比 " + Math.round(metric(state, cfg, "withdrawSharePct")) + "% ≥ " + tr.withdrawSharePctAtLeast + "%";
     }
     if (isNum(tr.addictSharePctAbove) && metric(state, cfg, "addictSharePct") >= tr.addictSharePctAbove) {
       return "成瘾占比 " + Math.round(metric(state, cfg, "addictSharePct")) + "% ≥ " + tr.addictSharePctAbove + "%";
@@ -321,17 +410,47 @@
     return "";
   }
 
-  function triggerHit(state, cfg, d) {
-    var tr = d.trigger;
-    if (!tr) return "";
-    if (Array.isArray(tr.anyOf)) {
-      for (var i = 0; i < tr.anyOf.length; i++) {
-        var why = trigOne(state, cfg, tr.anyOf[i]);
-        if (why) return why;
-      }
-      return "";
+  function triggerHit(state, cfg, d, watch) {
+    return nodeHit(state, cfg, d.trigger, watch);
+  }
+
+  /** 组合条件求值：all 全中、anyOf/any 任一；不顺短路，保证连续周计数每项都走到。 */
+  function nodeHit(state, cfg, node, watch) {
+    if (!node) return "";
+    if (Array.isArray(node.all)) {
+      var ok = true, whys = [];
+      node.all.forEach(function (n) {
+        var w = nodeHit(state, cfg, n, watch);
+        if (!w) ok = false; else whys.push(w);
+      });
+      return ok && whys.length ? whys.join(" · ") : "";
     }
-    return trigOne(state, cfg, tr);
+    if (Array.isArray(node.anyOf) || Array.isArray(node.any)) {
+      var list = node.anyOf || node.any, got = "";
+      list.forEach(function (n) {
+        var w = nodeHit(state, cfg, n, watch);
+        if (w && !got) got = w;
+      });
+      return got;
+    }
+    return trigOne(state, cfg, node, watch);
+  }
+
+  /** 当前档位：命中档里取最深的一档；都不命中回落到模板静态 severity。 */
+  function tierAt(state, cfg, d) {
+    var best = null;
+    (d.tiers || []).forEach(function (t) {
+      if (!t || !t.when) return;
+      if (!nodeHit(state, cfg, t.when, null)) return;
+      if (!best || num(t.level, 0) > num(best.level, 0)) best = t;
+    });
+    if (!best) return { id: "", level: 0, label: d.severity || "", text: "" };
+    return {
+      id: best.id || "",
+      level: num(best.level, 0),
+      label: best.label || d.severity || "",
+      text: best.text || ""
+    };
   }
 
   /* ---------------- 日志 ---------------- */
@@ -371,19 +490,22 @@
     return false;
   }
 
-  function open(state, cfg, defId, triggerText) {
+  function open(state, cfg, defId, triggerText, tier) {
     var d = findDef(cfg, defId);
     if (!d) return { ok: false, msg: "没有这条决策模板" };
     if (d.enabled === false) return { ok: false, msg: "这条决策已关闭" };
     var D = ensure(state, cfg);
     if (hasLive(D, d.type)) return { ok: false, msg: "同类型决策还挂着" };
+    var t = tier || { id: "", level: 0, label: d.severity || "", text: "" };
     var item = {
       id: "dec_" + (++D.seq),
       type: d.type,
       defId: d.id,
       title: d.title,
       brief: d.brief || "",
-      severity: d.severity || "",
+      severity: t.label || d.severity || "",
+      severityLevel: num(t.level),
+      severityText: t.text || "",
       triggerWeek: state.weeks,
       triggerYear: Math.floor(state.weeks / weeksPerYear(cfg)),
       triggerText: triggerText || d.triggerText || "",
@@ -394,13 +516,26 @@
       resolveCond: null,
       resolveProg: null,
       resolvedWeek: null,
-      resolvedText: ""
+      resolvedText: "",
+      alert: null,
+      alertSeq: 0
     };
     D.items.unshift(item);
     log(state, cfg, "待决策", "待决策 · " + d.title,
-      item.brief, "触发：" + item.triggerText + " · 身份=" + classLabel(state, cfg));
+      item.brief, "触发：" + item.triggerText + " · 身份=" + classLabel(state, cfg) +
+        (t.level ? " · 档位 " + t.level : ""));
     prune(D, cfg);
     return { ok: true, item: item };
+  }
+
+  /** 跨档提醒流水：给右栏/弹窗取「最近一次升级」，不再开新条目。 */
+  function pushAlert(D, cfg, a) {
+    D.alertSeq += 1;
+    a.seq = D.alertSeq;
+    D.alerts.push(a);
+    var cap = Math.max(0, num((ccfg(cfg) || {}).keepAlerts, 12));
+    while (D.alerts.length > cap) D.alerts.shift();
+    return a;
   }
 
   /* ---------------- 选择 ---------------- */
@@ -425,7 +560,7 @@
 
     applyOps(state, cfg, opt.ops || []);
     item.chosen = true;
-    item.status = "selected";
+    item.status = "watching";
     item.choice = {
       optionId: opt.id,
       label: opt.label,
@@ -459,21 +594,46 @@
     var D = ensure(state, cfg);
 
     var every = Math.max(1, c.evalEveryWeeks || 1);
-    if (D.lastEval < 0 || state.weeks - D.lastEval >= every) {
-      D.lastEval = state.weeks;
-      var maxOpen = Math.max(1, c.maxOpen || 3);
-      var openCount = D.items.filter(function (i) { return i.status === "open"; }).length;
-      (c.defs || []).forEach(function (d) {
-        if (openCount >= maxOpen) return;
-        if (hasLive(D, d.type)) return;
-        if (isNum(D.cooldown[d.type]) && state.weeks < D.cooldown[d.type]) return;
-        var why = triggerHit(state, cfg, d);
-        if (!why) return;
-        if (open(state, cfg, d.id, why).ok) openCount++;
-      });
-    }
+    if (D.lastEval >= 0 && state.weeks - D.lastEval < every) return;
+    D.lastEval = state.weeks;
 
-    var cd = Math.max(0, c.cooldownWeeks || 52);
+    var maxOpen = Math.max(1, c.maxOpen || 3);
+    (c.defs || []).forEach(function (d) {
+      if (d.enabled === false) return;
+      // 触发与档位每类都要算：连续周计数不能因为已有在办项而停摆
+      var why = triggerHit(state, cfg, d, D.watch);
+      var tier = tierAt(state, cfg, d);
+      var live = liveItem(D, d.type);
+      if (live) {
+        // 未解决期间不重复开条；只有档位继续恶化才提醒一次（取历史最深档，不回落）
+        if (tier.level > num(live.severityLevel)) {
+          var from = num(live.severityLevel);
+          live.severityLevel = tier.level;
+          live.severity = tier.label || live.severity;
+          live.severityText = tier.text || "";
+          var al = pushAlert(D, cfg, {
+            type: d.type, defId: d.id, itemId: live.id,
+            week: state.weeks, year: Math.floor(state.weeks / weeksPerYear(cfg)),
+            fromLevel: from, toLevel: tier.level,
+            label: tier.label, text: tier.text
+          });
+          live.alert = {
+            seq: al.seq, week: state.weeks, level: tier.level,
+            label: tier.label, text: tier.text
+          };
+          live.alertSeq = al.seq;
+          log(state, cfg, "待决策", "待决策升级 · " + d.title,
+            (tier.label || "") + "：" + (tier.text || why || ""),
+            "决策 id=" + live.id + " · 档位 " + from + "→" + tier.level);
+        }
+        return;
+      }
+      if (!why) return;
+      var openCount = D.items.filter(function (i) { return i.status === "open"; }).length;
+      if (openCount >= maxOpen) return;
+      open(state, cfg, d.id, why, tier);
+    });
+
     D.items.forEach(function (it) {
       var d = findDef(cfg, it.defId);
       if (!d) return;
@@ -481,22 +641,29 @@
         it.options = (d.options || []).map(function (o) { return optionView(state, cfg, o); });
         return;
       }
-      if (it.status !== "selected") return;
+      if (it.status !== "watching") return;
       var prev = it.resolveProg ? it.resolveProg.streak : 0;
       var r = evalCond(state, cfg, it.resolveCond, prev);
       it.resolveProg = r;
+      // 条件中断只把连续计数归零，仍留在 watching；决策已落账，不回退成待拍板
       if (!r.ok) return;
       it.status = "resolved";
       it.resolvedWeek = state.weeks;
       it.resolvedText = r.text || ("解决条件达成，持续 " + r.need + " 周");
       D.resolved += 1;
-      D.cooldown[it.type] = state.weeks + cd;
       log(state, cfg, "已解决", "已解决 · " + it.title,
         (it.choice ? it.choice.label + "：" : "") + it.resolvedText,
         "决策 id=" + it.id + " · 持续 " + r.streak + " 周");
     });
 
     prune(D, cfg);
+  }
+
+  function liveItem(D, type) {
+    for (var i = 0; i < D.items.length; i++) {
+      if (D.items[i].type === type && D.items[i].status !== "resolved") return D.items[i];
+    }
+    return null;
   }
 
   function prune(D, cfg) {
@@ -530,6 +697,10 @@
       title: it.title,
       brief: it.brief,
       severity: it.severity,
+      severityLevel: num(it.severityLevel),
+      severityText: it.severityText || "",
+      alert: it.alert || null,
+      alertSeq: num(it.alertSeq),
       triggerWeek: it.triggerWeek,
       triggerYear: it.triggerYear,
       triggerText: it.triggerText,
@@ -537,11 +708,36 @@
       chosen: it.chosen,
       choice: it.choice,
       status: it.status,
+      statusText: STATUS_TEXT[it.status] || it.status,
       resolveCond: it.resolveCond,
       resolveProg: it.resolveProg,
       resolvedWeek: it.resolvedWeek,
       resolvedText: it.resolvedText
     };
+  }
+
+  /** 各事件当前档位：右栏常显，不依赖条目是否已在队列里。 */
+  function severityMap(state, cfg) {
+    var D = ensure(state, cfg);
+    var out = {};
+    (defsOf(cfg) || []).forEach(function (d) {
+      if (d.enabled === false) return;
+      var t = tierAt(state, cfg, d);
+      var scratch = {};
+      Object.keys(D.watch || {}).forEach(function (k) { scratch[k] = D.watch[k]; });
+      var why = triggerHit(state, cfg, d, scratch);
+      out[d.type] = {
+        defId: d.id,
+        id: t.id,
+        level: t.level,
+        label: t.label,
+        text: t.text,
+        total: (d.tiers || []).length,
+        hit: !!why,
+        triggerText: why || ""
+      };
+    });
+    return out;
   }
 
   function brief(state, cfg) {
@@ -554,8 +750,11 @@
       identityLabel: classLabel(state, cfg, cls),
       resolved: D.resolved,
       open: D.items.filter(function (i) { return i.status === "open"; }).length,
-      pending: D.items.filter(function (i) { return i.status === "selected"; }).length,
+      watching: D.items.filter(function (i) { return i.status === "watching"; }).length,
+      pending: D.items.filter(function (i) { return i.status === "watching"; }).length,
       lastEval: D.lastEval,
+      severity: severityMap(state, cfg),
+      alerts: (D.alerts || []).slice(),
       items: D.items.map(function (it) { return view(state, cfg, it); })
     };
   }
@@ -569,6 +768,7 @@
     choose: choose,
     tick: weekly,
     brief: brief,
+    validate: validate,
     findDef: findDef,
     classOf: classOf,
     classLabel: classLabel,

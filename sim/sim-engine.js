@@ -489,6 +489,18 @@
         return r;
       },
 
+      // —— 星币税率（玩家可调） ——
+      getCoin: function () {
+        return typeof sim.getCoin === "function" ? sim.getCoin() : null;
+      },
+      /** {consume:档位索引, service:档位索引}；返回 before/after 与最新档位表 */
+      coinSetTax: function (payload) {
+        if (typeof sim.coinSetTax !== "function") return { ok: false, msg: "引擎未提供税率设置" };
+        var r = sim.coinSetTax(payload || {});
+        emit("coin", r, {});
+        return r;
+      },
+
       // —— 待决策（v1.0.0） ——
       /** 待决策队列：open 弹窗项 / selected 未解决项 / resolved 历史；选项带 available + reason */
       getDecisions: function () {
