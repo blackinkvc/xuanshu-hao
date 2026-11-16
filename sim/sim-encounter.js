@@ -115,7 +115,8 @@
       deck: deck,
       mods: [],
       peek: 0,
-      last: null
+      last: null,
+      skipWeeks: 0
     };
   }
 
@@ -136,6 +137,7 @@
     if (!e.counts) e.counts = { total: 0, byCat: {} };
     if (!e.counts.byCat) e.counts.byCat = {};
     if (!e.mods) e.mods = [];
+    if (typeof e.skipWeeks !== "number") e.skipWeeks = 0;
     if (typeof e.gapYears !== "number") e.gapYears = 0;
     if (!e.yearFires || typeof e.yearFires !== "object") e.yearFires = { year: null, n: 0 };
     if (typeof e.luck !== "number") e.luck = 1;
@@ -560,7 +562,7 @@
     var health = num(p.pc && p.pc.health, 0);
     if (nd.mode && p.mode && nd.mode.indexOf(p.mode) < 0) {
       return { ok: false, reason: "这张卡只给「" + nd.mode.map(function (m) {
-        return { ruler: "最高贵族", mid: "中层贵族", slave: "奴隶", creator: "创造模式" }[m] || "这个身份";
+        return { ruler: "大君", mid: "贵族", slave: "奴隶", creator: "创造模式" }[m] || "这个身份";
       }).join("」「") + "」身份" };
     }
     if (card.gap) {
@@ -609,6 +611,8 @@
   // 哪些操作天生就是代价：磨损、感染、不服涨、服从跌、资源与人口为负
   function opIsCost(op) {
     if (!op) return false;
+    // 占用时间、烧工质、出人命：无论 v 正负都是代价，按处境系数放大
+    if (op.t === "weeks" || op.t === "prop" || op.t === "kill" || op.t === "killPct") return true;
     if (op.t === "wear" || op.t === "infect" || op.t === "randomInfect") return num(op.v) > 0;
     if (op.t === "queue") {
       if (op.k === "W") return num(op.v) > 0;
@@ -852,6 +856,46 @@
         var vP = scale(op.v, op);
         popAdjust(state, cfg, op.group, vP);
         notes.push("人口 " + (vP >= 0 ? "+" : "") + Math.round(vP));
+      } else if (k === "weeks") {
+        // 占用时间：只登记，由 core.step 真跑对应周数（不在这里动 weeks）
+        var vWk = Math.max(0, rnd(scale(op.v, op)));
+        if (vWk > 0) {
+          var Ew = ensure(state, cfg);
+          Ew.skipWeeks = num(Ew.skipWeeks, 0) + vWk;
+          notes.push("占用 " + vWk + " 周");
+        }
+      } else if (k === "prop") {
+        // 工质：唯一扣减入口是 spendPropellant；不足就掏空并如实报缺口
+        var vProp = Math.max(0, scale(op.v, op));
+        if (vProp > 0) {
+          var payProp = spendPropellant(state, vProp);
+          var spentProp = payProp.ok ? payProp.spent : 0;
+          var shortProp = 0;
+          if (!payProp.ok) {
+            var drain = spendPropellant(state, propOf(state));
+            spentProp = drain.ok ? drain.spent : 0;
+            shortProp = payProp.short;
+          }
+          notes.push("工质 −" + (Math.round(spentProp * 10) / 10) + " 吨" +
+            (shortProp > 0 ? "（不足，缺 " + shortProp + " 吨）" : ""));
+        }
+      } else if (k === "kill") {
+        // 概率性人员损失：复用 killAwake
+        var pKill = num(op.p, 1);
+        if (pKill >= 1 || randNext(state) < pKill) {
+          var vKill = Math.max(0, rnd(scale(op.v, op)));
+          var killed = killAwake(state, vKill);
+          if (killed > 0) notes.push("死 " + killed + " 人");
+        }
+      } else if (k === "killPct") {
+        // 按醒态比例损失：复用 sim-core 的 killProportional
+        var pPct = num(op.p, 1);
+        if (pPct >= 1 || randNext(state) < pPct) {
+          var share = clamp(scale(op.v, op), 0, 0.5);
+          var lost = (global.XuanShuSim && global.XuanShuSim.killProportional)
+            ? global.XuanShuSim.killProportional(state, cfg, share) : 0;
+          if (lost > 0) notes.push("死 " + Math.round(lost) + " 人");
+        }
       } else if (k === "dormant") {
         var vD = scale(op.v, op);
         if (state.groups && state.groups.original) {
@@ -950,11 +994,17 @@
       } else if (k === "removeL2") {
         var l2 = ((soc.queues || []).filter(function (q) { return q.layer === "L2"; }))[0];
         if (l2) l2.dPenalty = num(l2.dPenalty) + 8;
-        notes.push("拿掉了 " + op.v + " 个中层贵族");
+        notes.push("拿掉了 " + op.v + " 个贵族");
       } else if (k === "vision") {
         addMod(state, cfg, "vision", op.v, 99999, false, card.id);
         notes.push("看得更远");
       }
+    });
+
+    // 卡牌的后续影响：配置里的 follow 以前只渲染文案、没落地；这里统一转成限时修正
+    (card.follow || []).forEach(function (f) {
+      if (!f || !f.key) return;
+      addMod(state, cfg, f.key, f.v, f.weeks, !!f.mul, card.id);
     });
 
     // 卡牌 choices 的具体分支

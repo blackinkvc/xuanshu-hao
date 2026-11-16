@@ -655,7 +655,7 @@
     // 1 灭绝（断粮阶梯接管时由阶梯自己判，避免原因写成「文明断绝」）
     if (!g.famine.active && (t.total < num(F.minPopulation, 200) || g.counters.noL2 >= num(F.l2EmptyWeeks, 26))) {
       return lose(state, cfg, "extinction", "船上的人不到 " + num(F.minPopulation, 200) +
-        "，或中层贵族连续 " + num(F.l2EmptyWeeks, 26) + " 周一个不剩。");
+        "，或贵族连续 " + num(F.l2EmptyWeeks, 26) + " 周一个不剩。");
     }
     // 2 舰体解体（结构件损伤到顶 / 单次冲击超过剩余结构比例）
     if (state.ship && state.ship.hull && state.ship.hull.structureFailed) {

@@ -220,7 +220,7 @@
     p.chosenWeek = state.weeks;
     p.pc = defaultPc();
     p.pc.health = cfg.player.startingHealth;
-    p.pc.name = (opts && opts.name) || (mode === "ruler" ? "最高贵族" : (mode === "mid" ? "中层贵族" : "无名奴隶"));
+    p.pc.name = (opts && opts.name) || (mode === "ruler" ? "大君" : (mode === "mid" ? "贵族" : "无名奴隶"));
     p.intel = cfg.player.intel[mode] || "low";
     p.intelBuff = null;
     p.scope = { zones: [], depts: [] };
@@ -261,7 +261,7 @@
   function intelText(level) { return INTEL_TEXT[level] || "一点风声"; }
 
   function modeLabel(mode) {
-    return { ruler: "最高贵族", mid: "中层贵族", slave: "奴隶", creator: "创造模式" }[mode] || mode;
+    return { ruler: "大君", mid: "贵族", slave: "奴隶", creator: "创造模式" }[mode] || mode;
   }
 
   function intelRank(s) {

@@ -1029,6 +1029,8 @@
       clonePause: 0,
       streaks: { badRation: 0, extreme: 0, strike: 0 },
       budget: { hydro: 0, pods: 0, clone: 0 },
+      // 舱容推导结果（nMaxV / cut / fitsVolume）：与建设配额 budget 分开存，避免互相覆盖
+      cap: null,
       buildAcc: { hydro: 0, pods: 0, clonePods: 0 },
       // 整数人口流的余数累积：每周向下取整会把年吞吐量削掉一截，
       // 这里把不足一人的部分留到下周，保证 52 周与 12 月的年总量一致。
@@ -1043,6 +1045,8 @@
     // 药剂池 / 营养 / 成瘾 / 辐射：旧档缺字段时由 ensureVitals 补默认
     ensureVitals(state, cfg);
     state.vitals = null;
+    state.salvage = salvageCreate(cfg);
+    state.coins = num(cfg.salvage && cfg.salvage.coinsInit, 2000);
     if (global.XuanShuEncounter && global.XuanShuEncounter.ensureTrade) {
       global.XuanShuEncounter.ensureTrade(state, cfg);
     }
@@ -1074,6 +1078,10 @@
         q.W = clamp(num(q.W, 10) + (jit(80 + qi) - 0.5) * 8, 0, 100);
       });
     }
+    // 星币：按醒态人头发行，余额记在各队列上；关掉时保持 null，不影响旧基线
+    if (global.XuanShuCoin && cfg.coin && cfg.coin.enabled !== false) {
+      state.coin = global.XuanShuCoin.create(state, cfg);
+    }
     // 随机判定槽位 / 日志（与 rngA 一样是状态的一部分，随导出/导入走）
     if (global.XuanShuJudge) state.judge = global.XuanShuJudge.ensure(state, cfg);
     // 个体层：真实位置名册（人数变化时同步，位置按周确定性推导）
@@ -1103,6 +1111,10 @@
     // 常驻危机：由船上参数跨阈值挂上，独立于奇遇牌库
     if (global.XuanShuCrisis) {
       state.crisis = global.XuanShuCrisis.create(cfg);
+    }
+    // 待决策：事件触发 → 选项 → 落账后挂着等解决条件
+    if (global.XuanShuDecisions) {
+      state.decisions = global.XuanShuDecisions.create(cfg);
     }
     pushSeries(state, cfg);
     return state;
@@ -1410,6 +1422,8 @@
         f.cap = clamp(num(f.cap, 1) - num(M.integrityCapLoss, 0.006), 0.75, 1);
         f.integrity = Math.min(f.cap, num(f.integrity, 1) + num(C.repairIntegrity, 0.06));
         w.techBonus = Math.min(num(M.techBonusCap, 0.03), num(w.techBonus, 0) + num(M.techGain, 0.003));
+        // 换下来的旧件进回收料仓库：坏件质量 = 本次实际支付报价 × 0.6
+        salvageRegisterWreck(state, cfg, k, num(f.lastRepairMetal, 0));
         pushEvent(state, cfg, "water_fac", "水系统",
           (k === "sup" ? "供水系统" : "水回收系统") + "修好了",
           "修好后回收与供水恢复到当前完好度；本次修理让相关科技 +" +
@@ -1602,6 +1616,299 @@
 
   /* ---------------- 周结算 ---------------- */
 
+  /* ---------------- 拆解与回收（v1，《金属枯竭调查与拆解回收体系_v1》） ----------------
+     两级串联：坏件 → 拆解（留 keepD）→ 回收料 → 回收（留 keepR）→ 金属库存。
+     损耗下限：拆解 8%、回收 5%、仓储 0.1%/年，全部按「损失不低于下限」夹住，永不为 0。 */
+  function salvageCfg(cfg) { return (cfg && cfg.salvage) || {}; }
+  function sr1(v) { return Math.round(num(v, 0) * 10) / 10; }
+  function sr3(v) { return Math.round(num(v, 0) * 1000) / 1000; }
+
+  function salvageTierIndex(cfg, tech) {
+    var list = salvageCfg(cfg).techTiers || [];
+    var x = num(tech, 0);
+    for (var i = 0; i < list.length; i++) if (x < num(list[i], 1.01)) return i;
+    return Math.max(0, list.length - 1);
+  }
+
+  function salvageCreate(cfg) {
+    var S = salvageCfg(cfg), ST = S.store || {};
+    return {
+      v: 1, tech: 0, tier: 0,
+      keepD: 0.62, keepR: 0.70, net: 0.434,
+      capT: num(ST.initCapT, 600),
+      storeT: { m3PerT: 1.60, lossPerYear: 0.010 },
+      crew: num(S.crew && S.crew.init, 8),
+      wrecks: [], backlogT: 0, item: null,
+      build: null, builtT: 0, restArea: false, spaceM2: 0,
+      overflow: false, storedT: 0,
+      stats: { wrecks: 0, wreckT: 0, dismantledT: 0, recoveredT: 0, lostT: 0, discardedT: 0 },
+      lastEventWeek: -999
+    };
+  }
+
+  function salvageEnsure(state, cfg) {
+    if (!state.salvage || state.salvage.v !== 1) state.salvage = salvageCreate(cfg);
+    var s = state.salvage;
+    if (!Array.isArray(s.wrecks)) s.wrecks = [];
+    if (!isNum(s.backlogT)) s.backlogT = 0;
+    if (!s.stats) s.stats = salvageCreate(cfg).stats;
+    if (!isNum(s.capT)) s.capT = num(salvageCfg(cfg).store && salvageCfg(cfg).store.initCapT, 600);
+    if (!isNum(s.spaceM2)) s.spaceM2 = 0;
+    if (!isNum(state.coins)) {
+      state.coins = num(salvageCfg(cfg).coinsInit, 2000);
+    }
+    return s;
+  }
+
+  // 设施替换时登记坏件：只记被换下来的实体，坏件质量 = 实际支付的修复报价 × 0.6
+  function salvageRegisterWreck(state, cfg, kind, quoteMetal) {
+    var S = salvageCfg(cfg);
+    if (S.enabled === false) return 0;
+    var share = num(S.wreck && S.wreck.shareOfQuote, 0.6);
+    var m = Math.max(0, num(quoteMetal, 0) * share);
+    if (m <= 0) return 0;
+    var s = salvageEnsure(state, cfg);
+    s.wrecks.push({ kind: kind, mass: m, week: state.weeks });
+    s.stats.wrecks += 1;
+    s.stats.wreckT += m;
+    return m;
+  }
+
+  function salvageStoredT(s) {
+    var wt = 0;
+    (s.wrecks || []).forEach(function (w) { wt += num(w.mass, 0); });
+    return wt + num(s.backlogT, 0);
+  }
+
+  // 从回收料里扣堆放损失：先扣拆解料，再扣未拆坏件
+  function salvageConsume(state, cfg, amount) {
+    var s = salvageEnsure(state, cfg);
+    var left = Math.max(0, num(amount, 0));
+    var fromBack = Math.min(s.backlogT, left);
+    s.backlogT -= fromBack; left -= fromBack;
+    while (left > 1e-9 && s.wrecks.length) {
+      var w = s.wrecks[0];
+      var take = Math.min(num(w.mass, 0), left);
+      w.mass -= take; left -= take;
+      if (w.mass <= 1e-9) s.wrecks.shift();
+    }
+    return num(amount, 0) - left;
+  }
+
+  function salvageTick(state, cfg) {
+    var S = salvageCfg(cfg);
+    if (S.enabled === false) return null;
+    var s = salvageEnsure(state, cfg);
+    var D = S.dismantle || {}, R = S.recovery || {}, ST = S.store || {};
+    var tech = num(state.society && state.society.machine && state.society.machine.tech, 0);
+    var ti = salvageTierIndex(cfg, tech);
+    var dT = (D.tiers || [])[ti] || { keep: 0.62, tPerPersonWeek: 1.8 };
+    var rT = (R.tiers || [])[ti] || { keep: 0.70, tPerPersonWeek: 4.0 };
+    var sT = (ST.tiers || [])[ti] || { m3PerT: 1.6, lossPerYear: 0.01 };
+
+    s.tech = tech; s.tier = ti;
+    // 损耗下限夹住保留率：拆解至少损 8%、回收至少损 5%
+    s.keepD = Math.min(num(dT.keep, 0.62), 1 - num(D.lossFloor, 0.08));
+    s.keepR = Math.min(num(rT.keep, 0.70), 1 - num(R.lossFloor, 0.05));
+    s.net = sr3(s.keepD * s.keepR);
+    s.storeT = {
+      m3PerT: Math.max(num(sT.m3PerT, 1.6), num(ST.volumeFloor, 1.0)),
+      lossPerYear: Math.max(num(sT.lossPerYear, 0.01), num(ST.lossFloor, 0.001))
+    };
+
+    // 在建仓库交付
+    if (s.build && state.weeks >= s.build.until) {
+      s.capT += num(s.build.addT, 0);
+      s.spaceM2 += num(s.build.spaceM2, 0);
+      s.builtT += num(s.build.addT, 0);
+      pushEvent(state, cfg, "salvage", "回收", "回收料仓库建好",
+        "新增容量 " + Math.round(num(s.build.addT, 0)) + " 吨，总容量 " + Math.round(s.capT) + " 吨",
+        "工期 " + num(S.build && S.build.weeks && S.build.weeks[0], 8) + " 周 · 占地 " +
+          Math.round(num(s.build.spaceM2, 0)) + " m²", false, null, "回收料有了正经堆放的地方");
+      s.build = null;
+    }
+
+    var stored = salvageStoredT(s);
+    s.storedT = sr1(stored);
+    s.overflow = stored >= s.capT - 1e-6;
+
+    // 工人在岗才开工；不足时按实际到岗线性拉长工期，不降损耗率
+    var crew = clamp(num(s.crew, 0), 0, num(S.crew && S.crew.max, 24));
+    var dCap = crew * num(dT.tPerPersonWeek, 1.8);
+    var rCap = crew * num(rT.tPerPersonWeek, 4.0);
+
+    // 1) 拆解：单件工时下限 6 周
+    if (!s.item && s.wrecks.length && !s.overflow) {
+      var w0 = s.wrecks.shift();
+      s.item = { kind: w0.kind, mass: num(w0.mass, 0), remain: num(w0.mass, 0), worked: 0 };
+    }
+    if (s.item && dCap > 0) {
+      var minW = Math.max(1, num(D.minWeeksPerItem, 6));
+      var perWeekCap = Math.min(dCap, s.item.mass / minW);
+      var take = Math.min(s.item.remain, perWeekCap);
+      if (take > 0) {
+        s.item.remain -= take;
+        s.item.worked += 1;
+        s.backlogT += take * s.keepD;
+        s.stats.dismantledT += take;
+      }
+      if (s.item.remain <= 1e-6 && s.item.worked >= minW) s.item = null;
+    }
+
+    // 2) 回收：单批工时下限 4 周
+    if (s.backlogT > 0 && rCap > 0) {
+      var minB = Math.max(1, num(R.minWeeksPerBatch, 4));
+      var perWeekR = Math.min(rCap, s.backlogT / minB);
+      var takeR = Math.min(s.backlogT, perWeekR);
+      s.backlogT -= takeR;
+      var out = takeR * s.keepR;
+      state.stocks.metal = Math.min(num(cfg.metal && cfg.metal.cap, 12000),
+        num(state.stocks.metal, 0) + out);
+      s.stats.recoveredT += out;
+    }
+
+    // 3) 年堆放损耗（下限 0.1%/年）
+    if (state.weeks > 0 && state.weeks % 52 === 0 && s.backlogT > 0) {
+      var lost = s.backlogT * s.storeT.lossPerYear;
+      s.backlogT = Math.max(0, s.backlogT - lost);
+      s.stats.lostT += lost;
+    }
+
+    // 4) 占用奴隶休息区的周后果
+    var RA = S.restArea || {};
+    if (s.restArea) {
+      state.order = clamp(num(state.order, 0.5) + num(RA.orderPerWeek, -0.01), 0.05, 1);
+      if (nextRand(state) < num(RA.stealP, 0.06)) {
+        var tr = RA.stealT || [1, 3];
+        var amt = num(tr[0], 1) + nextRand(state) * (num(tr[1], 3) - num(tr[0], 1));
+        salvageConsume(state, cfg, amt);
+      }
+      if (nextRand(state) < num(RA.sabotageP, 0.02)) {
+        salvageConsume(state, cfg, num(RA.sabotageT, 8));
+      }
+    }
+
+    return s;
+  }
+
+  // 拆解/回收对外读数
+  function salvageBrief(state, cfg) {
+    var s = salvageEnsure(state, cfg);
+    var S = salvageCfg(cfg);
+    var dT = (S.dismantle && S.dismantle.tiers || [])[s.tier] || {};
+    var rT = (S.recovery && S.recovery.tiers || [])[s.tier] || {};
+    var space = foodSpace(state, cfg);
+    return {
+      enabled: S.enabled !== false,
+      tech: sr3(s.tech), tier: s.tier,
+      keepD: s.keepD, keepR: s.keepR, net: s.net,
+      netPct: Math.round(s.net * 1000) / 10,
+      lossFloor: {
+        dismantle: num(S.dismantle && S.dismantle.lossFloor, 0.08),
+        recovery: num(S.recovery && S.recovery.lossFloor, 0.05),
+        store: num(S.store && S.store.lossFloor, 0.001)
+      },
+      throughput: {
+        dismantle: num(dT.tPerPersonWeek, 1.8),
+        recovery: num(rT.tPerPersonWeek, 4.0)
+      },
+      crew: num(s.crew, 0),
+      capT: Math.round(s.capT), storedT: s.storedT,
+      backlogT: sr1(s.backlogT),
+      wrecks: s.wrecks.length,
+      wreckQueueT: sr1(s.wrecks.reduce(function (a, w) { return a + num(w.mass, 0); }, 0)),
+      currentItem: s.item ? { kind: s.item.kind, mass: sr1(s.item.mass), remain: sr1(s.item.remain), worked: s.item.worked } : null,
+      overflow: !!s.overflow,
+      storeLossPerYear: s.storeT.lossPerYear,
+      spaceM2: Math.round(s.spaceM2),
+      freeM2: Math.max(0, Math.round(space.freeM2 - s.spaceM2)),
+      restArea: !!s.restArea,
+      build: s.build ? { until: s.build.until, addT: s.build.addT, spaceM2: s.build.spaceM2 } : null,
+      coins: Math.round(num(state.coins, 0)),
+      stats: {
+        wrecks: s.stats.wrecks,
+        wreckT: sr1(s.stats.wreckT),
+        dismantledT: sr1(s.stats.dismantledT),
+        recoveredT: sr1(s.stats.recoveredT),
+        lostT: sr1(s.stats.lostT),
+        discardedT: sr1(s.stats.discardedT)
+      }
+    };
+  }
+
+  // 空间不足时的三条路之一：新建仓库 / 占用奴隶休息区 / 直接丢弃
+  function salvageOption(state, cfg, id, payload) {
+    var S = salvageCfg(cfg);
+    if (S.enabled === false) return { ok: false, msg: "拆解回收未启用" };
+    var s = salvageEnsure(state, cfg);
+    var B = S.build || {};
+    payload = payload || {};
+
+    if (id === "build") {
+      if (s.build) return { ok: false, msg: "上一座仓库还在工期里（剩 " + Math.max(0, s.build.until - state.weeks) + " 周）" };
+      var idx = clamp(Math.round(num(payload.size, 1)), 0, (B.capsT || [300, 600, 900]).length - 1);
+      var addT = num((B.capsT || [])[idx], 600);
+      var coin = num((B.coins || [])[idx], 400);
+      var weeks = num((B.weeks || [])[idx], 8);
+      var metal = num(B.metalT, 180);
+      var needM2 = Math.round(num(B.spaceM2, 420) * addT / 600);
+      var space = foodSpace(state, cfg);
+      var free = num(space.freeM2, 0) - num(s.spaceM2, 0);
+      if (num(state.stocks.metal, 0) < metal) {
+        return { ok: false, msg: "金属不足：需要 " + metal + " 吨，库存 " + Math.round(num(state.stocks.metal, 0)) + " 吨" };
+      }
+      if (num(state.coins, 0) < coin) {
+        return { ok: false, msg: "星币不足：需要 " + coin + "，现有 " + Math.round(num(state.coins, 0)) };
+      }
+      if (free < needM2) {
+        return { ok: false, msg: "场地不足：需要 " + needM2 + " m²，可用 " + Math.round(free) + " m²" };
+      }
+      state.stocks.metal -= metal;
+      state.coins -= coin;
+      s.build = { until: state.weeks + weeks, addT: addT, spaceM2: needM2 };
+      return { ok: true, msg: "仓库开工：" + addT + " 吨容量 · 金属 −" + metal + " · 星币 −" + coin +
+        " · 工期 " + weeks + " 周 · 占 " + needM2 + " m²" };
+    }
+
+    if (id === "rest") {
+      if (s.restArea) return { ok: false, msg: "奴隶休息区已经被占用了" };
+      s.capT += num(S.restArea && S.restArea.addCapT, 240);
+      s.restArea = true;
+      // 服从 / 健康 一次性代价：服从走队列 O（0–100），健康走群体福祉均值
+      applyCompliance(state, cfg, num(S.restArea && S.restArea.obey, -0.03));
+      applyWellbeingHealth(state, num(S.restArea && S.restArea.health, -0.02));
+      return { ok: true, msg: "占用了奴隶休息区：容量 +" + num(S.restArea && S.restArea.addCapT, 240) +
+        " 吨；每周有失窃与破坏风险，秩序 −" + Math.abs(num(S.restArea && S.restArea.orderPerWeek, -0.01)) + "/周" };
+    }
+
+    if (id === "discard") {
+      var have = salvageStoredT(s);
+      if (have <= 0) return { ok: false, msg: "没有可丢弃的积压" };
+      var range = S.discard && S.discard.amountT || [40, 120];
+      var amt = Math.min(have, num(range[0], 40) + nextRand(state) * Math.max(0, num(range[1], 120) - num(range[0], 40)));
+      salvageConsume(state, cfg, amt);
+      s.stats.discardedT += amt;
+      state.order = clamp(num(state.order, 0.5) + num(S.discard && S.discard.order, -0.005), 0.05, 1);
+      return { ok: true, msg: "丢弃积压 " + sr1(amt) + " 吨，金属永久消失，秩序 −" +
+        Math.abs(num(S.discard && S.discard.order, -0.005) * 100).toFixed(1) + "%" };
+    }
+
+    return { ok: false, msg: "没有这个选项" };
+  }
+
+  // 服从（0–1）→ 队列 O（0–100）
+  function applyCompliance(state, cfg, delta) {
+    var qs = (state.society && state.society.queues) || [];
+    var dv = num(delta, 0) * 100;
+    qs.forEach(function (q) { q.O = clamp(num(q.O, 50) + dv, 0, 100); });
+  }
+
+  // 群体健康（0–1）→ 个体层福祉均值
+  function applyWellbeingHealth(state, delta) {
+    if (!state.wellbeing || !isNum(state.wellbeing.health)) return;
+    state.wellbeing.health = clamp(state.wellbeing.health + num(delta, 0) * 100, 0, 100);
+  }
+
   function stepWeek(state, cfg) {
     var dt = 1 / cfg.time.weeksPerYear;
     // 随机判定层：先结算冷却结束后的压力衰减
@@ -1762,6 +2069,11 @@
 
     // 药剂 / 营养 / 成瘾：先结算本周的用药与成瘾，再让产出、秩序、死亡吃它的反馈
     stepVitals(state, cfg, t0, medCoverage, soc);
+    // 星币：月结工资/消费/税，周级把买不起副食/药剂/娱乐的缺口压回既有状态量
+    if (global.XuanShuCoin && cfg.coin && cfg.coin.enabled !== false) {
+      global.XuanShuCoin.tick(state, cfg, { act: act, medCoverage: medCoverage, awake: t0.awake });
+      medCoverage = clamp(medCoverage * num(state.coin && state.coin.effects && state.coin.effects.medMul, 1), 0, 1);
+    }
     var AD = state.addict.effects || { fitMul: 1, obey: 0, errorK: 0, deathMul: 0, resist: 0, bliss: false };
 
     // 梦中侵染：眷属与低语把休眠者拖出梦境；医疗覆盖取上一周值
@@ -2044,6 +2356,8 @@
     state.stocks.drug = clamp(state.stocks.drug + drugProd - drugMaint, 0, cfg.hibernation.drugCap);
 
     // 金属与建设（配额按年补给拆分，未用完的配额留在各自账户里滚存）
+    // 拆解与回收：坏件 → 拆解 → 回收料 → 回收 → 金属库存（排在金属结算前，回收量当周可用）
+    salvageTick(state, cfg);
     var capM = metalSupplyY * dt;
     var share = normalizedShares(I);
 
@@ -2158,6 +2472,10 @@
     }
     // 行动状态：监禁/失踪拉低秩序，值勤/训练/仪式小幅回补（按人头摊薄）
     if (act) orderEq += act.totals.orderAvg;
+    // 星币：买不起娱乐的人按占比扣秩序（上周月结的缺口）
+    if (state.coin && state.coin.effects) {
+      orderEq -= num(cfg.coin && cfg.coin.orderPenaltyK, 0.04) * num(state.coin.effects.funPoor, 0);
+    }
     // v6.66 供水故障：降压配水，服从度按平衡点扣减（不是每周无上限硬扣）
     if (WS && WS.sup && WS.sup.failed) orderEq -= num(cfg.water.effects.supOrderEq, 0.05);
     // 成瘾：服从性加成（三档加权），化学极乐额外 +12%；戒断人数按醒态占比扣秩序
@@ -2324,6 +2642,7 @@
       targetDorm: targetDorm,
       action: act,
       metalSupply: metalSupplyY,
+      salvage: salvageBrief(state, cfg),
       maintGap: maintGap,
       dormantMW: dormantMW,
       drugMaint: drugMaint,
@@ -2388,6 +2707,9 @@
     // 常驻危机：先评估触发，再施加本周 debuff
     if (global.XuanShuCrisis) global.XuanShuCrisis.weekly(state, cfg);
 
+    // 待决策：评估三类触发 + 检查「未解决」条目是否达成解决条件
+    if (global.XuanShuDecisions) global.XuanShuDecisions.weekly(state, cfg);
+
     // 千年节点 / 胜利 / 回滚：节点年数读 run.nodeYears，不再写死 1000
     var nodeYears = Number(cfg.run && cfg.run.nodeYears);
     if (!(nodeYears > 0)) nodeYears = cfg.time.loopYears || 1000;
@@ -2435,6 +2757,7 @@
     state.clonePause = 0;
     state.streaks = { badRation: 0, extreme: 0, strike: 0 };
     state.budget = fresh.budget;
+    state.cap = applyBudgetCap(state, cfg);
     state.buildAcc = fresh.buildAcc;
     state.flowCarry = fresh.flowCarry;
     state.maint = fresh.maint;
@@ -2452,6 +2775,12 @@
     state.prison = fresh.prison;
     if (global.XuanShuSociety) state.society = global.XuanShuSociety.create(cfg);
     if (global.XuanShuPeople) state.people = global.XuanShuPeople.create(cfg);
+    // 星币随舰务层回滚：人口回到起点，余额按新队列重新发行
+    if (global.XuanShuCoin && cfg.coin && cfg.coin.enabled !== false) {
+      state.coin = global.XuanShuCoin.create(state, cfg);
+    } else {
+      state.coin = null;
+    }
     // 玩家身份是跨轮长期状态：健康、年龄、权限、动作冷却、契约都保留
     if (global.XuanShuPlayer) {
       state.player = keepPlayer || global.XuanShuPlayer.create(cfg);
@@ -2463,6 +2792,7 @@
       state.encounter = keepEncounter || global.XuanShuEncounter.create(cfg);
       state.encounter.mods = [];
       state.encounter.pending = null;
+      state.encounter.skipWeeks = 0;
       global.XuanShuEncounter.ensure(state, cfg);
     }
     // 古神契约跨轮保留：主约/旁约、神恩、神噬、索取队列
@@ -2503,8 +2833,42 @@
     var cfg = deepMerge(base, options.config || {});
     var seed = isNum(options.seed) ? options.seed : 20261111;
     var state = ensureGroups(createState(cfg, seed), cfg);
-    // v6.63：人口由舱容推导——超容则按比例减人，减多少写进 state.budget
-    state.budget = applyBudgetCap(state, cfg);
+    // v6.63：人口由舱容推导——超容则按比例减人，减多少写进 state.cap
+    // v6.66 修复：结果不再覆盖 state.budget（建设配额），否则 hydro/pods/clone 丢失导致 NaN
+    state.cap = applyBudgetCap(state, cfg);
+
+    // 奇遇卡面写的「占用 N 周」：把周数真跑一遍周结算，而不是只挪 state.weeks
+    function runSkipWeeks() {
+      var guard = 0;
+      while (state.encounter && num(state.encounter.skipWeeks, 0) > 0 && guard++ < 520) {
+        if (blockReason(state, cfg)) break;
+        state.encounter.skipWeeks -= 1;
+        stepWeek(state, cfg);
+      }
+    }
+
+    // 本周新写的日志（历程 + 环形缓冲）。日志写入时 state.weeks 可能还没自增，
+    // 所以同时匹配「刚跑完的那一周」和「当前周」。
+    function eventsThisWeek() {
+      var wp = (cfg.time && cfg.time.weeksPerYear) || 52;
+      var wNow = state.weeks;
+      var marks = [];
+      [wNow, Math.max(0, wNow - 1)].forEach(function (w) {
+        marks.push({ y: Math.floor(w / wp), w: (w % wp) + 1 });
+      });
+      var out = [];
+      function take(list) {
+        (list || []).slice(-8).forEach(function (e) {
+          if (!e) return;
+          for (var i = 0; i < marks.length; i++) {
+            if (e.year === marks[i].y && e.week === marks[i].w) { out.push(e); return; }
+          }
+        });
+      }
+      take(state.events);
+      take(state.logRing);
+      return out;
+    }
 
     var api = {
       version: cfg.version,
@@ -2573,8 +2937,89 @@
         for (var i = 0; i < n; i++) {
           if (blockReason(state, cfg)) break;
           stepWeek(state, cfg);
+          runSkipWeeks();
         }
         return api.getState();
+      },
+
+      /**
+       * 快进到下一个「要你决策」的点：危机 / 奇遇卡 / 古神 / 哗变升级 / 判负。
+       * 命中当周即停（不多走一周），返回停因与那一周；无事件则受 idleWeeks / maxWeeks 兜底。
+       */
+      advanceToNextEvent: function (opts) {
+        opts = opts || {};
+        var wp = (cfg.time && cfg.time.weeksPerYear) || 52;
+        var maxWeeks = Math.max(1, Math.round(num(opts.maxWeeks, 5200)));
+        var idleWeeks = Math.max(1, Math.round(num(opts.idleWeeks, 260)));
+        var startWeek = state.weeks;
+        var prevLevel = (state.society && state.society.mutiny) ? num(state.society.mutiny.level, 0) : 0;
+        var prevCrisis = (state.crisis && state.crisis.active) ? state.crisis.active.length : 0;
+        var prevDecision = (state.decisions && state.decisions.items)
+          ? state.decisions.items.filter(function (i) { return i.status === "open"; }).length : 0;
+        var moved = 0, idle = 0, reason = "", hit = null;
+
+        while (moved < maxWeeks) {
+          if (blockReason(state, cfg)) { reason = "blocked"; break; }
+          stepWeek(state, cfg);
+          runSkipWeeks();
+          moved = state.weeks - startWeek;
+
+          // 1) 奇遇/危机卡进入待选
+          if (state.encounter && state.encounter.pending) {
+            reason = state.encounter.pending.cat === "crisis" ? "crisis" : "encounter";
+            hit = state.encounter.pending;
+            break;
+          }
+          // 2) 哗变升级
+          var lv = (state.society && state.society.mutiny) ? num(state.society.mutiny.level, 0) : 0;
+          if (lv > prevLevel) { reason = "mutiny"; prevLevel = lv; break; }
+          // 3) 常驻危机新激活
+          var ca = (state.crisis && state.crisis.active) ? state.crisis.active.length : 0;
+          if (ca > prevCrisis) { reason = "crisis"; prevCrisis = ca; break; }
+          // 3.5) 新的待决策弹窗项
+          var dc = (state.decisions && state.decisions.items)
+            ? state.decisions.items.filter(function (i) { return i.status === "open"; }).length : 0;
+          if (dc > prevDecision) {
+            reason = "decision"; prevDecision = dc;
+            hit = (global.XuanShuDecisions && state.decisions)
+              ? global.XuanShuDecisions.brief(state, cfg) : null;
+            break;
+          }
+          // 4) 本周日志里的古神 / 危机 / 哗变事件
+          var ew = eventsThisWeek();
+          if (ew.length) {
+            var gEv = null, cEv = null, mEv = null;
+            for (var ei = 0; ei < ew.length; ei++) {
+              var e = ew[ei];
+              if (!gEv && e.type === "gods") gEv = e;
+              if (!cEv && (e.type === "crisis" || e.level === "危机")) cEv = e;
+              if (!mEv && e.type === "哗变") mEv = e;
+            }
+            if (gEv) { reason = "gods"; hit = gEv; break; }
+            if (cEv) { reason = "crisis"; hit = cEv; break; }
+            if (mEv) { reason = "mutiny"; hit = mEv; break; }
+          }
+          if (blockReason(state, cfg)) { reason = "blocked"; break; }
+          idle++;
+          if (idle >= idleWeeks) { reason = "idle"; break; }
+        }
+        if (!reason) reason = "cap";
+
+        return {
+          ok: true,
+          reason: reason,
+          weeks: state.weeks - startWeek,
+          startWeek: startWeek,
+          week: state.weeks,
+          year: Math.floor(state.weeks / wp),
+          idleLimit: idleWeeks,
+          capWeeks: maxWeeks,
+          event: hit,
+          encounter: global.XuanShuEncounter ? global.XuanShuEncounter.brief(state, cfg) : null,
+          decisions: (global.XuanShuDecisions && state.decisions)
+            ? global.XuanShuDecisions.brief(state, cfg) : null,
+          blocked: blockReason(state, cfg)
+        };
       },
 
       stepYears: function (years) {
@@ -2690,6 +3135,9 @@
           consumption: state.last.consumption,
           targetDorm: state.last.targetDorm,
           metalSupply: state.last.metalSupply,
+          salvage: salvageBrief(state, cfg),
+          coins: Math.round(num(state.coins, 0)),
+          coin: (global.XuanShuCoin && state.coin) ? global.XuanShuCoin.brief(state, cfg) : null,
           maintGap: state.last.maintGap,
           // 维修资金：本周需求 / 配额 / 库存补足 / 实际支出
           maintFund: state.maintFund ? clone(state.maintFund) : null,
@@ -2755,7 +3203,10 @@
             ? global.XuanShuRun.brief(state, cfg) : null,
           // 常驻危机：active 卡片、历史与已解除数
           crisis: (global.XuanShuCrisis && state.crisis)
-            ? global.XuanShuCrisis.brief(state, cfg) : null
+            ? global.XuanShuCrisis.brief(state, cfg) : null,
+          // 待决策：open 弹窗项 / selected 未解决项 / resolved 历史
+          decisions: (global.XuanShuDecisions && state.decisions)
+            ? global.XuanShuDecisions.brief(state, cfg) : null
         };
       },
 
@@ -2788,6 +3239,18 @@
       getSociety: function () {
         return (global.XuanShuSociety && state.society)
           ? global.XuanShuSociety.summary(state, cfg) : null;
+      },
+
+      /* ---------- 星币 ---------- */
+      getCoin: function () {
+        return (global.XuanShuCoin && state.coin)
+          ? global.XuanShuCoin.brief(state, cfg) : null;
+      },
+
+      coinBuy: function (payload) {
+        return global.XuanShuCoin
+          ? global.XuanShuCoin.buy(state, cfg, payload || {})
+          : { ok: false, msg: "星币层未加载" };
       },
 
       triggerMutiny: function (dept) {
@@ -2858,9 +3321,24 @@
       },
 
       chooseCard: function (index, opts) {
-        return global.XuanShuEncounter
+        var r = global.XuanShuEncounter
           ? global.XuanShuEncounter.choose(state, cfg, index, opts || {})
           : { ok: false, msg: "奇遇层未加载" };
+        // 卡面「占用 N 周」立刻兑现：真跑周结算，不是只加时间戳
+        if (r && r.ok !== false) {
+          var skip = Math.min(520, Math.max(0, Math.round(num(state.encounter && state.encounter.skipWeeks, 0))));
+          if (skip > 0) {
+            for (var si = 0; si < skip; si++) {
+              if (blockReason(state, cfg)) break;
+              state.encounter.skipWeeks -= 1;
+              stepWeek(state, cfg);
+            }
+            r.skipWeeks = skip;
+            r.msg = (r.msg || "") + "（占用 " + skip + " 周）";
+            r.encounter = global.XuanShuEncounter.brief(state, cfg);
+          }
+        }
+        return r;
       },
 
       /* ---------- 古神契约 ---------- */
@@ -2966,6 +3444,22 @@
         return global.XuanShuRun ? global.XuanShuRun.brief(state, cfg) : null;
       },
 
+      /* ---------- 拆解与回收（v1，《金属枯竭调查与拆解回收体系_v1》） ---------- */
+      getSalvage: function () {
+        return salvageBrief(state, cfg);
+      },
+      /** 调拆解/回收值勤人数：人不够只拉长工期，不降损耗率 */
+      salvageCrew: function (n) {
+        var s = salvageEnsure(state, cfg);
+        var lim = salvageCfg(cfg).crew || {};
+        s.crew = clamp(Math.round(num(n, s.crew)), num(lim.min, 0), num(lim.max, 24));
+        return { ok: true, crew: s.crew, msg: "拆解/回收值勤 " + s.crew + " 人" };
+      },
+      /** 空间不足三条路：build（payload.size 0/1/2）/ rest / discard */
+      salvageOption: function (id, payload) {
+        return salvageOption(state, cfg, id, payload || {});
+      },
+
       /* ---------- 常驻危机 ---------- */
       getCrisis: function () {
         return global.XuanShuCrisis ? global.XuanShuCrisis.brief(state, cfg) : null;
@@ -2976,6 +3470,18 @@
         return global.XuanShuCrisis
           ? global.XuanShuCrisis.resolve(state, cfg, id, optionId, subIds || [])
           : { ok: false, msg: "危机层未加载" };
+      },
+
+      /* ---------- 待决策 ---------- */
+      getDecisions: function () {
+        return global.XuanShuDecisions ? global.XuanShuDecisions.brief(state, cfg) : null;
+      },
+
+      /** 选择一条待决策：效果立即落账，条目转入「未解决」等周检 */
+      decisionChoose: function (id, optionId) {
+        return global.XuanShuDecisions
+          ? global.XuanShuDecisions.choose(state, cfg, id, optionId)
+          : { ok: false, msg: "待决策层未加载" };
       },
 
       /** 结算千年节点："auto" 自动推演 / "manual" 继续手动；结算后立即回滚进下一轮 */
@@ -3104,6 +3610,8 @@
         ensureGroups(state, cfg);
         ensurePods(state, cfg);
         ensureVitals(state, cfg);
+        salvageEnsure(state, cfg);
+        if (global.XuanShuCoin) global.XuanShuCoin.ensure(state, cfg);
         if (global.XuanShuEncounter && global.XuanShuEncounter.ensureTrade) {
           global.XuanShuEncounter.ensureTrade(state, cfg);
         }
@@ -3113,6 +3621,7 @@
         if (global.XuanShuPrison) global.XuanShuPrison.ensure(state, cfg);
         if (global.XuanShuRun) global.XuanShuRun.ensure(state, cfg);
         if (global.XuanShuCrisis) global.XuanShuCrisis.ensure(state, cfg);
+        if (global.XuanShuDecisions) global.XuanShuDecisions.ensure(state, cfg);
         return api.getState();
       },
 
@@ -3139,6 +3648,8 @@
         ensureGroups(state, cfg);
         ensurePods(state, cfg);
         ensureVitals(state, cfg);
+        salvageEnsure(state, cfg);
+        if (global.XuanShuCoin) global.XuanShuCoin.ensure(state, cfg);
         if (global.XuanShuEncounter && global.XuanShuEncounter.ensureTrade) {
           global.XuanShuEncounter.ensureTrade(state, cfg);
         }
@@ -3148,6 +3659,7 @@
         if (global.XuanShuPrison) global.XuanShuPrison.ensure(state, cfg);
         if (global.XuanShuRun) global.XuanShuRun.ensure(state, cfg);
         if (global.XuanShuCrisis) global.XuanShuCrisis.ensure(state, cfg);
+        if (global.XuanShuDecisions) global.XuanShuDecisions.ensure(state, cfg);
         return api.getState();
       }
     };

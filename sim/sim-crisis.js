@@ -440,6 +440,7 @@
     ensure: ensure,
     weekly: weekly,
     prodMul: prodMul,
+    applyOps: applyOps,
     resolve: resolve,
     brief: brief,
     findDef: findDef

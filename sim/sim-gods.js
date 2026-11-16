@@ -849,7 +849,7 @@
         } else if (id === "weaver") {
           if (!g.pendingTithe) {
             g.pendingTithe = { id: "weaver", year: Math.round(now), atWeek: state.weeks,
-              ask: "赤织母要一次献祭：处决 1 个中层贵族，或 20 个平民。", acceptText: "献祭", refuseText: "拒绝" };
+              ask: "赤织母要一次献祭：处决 1 个贵族，或 20 个平民。", acceptText: "献祭", refuseText: "拒绝" };
             pushEvent(state, cfg, "赤织母 · 索取献祭",
               "赤织母每 50 年要一次献祭：答应就秩序 +3%，拒绝就全船异常加重。", "周期索取");
           }

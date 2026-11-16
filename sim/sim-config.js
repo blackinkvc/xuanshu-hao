@@ -324,6 +324,104 @@
       clonePodLeadWeeks: monthsToWeeks(12)   // 原 12 个月 → 52 周
     },
 
+    /* ---------------- 拆解与回收（v1，见《金属枯竭调查与拆解回收体系_v1》） ----------------
+       两级损耗串联：净回收 = 坏件质量 × 拆解保留率 × 回收保留率。
+       科技档按 tech 上限切：T0 <0.20 / T1 <0.35 / T2 <0.50 / T3 <0.65 / T4 封顶。
+       文档口径的损耗下限：拆解 8%、回收 5%（停 T4），实现里下限按此夹住，永不归零。 */
+    salvage: {
+      enabled: true,
+      techTiers: [0.20, 0.35, 0.50, 0.65, 1.01],
+      dismantle: {
+        tiers: [
+          { keep: 0.62, tPerPersonWeek: 1.80 },
+          { keep: 0.70, tPerPersonWeek: 1.94 },
+          { keep: 0.78, tPerPersonWeek: 2.10 },
+          { keep: 0.85, tPerPersonWeek: 2.26 },
+          { keep: 0.92, tPerPersonWeek: 2.40 }
+        ],
+        lossFloor: 0.08,        // 拆解损耗下限（T4）
+        minWeeksPerItem: 6      // 单件工时下限
+      },
+      recovery: {
+        tiers: [
+          { keep: 0.70, tPerPersonWeek: 4.00 },
+          { keep: 0.78, tPerPersonWeek: 4.32 },
+          { keep: 0.85, tPerPersonWeek: 4.66 },
+          { keep: 0.90, tPerPersonWeek: 4.95 },
+          { keep: 0.95, tPerPersonWeek: 5.20 }
+        ],
+        lossFloor: 0.05,        // 回收损耗下限（T4）
+        minWeeksPerBatch: 4     // 单批工时下限（熔炼炉批次）
+      },
+      store: {
+        tiers: [
+          { m3PerT: 1.60, lossPerYear: 0.010 },
+          { m3PerT: 1.40, lossPerYear: 0.007 },
+          { m3PerT: 1.20, lossPerYear: 0.004 },
+          { m3PerT: 1.05, lossPerYear: 0.002 },
+          { m3PerT: 1.00, lossPerYear: 0.001 }
+        ],
+        volumeFloor: 1.0,       // m³/t 下限（T4）
+        lossFloor: 0.001,       // 年堆放损耗下限 0.1%（T4）
+        initCapT: 600,          // 初始回收料仓库容量（文档 600 t = 420 m² 含通道）
+        m2PerUnit: 328.7,       // 现有场地单元
+        aisleK: 1.4             // 含通道系数
+      },
+      wreck: { shareOfQuote: 0.6 },   // 坏件质量 = 修复报价 × 0.6
+      crew: { init: 8, min: 0, max: 24 },  // 值勤拆解/回收工人
+      build: {
+        capsT: [300, 600, 900],
+        coins: [400, 700, 950],
+        weeks: [6, 8, 11],
+        metalT: 180,
+        spaceM2: 420            // 600 t 档的占地，其余按容量线性折算
+      },
+      restArea: {               // 占用奴隶休息区
+        addCapT: 240,
+        obey: -0.03, health: -0.02,
+        stealP: 0.06, stealT: [1, 3],
+        sabotageP: 0.02, sabotageT: 8,
+        orderPerWeek: -0.01
+      },
+      discard: { order: -0.005, amountT: [40, 120] },
+      coinsInit: 2000           // 船方账户初始额；星币个人余额另记在 society.queues[].coin
+    },
+
+    /* ---------------- 星币（v1，见《星币_住宅仓库_洁净度_生育激励_合成设计_v1》§1） ----------------
+       发行：按身份分档 = 月收入 × 折算月数（见 initialMonths），贵族休眠单独记账户。
+       工资按月结算，基本篮子 38 ⭐/月（副食 20 + 娱乐 8 + 清洁 4 + 零星 6）。
+       粮食仍走配给制：基础口粮免费，副食只收星币、不扣 stocks.food（设计稿的 0.1 t/份会击穿粮食平衡）。
+       税与站务费进独立税池支付未定补贴，不灌进拆解回收账户 state.coins；星币不接对外交易。 */
+    coin: {
+      enabled: true,
+      initPerAwake: 60,          // 仅给未分类队列兜底；正常按 initialMonths 分档发行
+      // 开局余额 = 该档月收入 × 折算月数。底层最低 40（未定 4 个月补贴）仍高于 38 基本篮子。
+      initialMonths: {
+        L1: 6, L2: 6, L3: 4, L3low: 3, L4: 2, L4low: 2,
+        clone: 2, undecided: 4, dormantNoble: 1
+      },
+      wages: { L1: 300, L2: 180, L3: 110, L3low: 100, L4: 55, L4low: 50, clone: 25 },
+      undecidedSubsidy: 10,      // 未定每人每月，船方支出
+      attendance: {
+        "值勤": 1.00, "任务": 0.90, "训练": 0.85, "育幼": 0.60,
+        "休整": 0.50, "医疗隔离": 0.30, "监禁": 0, "教团仪式": 0,
+        "休眠": 0, "失踪/叛逃": 0
+      },
+      orderFloor: 0.5,           // 秩序系数 = clamp(0.5 + 0.5×order, 0.5, 1)
+      basket: { sideShares: 10, funSessions: 1, clean: 4, misc: 6 },
+      prices: { side: 2, fun: 8, drug: 30 },
+      sideCapSlave: 30,          // 非贵族副食上限（份/人/月）；贵族不限并可记入囤货
+      consumeTax: 0.10,          // 副食 + 娱乐
+      wealthTax: 0.02,           // 站务费，按个人余额每月
+      taxPoolCap: 20000,         // 税池缓冲上限；超出销毁，不灌进拆解回收账户
+      l4HoldCap: 500,            // L4 个人持有上限
+      l4ExcessTake: 0.20,        // 超限部分每月收缴比例
+      drugCover: 1.0,            // 1 份药剂覆盖 1 人月
+      foodPoorK: 0.25,           // 买不起副食时营养三维的每周下调系数
+      medPoorK: 0.15,            // 买不起药剂时 medCoverage 的最大折减
+      orderPenaltyK: 0.04        // 买不起娱乐时 orderEq 的扣减系数
+    },
+
     /* ---------------- 能源 ---------------- */
     energy: {
       baseMW: 68,               // 【档案】平均 68 MW
@@ -580,7 +678,7 @@
           label: "权力重构", cooldownWeeks: 16, bias: -1.80,
           factors: { coverage: 2.4, weak: 1.8, dead: 2.0, pressure: 1.0 },
           pressurePerFail: 0.14, pressureDecayPerWeek: 0.01,
-          failEffect: { note: "最高贵族已死时，几乎必成" }
+          failEffect: { note: "大君已死时，几乎必成" }
         },
 
         /* 感染转化：每个队列一个独立槽位（slot = infection_thrall:<队列id>） */
@@ -845,19 +943,19 @@
             name: "个人医疗",
             drug: 0.06, food: 0, hp: 0.55, mind: 0.05, spirit: 0,
             infectRelief: 0.004,
-            text: "每周 0.06 份药剂：健康 +0.55、理智 +0.05、异常累积 −0.4%"
+            text: "药剂 0.06/周 · 健康 +0.55"
           },
           nutrition: {
             name: "个人营养",
             drug: 0, food: 0.16, hp: 0.28, mind: 0.1, spirit: 0.05,
             infectRelief: 0,
-            text: "每周 0.16 吨粮：健康 +0.28、理智 +0.1、活跃精神 +0.05"
+            text: "粮 0.16 吨/周 · 健康 +0.28"
           },
           rest: {
             name: "个人休养",
             drug: 0, food: 0.05, hp: 0.32, mind: 0.06, spirit: 0.12,
             infectRelief: 0,
-            text: "每周 0.05 吨粮：健康 +0.32、理智 +0.06、活跃精神 +0.12"
+            text: "粮 0.05 吨/周 · 健康 +0.32"
           }
         }
       },
@@ -891,10 +989,10 @@
           desc: "调整农业/工业能源分配"
         },
         replace_mid: {
-          label: "任免中层贵族", cat: "治理", mode: ["ruler"], cdWeeks: 52,
+          label: "任免贵族", cat: "治理", mode: ["ruler"], cdWeeks: 52,
           gate: { dominionMin: 55, orderMin: 0.25, authorityMin: 80, confined: false },
           society: "replace",
-          desc: "换掉涉事的中层贵族，统御 −8，其他人的压力 +0.12"
+          desc: "换掉涉事的贵族，统御 −8，其他人的压力 +0.12"
         },
         suppress: {
           label: "武力镇压", cat: "治理", mode: ["ruler", "mid"], cdWeeks: 26,
@@ -961,25 +1059,25 @@
 
         /* ---------- 中层 ---------- */
         petition: {
-          label: "上奏请求", cat: "中层贵族", mode: ["mid"], cdWeeks: 26,
+          label: "上奏请求", cat: "贵族", mode: ["mid"], cdWeeks: 26,
           gate: { orderMin: 0.15, confined: false, interrogated: false },
           effect: { type: "petition" },
           desc: "50% 获批，按最缺项补给；失败秩序 −1%"
         },
         inform_peer: {
-          label: "举报同僚", cat: "中层贵族", mode: ["mid"], cdWeeks: 26,
+          label: "举报同僚", cat: "贵族", mode: ["mid"], cdWeeks: 26,
           gate: { willMin: 30, orderMin: 0.25, interrogated: false },
           effect: { type: "inform_peer" },
           desc: "自身权限 +5，同僚压力 +0.05，不服 +2"
         },
         embezzle: {
-          label: "截留物资", cat: "中层贵族", mode: ["mid"], cdWeeks: 26,
+          label: "截留物资", cat: "贵族", mode: ["mid"], cdWeeks: 26,
           gate: { authorityMin: 40, orderMin: 0.20, interrogated: false },
           effect: { type: "embezzle" }, risk: 0.30,
           desc: "金属 +20 吨或粮食 +15 吨；秩序 −2%；有风险"
         },
         inspect: {
-          label: "巡查部门", cat: "中层贵族", mode: ["mid"], cdWeeks: 13,
+          label: "巡查部门", cat: "贵族", mode: ["mid"], cdWeeks: 13,
           gate: { healthMin: 30, orderMin: 0.25, confined: false },
           effect: { type: "inspect" },
           desc: "本部门情报 +1 档 26 周，部门失序 −5%"
@@ -1316,18 +1414,18 @@
       categories: ["explore", "tech", "resource", "society", "oldgod", "crisis", "trade"],
       cards: {
         explore: [
-          { id: "ex_metal_asteroid", name: "富金属小行星", rarity: "common", need: { techMin: 0.30, cat: "eng" }, ops: [{ t: "stock", k: "metal", v: 90 }, { t: "wear", v: 0.03 }], follow: [{ key: "encounter.crisis", v: 0.10, weeks: 520 }], effectText: "金属 +90 吨", costText: "磨损 +0.03，占用 8 周", followText: "10 年内危机权重 +0.10" },
-          { id: "ex_ice_asteroid", name: "冰质小行星", rarity: "common", need: { techMin: 0.25, cat: "eng" }, ops: [{ t: "stock", k: "water", v: 400 }, { t: "stock", k: "metal", v: -10 }], effectText: "水 +400 吨", costText: "金属 −10 吨，占用 6 周", followText: "—" },
+          { id: "ex_metal_asteroid", name: "富金属小行星", rarity: "common", need: { techMin: 0.30, cat: "eng" }, ops: [{ t: "stock", k: "metal", v: 90 }, { t: "wear", v: 0.03 }, { t: "weeks", v: 8 }, { t: "prop", v: 6 }], follow: [{ key: "encounter.crisis", v: 0.10, weeks: 520 }], effectText: "金属 +90 吨", costText: "磨损 +0.03、占用 8 周、工质 −6 吨", followText: "10 年内危机权重 +0.10" },
+          { id: "ex_ice_asteroid", name: "冰质小行星", rarity: "common", need: { techMin: 0.25, cat: "eng" }, ops: [{ t: "stock", k: "water", v: 400 }, { t: "stock", k: "metal", v: -10 }, { t: "weeks", v: 6 }, { t: "prop", v: 4 }], effectText: "水 +400 吨", costText: "金属 −10 吨、占用 6 周、工质 −4 吨", followText: "—" },
           { id: "ex_derelict", name: "废弃殖民舰", rarity: "rare", need: { techMin: 0.40, cat: "eng" }, ops: [], effectText: "七选项：探索 / 回收物资 / 回收蛋白质 / 苏醒全部 / 带走部分 / 带走全部 / 留下基因", costText: "工质与伤亡按勾选结算", followText: "带走的人要占本舰休眠余位" },
-          { id: "ex_ruins", name: "远古遗迹", rarity: "epic", gap: "ruins", ops: [{ t: "gapReward", type: "ruins" }], follow: [{ key: "encounter.oldgod", v: 0.30, weeks: 5200 }], effectText: "按科技差结算", costText: "探索失败：全船异常 +6", followText: "100 年内古神权重 ×1.3" },
+          { id: "ex_ruins", name: "远古遗迹", rarity: "epic", gap: "ruins", ops: [{ t: "gapReward", type: "ruins" }, { t: "kill", p: 0.45, v: 5 }], follow: [{ key: "encounter.oldgod", v: 0.30, weeks: 5200 }], effectText: "按科技差结算", costText: "探索失败：全船异常 +6、45% 概率死 5 人", followText: "100 年内古神权重 +0.30" },
           { id: "ex_colony", name: "前人类殖民地", rarity: "rare", gap: "colony", ops: [{ t: "gapReward", type: "colony" }], effectText: "按科技差结算", costText: "探索失败：全船异常 +3", followText: "—" },
           { id: "ex_wreck", name: "遗弃船", rarity: "rare", gap: "wreck", ops: [{ t: "gapReward", type: "wreck" }], effectText: "按科技差结算", costText: "探索失败：磨损 +0.04", followText: "—" },
-          { id: "ex_alien", name: "外星文明", rarity: "legendary", gap: "alien", ops: [{ t: "gapReward", type: "alien" }], effectText: "按科技差结算", costText: "探索失败：全船异常 +8", followText: "—" },
+          { id: "ex_alien", name: "外星文明", rarity: "legendary", gap: "alien", ops: [{ t: "gapReward", type: "alien" }, { t: "kill", p: 0.50, v: 8 }], effectText: "按科技差结算", costText: "探索失败：全船异常 +8、50% 概率死 8 人", followText: "—" },
           { id: "ex_ring_sample", name: "行星环采样", rarity: "common", need: { techMin: 0.30, cat: "eng" }, ops: [{ t: "tech", v: 0.02 }, { t: "stock", k: "metal", v: 30 }, { t: "wear", v: 0.02 }], effectText: "科技 +2 点、金属 +30 吨", costText: "磨损 +0.02", followText: "—" },
           { id: "ex_beacon", name: "深空信标", rarity: "rare", need: { techMin: 0.45, cat: "eng" }, ops: [{ t: "stock", k: "metal", v: -25 }, { t: "intel", level: "high", weeks: 200 }, { t: "mod", key: "encounter.explore", v: 0.20, weeks: 2600 }], effectText: "情报 +1 档 200 周", costText: "金属 −25 吨", followText: "50 年探索权重 +0.20" },
           { id: "ex_pod_drift", name: "漂流休眠舱", rarity: "rare", need: { techMin: 0.35, cat: "bio" }, ops: [{ t: "dormant", v: 24 }, { t: "stock", k: "drug", v: 40 }, { t: "stock", k: "metal", v: -15 }, { t: "randomInfect", p: 0.30, v: 5 }], effectText: "舱里 +24 人、药剂 +40", costText: "金属 −15 吨", followText: "30% 概率舱内异常 +5" },
           { id: "ex_debris", name: "陨石残骸", rarity: "common", need: { techMin: 0.20, cat: "eng" }, ops: [{ t: "stock", k: "metal", v: 45 }, { t: "wear", v: 0.05 }], effectText: "金属 +45 吨", costText: "磨损 +0.05", followText: "—" },
-          { id: "ex_garden_world", name: "宜居行星", rarity: "epic", need: { techMin: 0.50, cat: "bio" }, ops: [{ t: "stock", k: "food", v: 120 }, { t: "stock", k: "water", v: 200 }, { t: "pop", group: "undecided", v: 30 }, { t: "mod", key: "encounter.explore", v: 0.40, weeks: 520 }, { t: "mod", key: "encounter.crisis", v: 0.15, weeks: 520 }], effectText: "粮 +120 吨、水 +200 吨、人口 +30", costText: "10 年探索权重 ×1.4", followText: "危机权重 +0.15（10 年）" },
+          { id: "ex_garden_world", name: "宜居行星", rarity: "epic", need: { techMin: 0.50, cat: "bio" }, ops: [{ t: "stock", k: "food", v: 120 }, { t: "stock", k: "water", v: 200 }, { t: "pop", group: "undecided", v: 30 }, { t: "mod", key: "encounter.explore", v: 0.40, weeks: 520 }, { t: "mod", key: "encounter.crisis", v: 0.15, weeks: 520 }], effectText: "粮 +120 吨、水 +200 吨、人口 +30", costText: "探索权重 +0.40、危机 +0.15（均 10 年）", followText: "危机权重 +0.15（10 年）" },
           { id: "ex_signal", name: "未知信号源", rarity: "legendary", need: { techMin: 0.60, cat: "soc" }, choices: ["tech", "god", "thralls"], ops: [{ t: "infect", v: 8 }, { t: "machine", k: "autonomy", v: 0.05 }], effectText: "三选一：科技 +10 点 / 随机古神契约 / 眷属 +3", costText: "异常 +8、机器自主 +0.05", followText: "机器哗变风险上升" }
         ],
         tech: [
@@ -1351,7 +1449,7 @@
           { id: "re_harvest", name: "农环抢收", rarity: "common", need: {}, ops: [{ t: "stock", k: "food", v: 55 }, { t: "infra", k: "hydro", v: -3 }, { t: "queue", k: "W", v: 1, scope: "all" }], effectText: "粮 +55 吨", costText: "水培 −3 单元、不服 +1", followText: "—" },
           { id: "re_pod_salvage", name: "休眠舱拆卖", rarity: "rare", need: { dormantMin: 100 }, ops: [{ t: "stock", k: "metal", v: 80 }, { t: "infra", k: "pods", v: -20 }], effectText: "金属 +80 吨", costText: "休眠舱 −20", followText: "休眠容量下降" },
           { id: "re_clone_boost", name: "克隆槽加压", rarity: "rare", need: { techMin: 0.35 }, ops: [{ t: "mod", key: "cloneMul", v: 1.15, weeks: 520 }, { t: "stock", k: "food", v: -25 }, { t: "wear", v: 0.03 }], effectText: "克隆产量 ×1.15（52 周）", costText: "粮 −25 吨、磨损 +0.03", followText: "—" },
-          { id: "re_deep_mine", name: "深井采掘", rarity: "epic", need: { techMin: 0.45 }, ops: [{ t: "stock", k: "metal", v: 150 }, { t: "wear", v: 0.08 }, { t: "queue", k: "W", v: 3, scope: "all" }], effectText: "金属 +150 吨（26 周分批）", costText: "磨损 +0.08、不服 +3", followText: "—" },
+          { id: "re_deep_mine", name: "深井采掘", rarity: "epic", need: { techMin: 0.45 }, ops: [{ t: "stock", k: "metal", v: 150 }, { t: "wear", v: 0.08 }, { t: "queue", k: "W", v: 3, scope: "all" }], effectText: "金属 +150 吨", costText: "磨损 +0.08、不服 +3", followText: "—" },
           { id: "re_stardust", name: "星尘收集", rarity: "legendary", need: { techMin: 0.60 }, ops: [{ t: "mod", key: "metalPerYear", v: 6, weeks: 5200 }, { t: "tech", v: -0.02 }, { t: "mod", key: "encounter.explore", v: 0.20, weeks: 5200 }], effectText: "金属 +6 吨/年 ×100 年", costText: "科技 −2 点", followText: "100 年探索权重 +0.20" }
         ],
         society: [
@@ -1363,7 +1461,7 @@
           { id: "so_revival", name: "宗教复兴", rarity: "rare", need: { orderMin: 0.25 }, ops: [{ t: "queue", k: "O", v: 6, scope: "all" }, { t: "queue", k: "W", v: -2, scope: "all" }, { t: "infect", v: 2 }, { t: "mod", key: "encounter.oldgod", v: 0.10, weeks: 2600 }], effectText: "服从 +6、不服 −2", costText: "异常 +2", followText: "50 年古神权重 +0.10" },
           { id: "so_inform_net", name: "告密网络", rarity: "rare", need: { orderMin: 0.30 }, ops: [{ t: "intel", level: "high", weeks: 200 }, { t: "queue", k: "O", v: 2, scope: "all" }, { t: "queue", k: "W", v: 2, scope: "all" }, { t: "queue", k: "S", v: 0.03, scope: "one" }], effectText: "情报 +1 档 200 周", costText: "不服 +2、同僚压力 +0.03", followText: "—" },
           { id: "so_birth_incentive", name: "生育激励", rarity: "common", need: { popMin: 2000 }, ops: [{ t: "mod", key: "birthMul", v: 1.5, weeks: 5200 }, { t: "mod", key: "foodUse", v: 1.05, weeks: 5200 }], effectText: "出生率 ×1.5（100 年）", costText: "粮消耗 +5%（100 年）", followText: "—" },
-          { id: "so_purge_mid", name: "中层清洗", rarity: "epic", need: { orderMin: 0.45 }, ops: [{ t: "removeL2", v: 2 }, { t: "player", k: "dominion", v: 8 }, { t: "queue", k: "S", v: 0.08, scope: "all" }, { t: "queue", k: "W", v: 4, scope: "all" }], effectText: "移除 2 名中层贵族、统御 +8", costText: "其他人的压力 +0.08", followText: "—" },
+          { id: "so_purge_mid", name: "中层清洗", rarity: "epic", need: { orderMin: 0.45 }, ops: [{ t: "removeL2", v: 2 }, { t: "player", k: "dominion", v: 8 }, { t: "queue", k: "S", v: 0.08, scope: "all" }, { t: "queue", k: "W", v: 4, scope: "all" }], effectText: "移除 2 名贵族、统御 +8", costText: "其他人的压力 +0.08", followText: "—" },
           { id: "so_referendum", name: "全民公投", rarity: "legendary", need: { orderMin: 0.50 }, ops: [{ t: "order", v: 0.08 }, { t: "queue", k: "O", v: 5, scope: "all" }, { t: "queue", k: "W", v: 8, scope: "all" }, { t: "flag", k: "noSuppressUntil", weeks: 1352 }], effectText: "秩序 +8%、服从 +5", costText: "不服 +8", followText: "26 周内不能镇压" }
         ],
         oldgod: [
@@ -1579,9 +1677,9 @@
       },
       roles: {
         creator: { label: "创造模式", w: 1.00, maxWeeks: 520 },
-        ruler:   { label: "最高贵族", w: 1.00, maxWeeks: 520,
+        ruler:   { label: "大君", w: 1.00, maxWeeks: 520,
                    gate: { dominionMin: 45, healthMin: 30, authorityMin: 80, confined: false, interrogated: false } },
-        mid:     { label: "中层贵族", w: 0.60, maxWeeks: 52, speedMax: 0.050,
+        mid:     { label: "贵族", w: 0.60, maxWeeks: 52, speedMax: 0.050,
                    gate: { authorityMin: 40 } },
         machine: { label: "机器路线", w: 0.45, maxWeeks: 12,
                    gate: { techMin: 0.55, authorityMax: 0.62, maintGapMax: 0.45 } }
@@ -1621,8 +1719,8 @@
       // 原型只模拟醒态，按 2,400 / 4,000 等比缩放到 1 / 12 / 152 / 2,235
       layersTotal: { L1: 1, L2: 12, L3: 254, L4: 3733 },
       layerNames: {
-        L1: "L1 最高贵族", L2: "L2 中层贵族",
-        L3: "L3 精英·技术管理", L4: "L4 奴隶与机器"
+        L1: "L1 大君", L2: "L2 贵族",
+        L3: "L3 平民", L4: "L4 奴隶"
       },
       depts: ["指挥", "战斗", "技术", "勤务", "医疗", "农环"],
       // v6.57 魅力消费点一：队列人均魅力对派系支持度的权重（每 1 点 ±0.12，最多 ±4.8）
@@ -1670,7 +1768,7 @@
         execute:  { label: "处决领头", o: 18, oDecay: 3, w: 3, death: 0.002, d: -5,
                     cdWeeks: monthsToWeeks(9), uses: [1, 0.55, 0.30],
                     note: "短期服从 +18（恐惧），不服永久 +3，统御力 −5" },
-        replace:  { label: "换掉中层贵族", o: 5, d: -8, spread: 0.12, cdWeeks: monthsToWeeks(12), uses: [1, 0.70, 0.45],
+        replace:  { label: "换掉贵族", o: 5, d: -8, spread: 0.12, cdWeeks: monthsToWeeks(12), uses: [1, 0.70, 0.45],
                     note: "损失统御力积累，其他人的压力 +0.12，可能开新裂口" },
         interrogate: { label: "潜伏机审讯", o: 6, w: 2, metal: 4, durCost: 2,
                     iso: 0.10, isoWeeks: monthsToWeeks(3),
@@ -2177,6 +2275,345 @@
                 { id: "core", label: "拆控制核心", effect: "金属 +30、产出 −8%（8 周）", ops: [{ t: "stock", k: "metal", v: 30 }, { t: "prodTmp", v: -0.08, weeks: 8 }, { t: "machineDept" }] },
                 { id: "firmware", label: "降级固件", effect: "金属 −15、自主回落一档", ops: [{ t: "stock", k: "metal", v: -15 }, { t: "machineDept" }] }
               ]
+            }
+          ]
+        }
+      ]
+    },
+
+    /* ---------------- 待决策（v1.0.0） ----------------
+       与 crisisStanding 分开：crisis 选完即解除 / 定时暂缓；
+       待决策选完立即落账，但条目转入「未解决」，带解决条件继续挂着。
+       数值口径：order / prodTmp 用百分点（−3 = −3%），其余按各自单位
+       （吨 / 份 / 人 / 级）。身份：lord 大君、noble 贵族、commoner 平民、
+       slave 奴隶、clone 克隆；creator 创造模式全开。 */
+    decisions: {
+      enabled: true,
+      evalEveryWeeks: 1,
+      cooldownWeeks: 52,
+      maxOpen: 3,
+      maxItems: 60,
+      keepResolved: 20,
+      labels: {
+        lord: "大君", noble: "贵族", commoner: "平民",
+        slave: "奴隶", clone: "克隆", creator: "创造模式"
+      },
+      defs: [
+        {
+          id: "dec_withdraw",
+          type: "withdraw",
+          title: "药物戒断",
+          brief: "镇痛药剂供应出现缺口，全船已有一批人进入戒断；压不住就会掉秩序、出人命。",
+          severity: "高",
+          trigger: {
+            anyOf: [
+              { withdrawAbove: 15 },
+              { withdrawAbove: 8, medCoveragePctBelow: 55 }
+            ]
+          },
+          triggerText: "全船戒断人数 ≥ 15，或戒断 ≥ 8 且医疗覆盖 < 55%",
+          resolveDefault: { key: "withdraw", below: 5, weeks: 8,
+            text: "全船戒断人数降到 5 人以下并维持 8 周" },
+          options: [
+            {
+              id: "taper", label: "逐步减量", risk: "低",
+              who: ["lord", "noble"],
+              desc: "公卫下令分批减供，把急性戒断摊到几个月里",
+              effectsText: ["秩序 −2%", "休眠药剂 −60 份"],
+              need: { drugMin: 60 },
+              ops: [{ t: "order", v: -2 }, { t: "stock", k: "drug", v: -60 }],
+              resolve: { key: "withdraw", below: 5, weeks: 8,
+                text: "全船戒断人数降到 5 人以下并维持 8 周" }
+            },
+            {
+              id: "coldTurkey", label: "硬戒", risk: "高",
+              who: ["lord", "noble", "commoner"],
+              desc: "停掉全部非必要用药，扛过去的人自己戒断",
+              effectsText: ["秩序 −6%", "产出 −10%（6 周）", "重度成瘾 −20、中度 −15", "死亡 4"],
+              ops: [
+                { t: "order", v: -6 }, { t: "prodTmp", v: -10, weeks: 6 },
+                { t: "addict", k: "heavy", v: -20 }, { t: "addict", k: "mid", v: -15 },
+                { t: "pop", v: -4 }
+              ],
+              resolve: { key: "withdraw", below: 5, weeks: 12,
+                text: "全船戒断人数降到 5 人以下并维持 12 周" }
+            },
+            {
+              id: "isolate", label: "隔离戒断", risk: "中",
+              who: ["lord", "noble"],
+              desc: "把重度成瘾者集中收容，断供、看守、等他们熬过去",
+              effectsText: ["秩序 −4%", "产出 −8%（8 周）", "重度成瘾 −12"],
+              ops: [
+                { t: "order", v: -4 }, { t: "prodTmp", v: -8, weeks: 8 },
+                { t: "addict", k: "heavy", v: -12 }
+              ],
+              resolve: { key: "withdraw", below: 5, weeks: 10,
+                text: "全船戒断人数降到 5 人以下并维持 10 周" }
+            },
+            {
+              id: "supplyFirst", label: "优先供药", risk: "低",
+              who: ["lord", "noble", "commoner"],
+              desc: "把休眠药剂先挪给戒断者，先把人稳住",
+              effectsText: ["休眠药剂 −150 份", "秩序 +2%"],
+              need: { drugMin: 150 },
+              ops: [{ t: "stock", k: "drug", v: -150 }, { t: "order", v: 2 }],
+              resolve: { key: "withdraw", below: 5, weeks: 3,
+                text: "全船戒断人数降到 5 人以下并维持 3 周" }
+            },
+            {
+              id: "substitute", label: "替代疗法", risk: "中",
+              who: ["commoner", "slave", "clone"],
+              desc: "用民用金属换镇痛剂，剂量不够但能压住最难受的一段",
+              effectsText: ["金属 −30 吨", "镇痛药剂 +40 份", "轻度成瘾 −10"],
+              need: { metalMin: 30 },
+              ops: [
+                { t: "stock", k: "metal", v: -30 }, { t: "med", k: "pain", v: 40 },
+                { t: "addict", k: "light", v: -10 }
+              ],
+              resolve: { key: "withdraw", below: 8, weeks: 8,
+                text: "全船戒断人数降到 8 人以下并维持 8 周" }
+            },
+            {
+              id: "herbal", label: "民间土方", risk: "中",
+              who: ["commoner", "slave", "clone"],
+              desc: "拿配给粮去换民间的镇静方子，药效说不准",
+              effectsText: ["粮食 −20 吨", "秩序 −1%", "中度成瘾 −6"],
+              need: { foodMin: 20 },
+              ops: [
+                { t: "stock", k: "food", v: -20 }, { t: "order", v: -1 },
+                { t: "addict", k: "mid", v: -6 }
+              ],
+              resolve: { key: "withdraw", below: 8, weeks: 10,
+                text: "全船戒断人数降到 8 人以下并维持 10 周" }
+            },
+            {
+              id: "coverUp", label: "封锁消息", risk: "高",
+              who: ["lord", "noble"],
+              desc: "不承认有戒断潮，把病房和死亡记录压下去",
+              effectsText: ["秩序 +3%（短期）", "中度成瘾 +8（后患）"],
+              ops: [{ t: "order", v: 3 }, { t: "addict", k: "mid", v: 8 }],
+              resolve: { key: "addictSharePct", below: 6, weeks: 12,
+                text: "轻中重成瘾占比降到 6% 以下并维持 12 周" }
+            },
+            {
+              id: "workThem", label: "逼着上工", risk: "高",
+              who: ["slave", "clone"],
+              desc: "下层没有养病的余地，戒断也要照常出工",
+              effectsText: ["秩序 −3%", "产出 +4%（4 周）", "死亡 8"],
+              ops: [
+                { t: "order", v: -3 }, { t: "prodTmp", v: 4, weeks: 4 },
+                { t: "pop", v: -8 }
+              ],
+              resolve: { key: "withdraw", below: 5, weeks: 12,
+                text: "全船戒断人数降到 5 人以下并维持 12 周" }
+            }
+          ]
+        },
+        {
+          id: "dec_riot",
+          type: "riot",
+          title: "暴动 / 哗变",
+          brief: "下层已经不服从调度，有人开始砸仓、堵门；不处理就会升级成哗变。",
+          severity: "高",
+          trigger: {
+            anyOf: [
+              { mutinyLevelAtLeast: 3, orderPctBelow: 65 },
+              { orderPctBelow: 50 }
+            ]
+          },
+          triggerText: "哗变 ≥ 3 级且秩序 < 65%，或秩序 < 50%",
+          resolveDefault: { key: "orderPct", above: 70, weeks: 4,
+            text: "秩序回到 70% 以上并维持 4 周" },
+          options: [
+            {
+              id: "openGranary", label: "开仓放粮", risk: "低",
+              who: ["lord", "noble"],
+              desc: "把储备粮拿出来平事，先让人吃饱",
+              effectsText: ["粮食 −60 吨", "秩序 +5%"],
+              need: { foodMin: 60 },
+              ops: [{ t: "stock", k: "food", v: -60 }, { t: "order", v: 5 }],
+              resolve: { all: [{ key: "orderPct", above: 70 }, { key: "mutiny", below: 2 }], weeks: 4,
+                text: "秩序回到 70% 以上、哗变降到 1 级以下，并维持 4 周" }
+            },
+            {
+              id: "payOff", label: "发钱安抚", risk: "低",
+              who: ["lord", "noble"],
+              desc: "从船方账户直接发星币，把领头的人先稳住",
+              effectsText: ["舰内星币 −400", "秩序 +6%"],
+              need: { coinsMin: 400 },
+              ops: [{ t: "coins", v: -400 }, { t: "order", v: 6 }],
+              resolve: { all: [{ key: "orderPct", above: 70 }, { key: "mutiny", below: 2 }], weeks: 4,
+                text: "秩序回到 70% 以上、哗变降到 1 级以下，并维持 4 周" }
+            },
+            {
+              id: "arrestLeaders", label: "抓捕领头", risk: "中",
+              who: ["lord", "noble"],
+              desc: "只抓带头的，其余人不追究",
+              effectsText: ["死亡 10", "秩序 +4%", "哗变 −1 级"],
+              ops: [
+                { t: "pop", v: -10 }, { t: "order", v: 4 }, { t: "mutiny", v: -1 }
+              ],
+              resolve: { all: [{ key: "orderPct", above: 68 }, { key: "mutiny", below: 2 }], weeks: 4,
+                text: "秩序回到 68% 以上、哗变降到 1 级以下，并维持 4 周" }
+            },
+            {
+              id: "crackdown", label: "警备镇压", risk: "高",
+              who: ["lord"],
+              desc: "警备队上街，先把场面压住，账以后再算",
+              effectsText: ["金属 −20 吨", "警备 +8", "死亡 14", "秩序 −3%", "哗变 −2 级"],
+              need: { metalMin: 20 },
+              ops: [
+                { t: "stock", k: "metal", v: -20 }, { t: "garrison", v: 8 },
+                { t: "pop", v: -14 }, { t: "order", v: -3 }, { t: "mutiny", v: -2 }
+              ],
+              resolve: { all: [{ key: "orderPct", above: 65 }, { key: "mutiny", below: 1 }], weeks: 6,
+                text: "秩序回到 65% 以上、哗变归零，并维持 6 周" }
+            },
+            {
+              id: "negotiate", label: "谈判", risk: "中",
+              who: ["noble", "commoner"],
+              desc: "和代表坐下来谈条件，答应一部分诉求",
+              effectsText: ["秩序 +3%", "产出 −5%（6 周）"],
+              ops: [{ t: "order", v: 3 }, { t: "prodTmp", v: -5, weeks: 6 }],
+              resolve: { key: "orderPct", above: 70, weeks: 4,
+                text: "秩序回到 70% 以上并维持 4 周" }
+            },
+            {
+              id: "petition", label: "联名请愿", risk: "低",
+              who: ["commoner", "slave", "clone"],
+              desc: "不闹大，按规矩递联名信，换一点让步",
+              effectsText: ["粮食 −10 吨", "秩序 +2%"],
+              need: { foodMin: 10 },
+              ops: [{ t: "stock", k: "food", v: -10 }, { t: "order", v: 2 }],
+              resolve: { key: "orderPct", above: 68, weeks: 6,
+                text: "秩序回到 68% 以上并维持 6 周" }
+            },
+            {
+              id: "strike", label: "停工施压", risk: "中",
+              who: ["commoner", "slave", "clone"],
+              desc: "关键岗位停摆，用产出换谈判筹码",
+              effectsText: ["秩序 −2%", "产出 −12%（4 周）"],
+              ops: [{ t: "order", v: -2 }, { t: "prodTmp", v: -12, weeks: 4 }],
+              resolve: { key: "orderPct", above: 70, weeks: 8,
+                text: "秩序回到 70% 以上并维持 8 周" }
+            },
+            {
+              id: "joinRiot", label: "跟着闹", risk: "高",
+              who: ["commoner", "slave", "clone"],
+              desc: "下层没有别的筹码，只能把事闹大",
+              effectsText: ["秩序 −5%", "死亡 6"],
+              ops: [{ t: "order", v: -5 }, { t: "pop", v: -6 }],
+              resolve: { key: "orderPct", above: 62, weeks: 10,
+                text: "秩序回到 62% 以上并维持 10 周" }
+            }
+          ]
+        },
+        {
+          id: "dec_drug_shortage",
+          type: "drugShortage",
+          title: "药物短缺",
+          brief: "镇痛与休眠药剂都见了底，医疗环开始限量；再拖下去会连带成瘾与死亡。",
+          severity: "中",
+          trigger: {
+            anyOf: [
+              { painBelow: 60 },
+              { drugBelow: 150 }
+            ]
+          },
+          triggerText: "镇痛药剂池 < 60 份，或休眠药剂 < 150 份",
+          resolveDefault: { all: [{ key: "pain", above: 200 }, { key: "drug", above: 300 }], weeks: 2,
+            text: "镇痛药剂 ≥ 200 份、休眠药剂 ≥ 300 份，并维持 2 周" },
+          options: [
+            {
+              id: "shiftLine", label: "转产镇痛", risk: "中",
+              who: ["lord", "noble"],
+              desc: "把工业线切一段出来合成镇痛剂，别的产出先让路",
+              effectsText: ["金属 −15 吨", "产出 −3%（4 周）", "镇痛药剂 +120 份"],
+              need: { metalMin: 15 },
+              ops: [
+                { t: "stock", k: "metal", v: -15 }, { t: "prodTmp", v: -3, weeks: 4 },
+                { t: "med", k: "pain", v: 120 }
+              ],
+              resolve: { all: [{ key: "pain", above: 240 }, { key: "drug", above: 300 }], weeks: 2,
+                text: "镇痛药剂 ≥ 240 份、休眠药剂 ≥ 300 份，并维持 2 周" }
+            },
+            {
+              id: "cutHibernation", label: "挪休眠药", risk: "高",
+              who: ["lord", "noble"],
+              desc: "把休眠舱的备用药挪给医疗环，等于拿以后换现在",
+              effectsText: ["休眠药剂 −150 份", "镇痛药剂 +100 份", "秩序 −3%"],
+              need: { drugMin: 150 },
+              ops: [
+                { t: "stock", k: "drug", v: -150 }, { t: "med", k: "pain", v: 100 },
+                { t: "order", v: -3 }
+              ],
+              resolve: { key: "pain", above: 240, weeks: 2,
+                text: "镇痛药剂 ≥ 240 份并维持 2 周" }
+            },
+            {
+              id: "buyDrug", label: "外购药剂", risk: "低",
+              who: ["lord", "noble", "commoner"],
+              desc: "用舰内星币向别的船或黑市买一批",
+              effectsText: ["舰内星币 −300", "休眠药剂 +200 份"],
+              need: { coinsMin: 300 },
+              ops: [{ t: "coins", v: -300 }, { t: "stock", k: "drug", v: 200 }],
+              resolve: { key: "drug", above: 400, weeks: 2,
+                text: "休眠药剂 ≥ 400 份并维持 2 周" }
+            },
+            {
+              id: "rationPain", label: "限量配给", risk: "中",
+              who: ["noble", "commoner"],
+              desc: "只给最需要的人，其余人硬扛，先把库存拖过缺口",
+              effectsText: ["秩序 −3%", "重度成瘾 −6", "镇痛药剂 +40 份"],
+              ops: [
+                { t: "order", v: -3 }, { t: "addict", k: "heavy", v: -6 },
+                { t: "med", k: "pain", v: 40 }
+              ],
+              resolve: { key: "pain", above: 200, weeks: 2,
+                text: "镇痛药剂 ≥ 200 份并维持 2 周" }
+            },
+            {
+              id: "substitute", label: "民用替代", risk: "中",
+              who: ["commoner", "slave", "clone"],
+              desc: "拆营养剂顶镇痛剂，副作用以后再说",
+              effectsText: ["金属 −10 吨", "营养剂 −40 份", "镇痛药剂 +70 份"],
+              need: { metalMin: 10 },
+              ops: [
+                { t: "stock", k: "metal", v: -10 }, { t: "med", k: "nutri", v: -40 },
+                { t: "med", k: "pain", v: 70 }
+              ],
+              resolve: { key: "pain", above: 200, weeks: 2,
+                text: "镇痛药剂 ≥ 200 份并维持 2 周" }
+            },
+            {
+              id: "blackMarket", label: "默许黑市", risk: "中",
+              who: ["commoner", "slave", "clone"],
+              desc: "不查私药，让民间自己流转，秩序上记账",
+              effectsText: ["秩序 −2%", "镇痛药剂 +50 份"],
+              ops: [{ t: "order", v: -2 }, { t: "med", k: "pain", v: 50 }],
+              resolve: { key: "pain", above: 200, weeks: 3,
+                text: "镇痛药剂 ≥ 200 份并维持 3 周" }
+            },
+            {
+              id: "seize", label: "查封私药", risk: "中",
+              who: ["lord", "noble"],
+              desc: "把私人囤的药全收上来，秩序上要付代价",
+              effectsText: ["秩序 −4%", "警备 +2", "镇痛药剂 +90 份"],
+              ops: [
+                { t: "order", v: -4 }, { t: "garrison", v: 2 },
+                { t: "med", k: "pain", v: 90 }
+              ],
+              resolve: { key: "pain", above: 220, weeks: 2,
+                text: "镇痛药剂 ≥ 220 份并维持 2 周" }
+            },
+            {
+              id: "endure", label: "硬扛", risk: "低",
+              who: [],
+              desc: "什么也不动，等产线自己把池子补回来",
+              effectsText: ["秩序 −1%"],
+              ops: [{ t: "order", v: -1 }],
+              resolve: { key: "pain", above: 200, weeks: 4,
+                text: "镇痛药剂 ≥ 200 份并维持 4 周" }
             }
           ]
         }

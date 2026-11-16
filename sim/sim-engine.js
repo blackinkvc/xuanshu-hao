@@ -79,7 +79,7 @@
 
   function ensureDeps() {
     if (global.XUANSHU_CONFIG && global.XuanShuSim && global.XuanShuSociety && global.XuanShuPrison &&
-      global.XuanShuCrisis) return;
+      global.XuanShuCrisis && global.XuanShuDecisions) return;
     if (typeof require === "function") {
       try {
         if (!global.XUANSHU_CONFIG) require("./sim-config.js");
@@ -87,12 +87,14 @@
         if (!global.XuanShuPeople) require("./sim-people.js");
         if (!global.XuanShuPrison) require("./sim-prison.js");
         if (!global.XuanShuSociety) require("./sim-society.js");
+        if (!global.XuanShuCoin) require("./sim-coin.js");
         if (!global.XuanShuPlayer) require("./sim-player.js");
         if (!global.XuanShuEncounter) require("./sim-encounter.js");
         if (!global.XuanShuTrade) require("./sim-trade.js");
         if (!global.XuanShuGods) require("./sim-gods.js");
         if (!global.XuanShuRun) require("./sim-run.js");
         if (!global.XuanShuCrisis) require("./sim-crisis.js");
+        if (!global.XuanShuDecisions) require("./sim-decisions.js");
         if (!global.XuanShuSim) require("./sim-core.js");
       } catch (e) { /* 浏览器里没有 require，走下面的报错 */ }
     }
@@ -162,6 +164,24 @@
     function stepWeeks(n) { return step(n, "week"); }
     /** 按年推进（等价于 step(n, "year")）。 */
     function stepYears(n) { return step(n, "year"); }
+
+    /**
+     * 快进到下一个需要玩家决策的点：危机 / 奇遇卡 / 古神 / 哗变升级 / 判负。
+     * 命中当周立即停住，把待选卡留在 pending 里；无事件则由 idleWeeks / maxWeeks 兜底。
+     * @param {{maxWeeks?:number, idleWeeks?:number}} [opts]
+     * @returns {Object} 推进后的公开快照，附 advance 字段说明停因
+     */
+    function advanceToNextEvent(opts) {
+      if (typeof sim.advanceToNextEvent !== "function") {
+        throw new Error("内核不支持 advanceToNextEvent");
+      }
+      var r = sim.advanceToNextEvent(opts || {});
+      var s = sim.getState();
+      s.view = "truth";
+      s.advance = r;
+      emit("step", null, { weeks: r.weeks, unit: "event", count: 1 });
+      return s;
+    }
 
     /**
      * 读取快照。
@@ -256,6 +276,7 @@
       // —— 显式单位别名 ——
       stepWeeks: stepWeeks,
       stepYears: stepYears,
+      advanceToNextEvent: advanceToNextEvent,   // 快进到下一个决策点并停住
 
       // —— 只读辅助（给图表与事件流用） ——
       getEvents: function () { return sim.getEvents(); },
@@ -435,6 +456,26 @@
         return r;
       },
 
+      // —— 拆解与回收（v1） ——
+      /** 坏件队列 / 当前档位 / 损耗下限 / 仓库与积压 */
+      getSalvage: function () {
+        return typeof sim.getSalvage === "function" ? sim.getSalvage() : null;
+      },
+      /** 调值勤人数（只拉长工期，不降损耗率） */
+      salvageCrew: function (n) {
+        if (typeof sim.salvageCrew !== "function") return { ok: false, msg: "引擎未提供拆解回收" };
+        var r = sim.salvageCrew(n);
+        emit("salvage", r, {});
+        return r;
+      },
+      /** 空间不足三条路：build / rest / discard */
+      salvageOption: function (id, payload) {
+        if (typeof sim.salvageOption !== "function") return { ok: false, msg: "引擎未提供拆解回收" };
+        var r = sim.salvageOption(id, payload || {});
+        emit("salvage", r, {});
+        return r;
+      },
+
       // —— 常驻危机（v6.49） ——
       /** 当前挂着的危机卡、历史与已解除数 */
       getCrisis: function () {
@@ -445,6 +486,19 @@
         if (typeof sim.crisisResolve !== "function") return { ok: false, msg: "引擎未提供危机结算" };
         var r = sim.crisisResolve(id, optionId, subIds || []);
         emit("crisis", r, {});
+        return r;
+      },
+
+      // —— 待决策（v1.0.0） ——
+      /** 待决策队列：open 弹窗项 / selected 未解决项 / resolved 历史；选项带 available + reason */
+      getDecisions: function () {
+        return typeof sim.getDecisions === "function" ? sim.getDecisions() : null;
+      },
+      /** 选择一项：效果立即落账，条目转入「未解决」，之后每周检查解决条件 */
+      decisionChoose: function (id, optionId) {
+        if (typeof sim.decisionChoose !== "function") return { ok: false, msg: "引擎未提供待决策结算" };
+        var r = sim.decisionChoose(id, optionId);
+        emit("decision", r, {});
         return r;
       },
 

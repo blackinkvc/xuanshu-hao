@@ -21,6 +21,9 @@
     "多部门串联", "全船暴动", "权力结构重构"
   ];
 
+  // 秩序百分点换算：文案/配置一律写个位数（−2 表示 2 个百分点），引擎乘这个系数落到 0~1
+  var ORDER_PP = 0.01;
+
   function pushEvent(state, cfg, type, level, title, text, basis, deltas, note) {
     var evYear = Math.floor(state.weeks / cfg.time.weeksPerYear);
     var evWeek = (state.weeks % cfg.time.weeksPerYear) + 1;
@@ -68,11 +71,11 @@
     var qs = [];
     var depts = ["指挥", "战斗", "技术", "勤务", "医疗", "农环"];
 
-    qs.push({ id: "L1", name: "最高贵族", layer: "L1", dept: "指挥",
+    qs.push({ id: "L1", name: "大君", layer: "L1", dept: "指挥",
       kind: "L1", edu: "elite", w: 1, age: 140, mut: 5, exp: 6, superior: null });
 
     for (var i = 0; i < 12; i++) {
-      qs.push({ id: "L2_" + (i + 1), name: "中层贵族 " + (i + 1), layer: "L2",
+      qs.push({ id: "L2_" + (i + 1), name: "贵族 " + (i + 1), layer: "L2",
         dept: depts[i % 6], kind: "L2", edu: "elite", w: 1,
         age: 80 + (i % 5) * 14, mut: 4, exp: 5, superior: "L1" });
     }
@@ -414,12 +417,15 @@
           }, { slot: "mutiny_l2:" + d, note: "部门 " + d });
           if (r2.allow) {
             D.level = 2; D.since = state.weeks;
+            // 口径：文案/配置写百分点（−2），引擎按 1 点 = 0.01 折算成绝对量
+            var deptPP = 2;
+            state.order = clamp(state.order - deptPP * ORDER_PP, 0.05, 1);
             pushEvent(state, cfg, "mutiny", "事件", "「" + d + "」部门不干了",
-              "「" + d + "」部门停工：产出少 35%，秩序跟着往下走",
+              "「" + d + "」部门停工：产出少 35%，秩序一次性 −" + deptPP + "%，之后继续缓慢下滑",
               "部门失序指数 I=" + D.I.toFixed(2) + " ≥ " + cfg.society.ladder.l2At +
               "，越线队列占 " + Math.round(D.over * 100) + "%，连续 " + cfg.society.ladder.l2Weeks +
               " 周；判定 p=" + (r2.probability != null ? r2.probability.toFixed(2) : "—"),
-              { "秩序": -2 }, "一个部门停摆，产出和秩序一起掉");
+              { "秩序": -deptPP }, "一个部门停摆，产出和秩序一起掉");
           } else if (r2.judged) {
             var fe2 = (cfg.judge.items.mutiny_l2.failEffect || {});
             soc.queues.forEach(function (q) {
@@ -535,12 +541,21 @@
 
     if (level > soc.mutiny.level) {
       soc.mutiny.since = state.weeks;
+      // 升级按跨过的档位一次性扣秩序（百分点）；L5 仍有单独的 −20 点，不在这里重复
+      var ORDER_HIT_PP = { 2: 2, 3: 5, 4: 8 };
+      var oldLevel = soc.mutiny.level;
+      var levelHitPP = 0, lv;
+      for (lv = oldLevel + 1; lv <= level; lv++) levelHitPP += (ORDER_HIT_PP[lv] || 0);
+      if (levelHitPP > 0) state.order = clamp(state.order - levelHitPP * ORDER_PP, 0.05, 1);
       var dname = deptsAt2.length ? deptsAt2.join(" / ") : (soc.queues.filter(function (q) { return q.S >= L.l1At; })[0] || {}).dept || "—";
       soc.mutiny.dept = dname;
       pushEvent(state, cfg, "mutiny", "哗变", "哗变闹大了 · " + LEVEL_LABEL[level],
         level >= 4 ? "全船都乱了，产出和维修一起往下掉" : "乱子从「" + dname + "」蔓延开",
         "覆盖 " + Math.round(coverage * 100) + "% 醒态人口，D_L1_eff=" + dEff.toFixed(0) +
-        "，K=" + K.toFixed(2) + "，等级 " + soc.mutiny.level + " → " + level, null,
+        "，K=" + K.toFixed(2) + "，等级 " + oldLevel + " → " + level +
+        (levelHitPP > 0 ? "；秩序一次性 −" + levelHitPP + "%"
+          : "；秩序将逐年下滑（本档只降平衡点）"),
+        levelHitPP > 0 ? { "秩序": -levelHitPP } : null,
         level >= 4 ? "已经不是一两个部门的事了" : "乱子正在往外扩");
     } else if (level < soc.mutiny.level) {
       pushEvent(state, cfg, "mutiny", "事件", "哗变平息了一些",
@@ -555,11 +570,11 @@
       soc.mutiny.l1dead = true;
       soc.mutiny.holdUntil = state.weeks + L.l5HoldWeeks;
       var nl1 = soc.queues.filter(function (q) { return q.layer === "L1"; })[0];
-      if (nl1) { nl1.O = 60; nl1.W = 40; nl1.D = 35; nl1.age = 60; nl1.name = "新任最高贵族"; }
-      state.order = clamp(state.order - 0.20, 0.05, 1);
-      pushEvent(state, cfg, "mutiny", "哗变", "最高贵族被杀 · 权力结构重构",
-        "新的最高贵族即位，统御只有 35；" + L.l5HoldWeeks + " 周内秩序回不到从前",
-        "覆盖 ≥50% 且整体失序 <30 连续 " + L.l5Weeks + " 周，或最高贵族已死",
+      if (nl1) { nl1.O = 60; nl1.W = 40; nl1.D = 35; nl1.age = 60; nl1.name = "新任大君"; }
+      state.order = clamp(state.order - 20 * ORDER_PP, 0.05, 1);
+      pushEvent(state, cfg, "mutiny", "哗变", "大君被杀 · 权力结构重构",
+        "新的大君即位，统御只有 35；" + L.l5HoldWeeks + " 周内秩序回不到从前",
+        "覆盖 ≥50% 且整体失序 <30 连续 " + L.l5Weeks + " 周，或大君已死",
         { "秩序": -20 }, "船上的权力换了一次手");
     }
     if (soc.mutiny.l1dead && state.weeks > soc.mutiny.holdUntil + L.l5HoldWeeks * 2) {
@@ -910,7 +925,7 @@
     var soc = state.society;
     var cd = soc.actions.cd[name] || 0;
     if (state.weeks < cd) return { ok: false, msg: a.label + "冷却中，还需 " + (cd - state.weeks) + " 周" };
-    if (a.needL1 && soc.mutiny.l1dead) return { ok: false, msg: "最高贵族已经死了，这套仪式没用了" };
+    if (a.needL1 && soc.mutiny.l1dead) return { ok: false, msg: "大君已经死了，这套仪式没用了" };
 
     var targetDept = (opts && opts.dept) || soc.mutiny.dept ||
       ((soc.queues || []).filter(function (q) { return q.layer === "L2"; })[0] || {}).dept || "";
@@ -970,7 +985,7 @@
         soc.queues.filter(function (q) { return q.layer === "L2"; })[0];
       if (worst) { worst.dPenalty += 5; worst.wPerm += a.w * mul; }
       soc.exec.push({ m: state.weeks, frac: a.death * mul });
-      extra = "处决了 " + Math.round(killed) + " 人（「" + (targetDept || "各环") + "」领头者），涉事的中层贵族统御 −5";
+      extra = "处决了 " + Math.round(killed) + " 人（「" + (targetDept || "各环") + "」领头者），涉事的贵族统御 −5";
     } else if (name === "replace") {
       var l2 = soc.queues.filter(function (q) { return q.layer === "L2" && q.dept === targetDept; })[0];
       if (l2) l2.dPenalty += 8;
