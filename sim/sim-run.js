@@ -680,7 +680,7 @@
     // 5 全船眷属化
     if (soc.infection && num(soc.infection.share) >= num(F.thrallShare, 0.75) &&
         num(soc.infection.thralls) >= num(F.thrallCount, 1200)) {
-      return lose(state, cfg, "thrall_takeover", "七成半以上的人感染、眷属超过 " +
+      return lose(state, cfg, "thrall_takeover", "七成半以上的人出现异常、眷属超过 " +
         num(F.thrallCount, 1200) + " 人，全船完成转化。");
     }
     return null;

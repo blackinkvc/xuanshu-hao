@@ -46,10 +46,10 @@
 
   var STOCK_LABEL = { food: "粮食", water: "水", metal: "金属", drug: "药剂" };
   var STOCK_UNIT = { food: "吨", water: "吨", metal: "吨", drug: "份" };
-  var QUEUE_LABEL = { O: "服从", W: "不服", C: "感染", S: "压力" };
+  var QUEUE_LABEL = { O: "服从", W: "不服", C: "异常", S: "压力" };
   var PC_LABEL = {
     health: "健康", compliance: "服从", will: "意志", dominion: "统御",
-    authority: "权限", infectionC: "感染", stage: "感染阶段", stress: "压力"
+    authority: "权限", infectionC: "异常", stage: "异常阶段", stress: "压力"
   };
   var INFRA_LABEL = { hydro: "水培", pods: "休眠舱", clonePods: "克隆槽" };
   var RARITY_LABEL = { common: "常见", uncommon: "少见", rare: "稀有", epic: "罕见", legend: "传说" };
@@ -525,7 +525,7 @@
   function gapFailText(cfg, type) {
     var F = (cfg.exploreGap.types[type] || {}).fail || {};
     var a = [];
-    if (F.infect) a.push("全船感染 +" + F.infect);
+    if (F.infect) a.push("全船异常 +" + F.infect);
     if (F.wear) a.push("磨损 +" + F.wear);
     if (F.pop) a.push("人口 " + F.pop);
     return a.join("、");
@@ -575,7 +575,7 @@
       return { ok: false, reason: "秩序" + shortTone(order, nd.orderMin) + "，现在压不住" };
     }
     if (typeof nd.infectionMin === "number" && share * 100 < nd.infectionMin) {
-      return { ok: false, reason: "感染面" + shortTone(share * 100, nd.infectionMin) + "，还没到那个程度" };
+      return { ok: false, reason: "异常面" + shortTone(share * 100, nd.infectionMin) + "，还没到那个程度" };
     }
     if (typeof nd.thrallsMin === "number" && thralls < nd.thrallsMin) {
       return { ok: false, reason: "眷属" + shortTone(thralls, nd.thrallsMin) + "，人手不够" };
@@ -826,11 +826,11 @@
       } else if (k === "infect") {
         var vInf = scale(op.v, op);
         addC(state, vInf);
-        notes.push("感染 +" + (Math.round(vInf * 10) / 10));
+        notes.push("异常 +" + (Math.round(vInf * 10) / 10));
       } else if (k === "randomInfect") {
         if (randNext(state) < num(op.p, 0.3)) {
           addC(state, num(op.v));
-          notes.push("有人被感染 +" + op.v);
+          notes.push("有人出现异常 +" + op.v);
         }
       } else if (k === "thralls") {
         var vT = scale(op.v, op);
@@ -897,7 +897,7 @@
           notes.push("金属 +" + gOut.metal + " 吨");
         } else {
           var gFail = (cfg.exploreGap.types[op.type] || {}).fail || {};
-          if (gFail.infect) { addC(state, num(gFail.infect)); notes.push("感染 +" + gFail.infect); }
+          if (gFail.infect) { addC(state, num(gFail.infect)); notes.push("异常 +" + gFail.infect); }
           if (gFail.wear) {
             state.wear = clamp(num(state.wear) + num(gFail.wear), 0, 1);
             notes.push("磨损 +" + gFail.wear);
@@ -1822,7 +1822,7 @@
       state.order = clamp(num(state.order) - 0.04, 0.05, 1);
       addC(state, 2);
       lines.unshift("付出：" + spentTxt + "（" + offerValue + " 当量，出价 / P ≈ " + ratio.toFixed(2) + "）");
-      lines.push("关系：掠夺性出价，对方收钱但全船鄙夷；秩序 −4%、感染 +2");
+      lines.push("关系：掠夺性出价，对方收钱但全船鄙夷；秩序 −4%、异常 +2");
       n.result = { lines: lines, kind: "predatory", got: got4 };
     }
     pushEvent(state, cfg, "trade", "谈判", "谈判 · " + typeLabelOf(cp.type),
@@ -1979,12 +1979,12 @@
     gm.result = { lines: [
       "付出：" + taken + " 人被强制带走（按价值从高到低），秩序 −" + (ord * 100).toFixed(1) + "%",
       "得到：无，抵押到期未赎回",
-      "关系：违约，感染 +" + num(M.defaultInfect, 3) + (split > 0 ? "；夫妻拆散 " + split + " 对，惩罚 ×1.1" : "")
+      "关系：违约，异常 +" + num(M.defaultInfect, 3) + (split > 0 ? "；夫妻拆散 " + split + " 对，惩罚 ×1.1" : "")
     ], kind: "default" };
     pushEvent(state, cfg, "trade", "谈判", "基因抵押违约",
       taken + " 人被带走，秩序 −" + (ord * 100).toFixed(1) + "%",
       "到期未赎回；配偶拆散 " + split + " 对" + (split > 0 ? "，秩序惩罚 ×1.1" : "") +
-      "；感染 +" + num(M.defaultInfect, 3),
+      "；异常 +" + num(M.defaultInfect, 3),
       true, { "秩序": -Math.round(ord * 1000) / 10, "人口": -taken }, "债主上门不谈判");
     return { ok: true, msg: "抵押违约", mortgage: mortgageView(state, cfg) };
   }
@@ -2257,7 +2257,7 @@
         state.order = clamp(num(state.order) - orderLoss, 0.05, 1);
         addC(state, p.tier);
         lines.push("选择：在轨观测，不落地");
-        lines.push("损失：秩序 −" + (orderLoss * 100).toFixed(1) + "%、感染 +" + p.tier);
+        lines.push("损失：秩序 −" + (orderLoss * 100).toFixed(1) + "%、异常 +" + p.tier);
         lines.push("得到：一段无法解读的信号记录（无实装收益）");
       } else {
         lines.push("选择：轨道级测绘，科技低于 " + Math.round(p.minTech * 100) + " 点，无法落地");
@@ -2287,7 +2287,7 @@
       state.groups.derelict.awake += got;
       addC(state, 1);
       lines.push("选择：带走殖民地幸存者");
-      lines.push("得到：遗民 +" + got + " 人（编入遗民组，清醒）；感染 +1");
+      lines.push("得到：遗民 +" + got + " 人（编入遗民组，清醒）；异常 +1");
       lines.push("关系：舱位剩 " + Math.max(0, pods - got) + "；" + (got < want ? "其余人留在原地" : "全部带走"));
     } else if (key === "negotiate" && p.type === "alien") {
       var payA = Math.round(p.pop * 20);
@@ -2339,7 +2339,7 @@
       addC(state, 2);
       lines.push("选择：武力夺取（M " + p.M + " ≥ F " + p.F + "）");
       lines.push("得到：金属 +" + dm + " 吨、粮 +" + df + " 吨、药剂 +" + dd + " 份、休眠俘获 +" + dp + " 人、科技 +1 点");
-      lines.push("关系：秩序 −3%、感染 +2");
+      lines.push("关系：秩序 −3%、异常 +2");
     } else if (key === "eco") {
       var units = Math.round(num((AB.hydroUnits || [2, 6])[0]) +
         randNext(state) * (num((AB.hydroUnits || [2, 6])[1]) - num((AB.hydroUnits || [2, 6])[0])));
@@ -2389,7 +2389,7 @@
         addTech(state, 0.01);
         lines.push("得到：基因样本（金属 +20 吨、科技 +1 点）");
       }
-      lines.push("代价：低语 " + mind + "，秩序 −" + (ord * 100).toFixed(1) + "%、感染 +" + (1 + p.tier));
+      lines.push("代价：低语 " + mind + "，秩序 −" + (ord * 100).toFixed(1) + "%、异常 +" + (1 + p.tier));
       lines.unshift("选择：进入遗迹取走一件");
     }
 

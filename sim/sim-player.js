@@ -444,9 +444,9 @@
       case "pregnant":
         return "怀孕第 " + rnd(p.pc.pregnantWeeks) + " 周，做不了这个";
       case "stage":
-        return "感染已经到了" + stageName(p.pc.stage) + "，身体不听使唤";
+        return "身体已经不听话了，做不了这个";
       case "infection":
-        return "感染度只有 " + rnd(p.pc.infectionC) + "（要 ≥" + need + "），你还没听见低语";
+        return "体内的异样只有 " + rnd(p.pc.infectionC) + "（要 ≥" + need + "），你还没听见低语";
       case "compliance":
         return "服从度只有 " + rnd(p.pc.compliance) + "（要 ≥" + need + "），你的话传不出这层甲板";
       case "willMin":
@@ -831,7 +831,7 @@
         if (state.society.infection) state.society.infection.thralls = num(state.society.infection.thralls) + 1;
         addQueue100(state, null, "C", 1);
         addQueue100(state, function (q) { return q.id === p.pc.queueId; }, "O", -1);
-        msg = "照料眷属：眷属 +1，全船感染 +1，服从 −1";
+        msg = "照料眷属：眷属 +1，全船异常 +1，服从 −1";
         markCd(p, id, a.cdWeeks);
       } else if (et === "eavesdrop") {
         var okV = riskCheck(state, cfg, a);

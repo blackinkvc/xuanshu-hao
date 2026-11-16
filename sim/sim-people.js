@@ -409,6 +409,20 @@
    *  - 未植入者默认是盲区（high 档位下可由巡逻/报告间接看到，误差更大）；
    *  - 可见者给误差半径与时间延迟，不给「随机撒点」的假位置。
    */
+  /** 情报可见率：与 playerView 共用同一段系数，隐蔽事件也走这里，不另起一套。 */
+  function visibleRate(state, cfg) {
+    var V = (cfg && cfg.visibility) || {};
+    var env = intelEnv(state, cfg);
+    return clamp(
+      num(V.baseEff, 0.45) +
+      num(V.techWeight, 0.30) * env.tech +
+      num(V.garrisonWeight, 0.15) * env.garrison +
+      num(V.complianceWeight, 0.20) * (env.compliance - 0.5) -
+      num(V.willPenalty, 0.35) * env.will,
+      0.05, 1
+    );
+  }
+
   function playerView(state, cfg, opts) {
     opts = opts || {};
     var V = cfg.visibility || {};
@@ -419,14 +433,7 @@
     if (!state.people) sync(state, cfg);
 
     var env = intelEnv(state, cfg);
-    var effBase = clamp(
-      num(V.baseEff, 0.45) +
-      num(V.techWeight, 0.30) * env.tech +
-      num(V.garrisonWeight, 0.15) * env.garrison +
-      num(V.complianceWeight, 0.20) * (env.compliance - 0.5) -
-      num(V.willPenalty, 0.35) * env.will,
-      0.05, 1
-    );
+    var effBase = visibleRate(state, cfg);
     var patrolBase = clamp(
       num(V.patrolShare, 0.12) * (0.6 + 0.8 * env.garrison) +
       0.10 * (env.compliance - 0.5),
@@ -544,6 +551,10 @@
     var corr = clamp(num(inf.meanC) / 100, 0, 1);
     var infected = h01(p.seq, 41) < s;
     var ration = clamp(num(state.last && state.last.rationActual, 1), 0, 1);
+    // v6.66 水：供水故障扣健康（服务不足），回收故障/水质差再扣一档
+    var wsvc = clamp(num(state.last && state.last.waterService, 1), 0, 1);
+    var wq = clamp(num(state.last && state.last.waterQuality, 1), 0, 1);
+    var wHealthPenalty = 12 * (1 - wsvc) + 6 * (1 - wq);
     var act = ACTIONS[actionOf(p, cfg)] || ACTIONS["值勤"];
     var hp, mind, will;
     if (p.dormant) {
@@ -557,7 +568,7 @@
       will = meanW + (h01(p.seq, 53) - 0.5) * 18;
     }
     return {
-      hp: Math.round(clamp(hp + act.hp * 6 + num(p.hpMod, 0), 5, 100) * 10) / 10,
+      hp: Math.round(clamp(hp + act.hp * 6 + num(p.hpMod, 0) - wHealthPenalty, 5, 100) * 10) / 10,
       mind: Math.round(clamp(mind + act.mind * 6, 0, 100) * 10) / 10,
       will: Math.round(clamp(will, 0, 100) * 10) / 10,
       infected: infected
@@ -1147,6 +1158,32 @@
           state.cult.deathsByGroup[gid] = num(state.cult.deathsByGroup[gid], 0) + 1;
         }
       });
+      // 感染死亡：不报机制，只报「体征衰竭 / 死因不明」，仍然受情报可见率控制
+      if (global.XuanShuSim && global.XuanShuSim.pushCovert) {
+        var dormN = 0, stageMax = 0;
+        dead.forEach(function (p) {
+          if (p.dormant) dormN++;
+          stageMax = Math.max(stageMax, num(p.cultStage, 0));
+        });
+        state.cult.deathPend = num(state.cult.deathPend, 0) + dead.length;
+        state.cult.deathPendDorm = num(state.cult.deathPendDorm, 0) + dormN;
+        state.cult.deathPendStage = Math.max(num(state.cult.deathPendStage, 0), stageMax);
+        // 每 26 周合并一次，死亡集中时提前结算，避免逐周刷屏
+        if (state.weeks - num(state.cult.deathLogWk, -99) >= 26 || state.cult.deathPend >= 8) {
+          var pend = state.cult.deathPend;
+          state.cult.deathLogWk = state.weeks;
+          global.XuanShuSim.pushCovert(state, cfg, "cultdeath:" + Math.floor(state.weeks / 4), "health", "健康",
+            "体征衰竭",
+            "这段时间有 " + pend + " 人因体征衰竭死亡，死因不明",
+            "医疗条件与体质共同决定",
+            null,
+            { "人数": pend, "休眠": state.cult.deathPendDorm, "清醒": pend - state.cult.deathPendDorm, "最高阶位": state.cult.deathPendStage },
+            "感染后期死亡；不向玩家暴露机制字段");
+          state.cult.deathPend = 0;
+          state.cult.deathPendDorm = 0;
+          state.cult.deathPendStage = 0;
+        }
+      }
     }
 
     var total = num(stageCount[1], 0) + num(stageCount[2], 0) + num(stageCount[3], 0);
@@ -1206,6 +1243,7 @@
     sync: sync,
     truth: truth,
     playerView: playerView,
+    visibleRate: visibleRate,
     brief: brief,
     wellbeing: wellbeing,
     actionMix: actionMix,

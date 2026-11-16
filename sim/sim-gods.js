@@ -732,7 +732,7 @@
       if (randNext(state) < num(FC.cloneMutant, 0.10)) {
         ((soc.queues) || []).forEach(function (q) { q.C = clamp(num(q.C) + 2, 0, 100); });
         var d2 = removePop(state, Math.max(1, Math.round(5 * num(FC.cloneDeathMul, 1.2))));
-        pushEvent(state, cfg, "丰穰之腹 · 畸变", "克隆体畸变，感染加重，死了 " + d2 + " 人。", "诅咒",
+        pushEvent(state, cfg, "丰穰之腹 · 畸变", "克隆体畸变，体征异常加重，死了 " + d2 + " 人。", "诅咒",
           { "人口": -d2, "感染": 2 }, "克隆槽里出了怪胎");
       }
     }
@@ -788,7 +788,7 @@
         adjustFavor(state, cfg, "weaver", num(T.refuseFavor, -30));
         var refuseC = num(T.refuseC, 4) * demandAmountMul(state, cfg, "weaver");
         ((soc.queues) || []).forEach(function (q) { q.C = clamp(num(q.C) + refuseC, 0, 100); });
-        msg = "你拒绝了，古神发怒，所有人感染加重。";
+        msg = "你拒绝了，古神发怒，所有人异常加重。";
       }
     } else {
       msg = "索取已经了结。";
@@ -851,7 +851,7 @@
             g.pendingTithe = { id: "weaver", year: Math.round(now), atWeek: state.weeks,
               ask: "赤织母要一次献祭：处决 1 个中层贵族，或 20 个平民。", acceptText: "献祭", refuseText: "拒绝" };
             pushEvent(state, cfg, "赤织母 · 索取献祭",
-              "赤织母每 50 年要一次献祭：答应就秩序 +3%，拒绝就全船感染加重。", "周期索取");
+              "赤织母每 50 年要一次献祭：答应就秩序 +3%，拒绝就全船异常加重。", "周期索取");
           }
         } else if (id === "star") {
           starTithe(state, cfg);

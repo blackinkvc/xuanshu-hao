@@ -54,6 +54,14 @@
     }
   }
 
+  /** 隐蔽事件：统一走 sim-core 的 pushCovert（复用情报可见率）。 */
+  function covertEv(state, cfg, key, type, level, title, text, basis, raw, note) {
+    if (global.XuanShuSim && global.XuanShuSim.pushCovert) {
+      return global.XuanShuSim.pushCovert(state, cfg, key, type, level, title, text, basis, null, raw, note);
+    }
+    return false;
+  }
+
   /* ---------------- 队列模板 ---------------- */
   // 只切醒态 2,400：L1 1 / L2 12 / L3 152 / L4 2,235
   function buildQueues() {
@@ -659,17 +667,28 @@
         F.isoK * (1 - iso) +
         F.densityK * thrallDensity -
         F.medK * env.med -
-        F.execK * cp + soc.infection.perm;
+        F.execK * cp + soc.infection.perm +
+        // v6.66 水：回收故障 / 水质下降直接抬感染增长
+        num(F.waterK, 0) * (1 - clamp(num(state.last && state.last.waterQuality, 1), 0, 1));
       d = clamp(d * (F.growthMul == null ? 1 : F.growthMul) *
         resistOf(q, cfg) * spread * godTol, 0, F.cap);
       q.C = clamp(q.C + d, 0, 100);
 
       var stage = q.C >= F.thrall ? 3 : (q.C >= F.deform ? 2 : (q.C >= F.hearing ? 1 : 0));
       if (stage > q.stage) {
-        pushEvent(state, cfg, "infection", "感染", "感染加重 · " + q.name,
-          ["", "开始有人听见低语，夜里离舱的人多了", "身上开始变形，产出少 20%，要进隔离区", "正在变成眷属"][stage],
-          "感染度 " + q.C.toFixed(0) + "（阈值 " + [0, F.hearing, F.deform, F.thrall][stage] + "）",
-          null, "感染又重了一档");
+        if (stage === 2) {
+          // 外观明显变异：玩家能被看见，正常播报，不带机制词与数值
+          pushEvent(state, cfg, "infection", "异象", "体征异常 · " + q.name,
+            "「" + q.dept + "」里几个人的样子明显变了，产出少了两成，已经单独安置",
+            "外观改变已肉眼可见", null, "有人变了样子，瞒不住了");
+        } else {
+          covertEv(state, cfg, "inf:" + q.id + ":" + stage, "infection", "异象",
+            ["", "行踪异常 · " + q.name, "", "举止异常 · " + q.name][stage],
+            ["", "「" + q.dept + "」有人夜里离舱，行踪说不清", "", "「" + q.dept + "」里有人举止完全变了，但很听话"][stage],
+            "感染度 " + q.C.toFixed(0) + "（阈值 " + [0, F.hearing, F.deform, F.thrall][stage] + "）",
+            { "感染度": Math.round(q.C), "阶段": stage, "阈值": [0, F.hearing, F.deform, F.thrall][stage] },
+            "感染又重了一档");
+        }
       }
       q.stage = stage;
 
@@ -690,11 +709,13 @@
           q.highWeeks = 0;
           if (!q.logged.thrall) {
             q.logged.thrall = true;
-            pushEvent(state, cfg, "infection", "眷属", "有人变眷属了 · " + q.name,
-              "「" + q.dept + "」有人样子不对，但很听话，已经单独登记",
+            covertEv(state, cfg, "inf:open:" + q.id, "infection", "异象",
+              "有人不太对劲 · " + q.name,
+              "「" + q.dept + "」开始有人不太对劲，已经单独登记",
               "感染度 ≥" + F.thrall + " 连续 " + need + " 周，进入逐人转化窗口；判定 p=" +
-              (rc.probability != null ? rc.probability.toFixed(2) : "—"),
-              null, "感染到了顶，开始有人变成眷属");
+                (rc.probability != null ? rc.probability.toFixed(2) : "—"),
+              { "感染度": Math.round(q.C), "连续周": need, "判定p": rc.probability == null ? null : rc.probability },
+              "感染到了顶，开始有人变成眷属");
           }
         } else if (rc.judged) {
           var fec = failEffect(cfg, "infection_thrall");
@@ -768,13 +789,15 @@
       q.C = clamp(q.C + 12, 0, 100);
     });
 
-    pushEvent(state, cfg, "summon", "召唤", "全船听见低语",
+    pushEvent(state, cfg, "summon", "异象", "全船听见低语",
       "好几个舱段同时开始吟诵，之后人口和产出一直往下掉",
+      "全船同时听见低语，来源不明",
+      { "秩序": -Math.round(S.orderLoss * 100) },
       "眷属 " + Math.round(soc.infection.thralls) + " 名（阈值 " + S.n + "）· 均值 " +
-      soc.infection.meanC.toFixed(0) + "（阈值 " + S.meanC + "）· 峰值 " +
-      soc.infection.maxC.toFixed(0) + "（阈值 " + S.maxC + "）连续 " + S.weeks + " 周；" +
-      "机械化率 " + Math.round(mech * 100) + "%，产能系数 " + eff.toFixed(2),
-      { "秩序": -Math.round(S.orderLoss * 100) }, "古神回应了，全船都听得见");
+        soc.infection.meanC.toFixed(0) + "（阈值 " + S.meanC + "）· 峰值 " +
+        soc.infection.maxC.toFixed(0) + "（阈值 " + S.maxC + "）连续 " + S.weeks + " 周；" +
+        "机械化率 " + Math.round(mech * 100) + "%，产能系数 " + eff.toFixed(2) +
+        "；古神回应了，全船都听得见");
   }
 
   /* ---------------- 机器 ---------------- */
@@ -789,10 +812,14 @@
       var varr = h.reduce(function (a, b) { return a + (b - mean) * (b - mean); }, 0) / h.length;
       energyCV = mean > 0 ? Math.sqrt(varr) / mean : 0;
     }
+    // v6.66 水：修好水设施累计的科技加成（上限 cfg.water.repair.techBonusCap，防刷）
+    var waterTechBonus = clamp(
+      num(state.ship && state.ship.water && state.ship.water.techBonus, 0),
+      0, num(cfg.water && cfg.water.repair && cfg.water.repair.techBonusCap, 0.03));
     var tech = clamp(
       M.techHydro * clamp(state.infra.hydro / cfg.food.hydroMax, 0, 1) +
       M.techClone * clamp(state.infra.clonePods / cfg.clone.maxPods, 0, 1) +
-      M.techMed * clamp(env.med, 0, 1), 0, 1);
+      M.techMed * clamp(env.med, 0, 1) + waterTechBonus, 0, 1);
     var maint = clamp(state.last.maintGap || 0, 0, 1);
     var garrisonWeak = 1 - clamp(garrisonAvail(state, cfg), 0, 1);
     var A = clamp(0.50 * tech + 0.30 * maint + 0.20 * energyCV + 0.10 * garrisonWeak, 0, 1);

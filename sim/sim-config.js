@@ -214,12 +214,57 @@
 
     /* ---------------- 水 ---------------- */
     water: {
-      perCapitaAwake: 10.40,    // 【档案】28.5 kg/人·日（日量，未换周）
-      perCapitaDormant: 0.73,   // 【推定】休眠低耗（日量）
-      recycle: 0.992,           // 【档案】水闭环 99.2%
-      supplyTpy: 220,           // 【推定】抵损耗（年量）
+      perCapitaAwake: 2.00,     // 【推定】5.5 kg/人·日，人居饮用+洗涤（旧值 10.40 高一个量级）
+      perCapitaDormant: 0.15,   // 【推定】休眠低耗 0.41 kg/人·日
       stockInit: 2500,
-      cap: 6000
+      cap: 6000,
+      supplyTpy: 1100,          // 供水系统额定产水（满完好度、满服务；按 4,000 人峰值 + 15% 余量定标）
+      // 农环灌溉：闭式循环，只补蒸发与排液
+      irrigCircTpyPerUnit: 40,  // 每水培单元循环水量（吨/年）
+      irrigRecover: 0.97,       // 闭式回收率
+      // 泄漏：按库存比例，与生保/管线损伤挂钩
+      leakRateY: 0.004,         // 基准年泄漏率（0.4%/年）
+      leakDamageK: 6,           // 管线损伤放大系数
+      // 回收科技档位：tech 上限 → 回收率 / 单位能耗 / 残渣率
+      techTiers: [
+        { max: 0.20, recycle: 0.930, kwhPerT: 160, residue: 0.075 },
+        { max: 0.35, recycle: 0.950, kwhPerT: 130, residue: 0.060 },
+        { max: 0.50, recycle: 0.965, kwhPerT: 105, residue: 0.050 },
+        { max: 0.65, recycle: 0.975, kwhPerT: 85, residue: 0.040 },
+        { max: 0.80, recycle: 0.985, kwhPerT: 70, residue: 0.030 },
+        { max: 1.01, recycle: 0.993, kwhPerT: 55, residue: 0.020 }
+      ],
+      // 两套独立设施：几率性故障 + 独立完好度
+      facility: {
+        sup: {
+          mtbfYears: 18, techK: 0.35, pipeK: 1.5, maintK: 0.8,
+          repairWeeks: 8, repairSpeedK: 0.50,
+          repairMetal: 240, repairCountK: 0.18, repairTechK: 0.30,
+          failIntegrity: 0.04, repairIntegrity: 0.05
+        },
+        rec: {
+          mtbfYears: 12, techK: 0.35, pipeK: 1.5, maintK: 0.8,
+          repairWeeks: 10, repairSpeedK: 0.50,
+          repairMetal: 320, repairCountK: 0.18, repairTechK: 0.30,
+          failIntegrity: 0.04, repairIntegrity: 0.05
+        }
+      },
+      repair: {
+        techGain: 0.003,        // 每次修好给相关科技 +0.003（0.3 个点）
+        techBonusCap: 0.03,     // 累计上限 3 个点，防刷
+        integrityCapLoss: 0.004 // 每次修理后完好度天花板 −0.4%
+      },
+      effects: {
+        supFailService: 0.35,   // 供水故障：降压到 35%
+        recFailMul: 0.78,       // 回收故障：回收率打 78 折
+        qualitySupFail: 0.15,   // 供水故障水质 −0.15
+        qualityRecFail: 0.45,   // 回收故障水质 −0.45
+        qualityIntegrityK: 0.25,// 完好度每低 1 点水质再 −0.25
+        supOrderEq: 0.05,       // 供水故障：秩序平衡点 −0.05
+        diseaseK: 0.80,         // 水质每低 1 点，疾病死亡 ×(1+0.8)
+        healthServiceK: 12,     // 服务每低 1 点，个体健康 −12
+        healthQualityK: 6       // 水质每低 1 点，个体健康 −6
+      }
     },
 
     /* ---------------- 休眠 ---------------- */
@@ -439,11 +484,11 @@
            法令与身份变故：run, loop, player_start
            叛乱与冲突：mutiny, strike, machine, binge, atrocity, summon
            科技与设备里程碑：build_hydro, build_pods, build_clone
-           感染中的关键转折：infection + level「眷属」
+           感染中的关键转折：infection + level「异象」（外观已肉眼可见）
          例行（不写入历程，只留最近 routineRing 条排障）：
            maint_done, maint_fault, maint_cycle, shift, supply, quarantine,
            food_low / water_low / fuel_low（触底预警，真正的断粮由 phase 记录）,
-           infection（普通加重，只有「眷属」升级算关键）, garrison（金属不够/机器损坏）,
+           infection（普通加重不播报，只有外观明显变异算异象）, garrison（金属不够/机器损坏）,
            education（「奴隶里出了读书人」这类反复出现的社会小事）
          未登记的新类型默认按「关键」保留，宁可多留也不丢历史。 */
       keyTypes: [
@@ -455,10 +500,10 @@
         "build_hydro", "build_pods", "build_clone",
         "addiction", "withdraw", "trade"
       ],
-      keyLevels: { infection: ["眷属"] },
+      keyLevels: { infection: ["异象"] },
       routineTypes: [
         "maint_done", "maint_fault", "maint_cycle", "shift", "supply",
-        "quarantine", "infection", "garrison",
+        "quarantine", "infection", "garrison", "health",
         "food_low", "water_low", "fuel_low", "energy_low",
         "education", "prod", "labor", "nutrition"
       ],
@@ -776,7 +821,7 @@
           neural: { name: "神经加速", tech: 82, drug: 40, metal: 15,
                    mindBonus: 6, spiritBonus: 8, text: "理智 +6、活跃精神 +8" },
           whisper: { name: "低语屏障", tech: 94, drug: 50,
-                    infectResist: 0.25, text: "感染累积 −25%" }
+                    infectResist: 0.25, text: "异常累积 −25%" }
         },
         leisure: {
           cinema: { name: "放映与音乐", weeks: 4, food: 2, spirit: 5, mind: 2, freq: 1.10,
@@ -793,7 +838,7 @@
             name: "个人医疗",
             drug: 0.06, food: 0, hp: 0.55, mind: 0.05, spirit: 0,
             infectRelief: 0.004,
-            text: "每周 0.06 份药剂：健康 +0.55、理智 +0.05、感染累积 −0.4%"
+            text: "每周 0.06 份药剂：健康 +0.55、理智 +0.05、异常累积 −0.4%"
           },
           nutrition: {
             name: "个人营养",
@@ -884,7 +929,7 @@
           gate: { dominionMin: 40, orderMin: 0.30, confined: false },
           gateMid: { authorityMin: 50, deptOnly: true },
           society: "lockdown",
-          desc: "产出 −15%，感染扩散 −40%"
+          desc: "产出 −15%，异常扩散 −40%"
         },
         ritual: {
           label: "仪式宣传", cat: "治理", mode: ["ruler", "mid"], cdWeeks: 13,
@@ -980,7 +1025,7 @@
           label: "照料眷属", cat: "奴隶", mode: ["slave"], cdWeeks: 13,
           gate: { infectionMin: 30, confined: false },
           effect: { type: "tend_thralls" },
-          desc: "眷属 +1、全船感染 +1、服从 −1"
+          desc: "眷属 +1、全船异常 +1、服从 −1"
         },
         eavesdrop: {
           label: "偷听情报", cat: "奴隶", mode: ["slave"], cdWeeks: 13,
@@ -1267,16 +1312,16 @@
           { id: "ex_metal_asteroid", name: "富金属小行星", rarity: "common", need: { techMin: 0.30, cat: "eng" }, ops: [{ t: "stock", k: "metal", v: 90 }, { t: "wear", v: 0.03 }], follow: [{ key: "encounter.crisis", v: 0.10, weeks: 520 }], effectText: "金属 +90 吨", costText: "磨损 +0.03，占用 8 周", followText: "10 年内危机权重 +0.10" },
           { id: "ex_ice_asteroid", name: "冰质小行星", rarity: "common", need: { techMin: 0.25, cat: "eng" }, ops: [{ t: "stock", k: "water", v: 400 }, { t: "stock", k: "metal", v: -10 }], effectText: "水 +400 吨", costText: "金属 −10 吨，占用 6 周", followText: "—" },
           { id: "ex_derelict", name: "废弃殖民舰", rarity: "rare", need: { techMin: 0.40, cat: "eng" }, ops: [], effectText: "七选项：探索 / 回收物资 / 回收蛋白质 / 苏醒全部 / 带走部分 / 带走全部 / 留下基因", costText: "工质与伤亡按勾选结算", followText: "带走的人要占本舰休眠余位" },
-          { id: "ex_ruins", name: "远古遗迹", rarity: "epic", gap: "ruins", ops: [{ t: "gapReward", type: "ruins" }], follow: [{ key: "encounter.oldgod", v: 0.30, weeks: 5200 }], effectText: "按科技差结算", costText: "探索失败：全船感染 +6", followText: "100 年内古神权重 ×1.3" },
-          { id: "ex_colony", name: "前人类殖民地", rarity: "rare", gap: "colony", ops: [{ t: "gapReward", type: "colony" }], effectText: "按科技差结算", costText: "探索失败：全船感染 +3", followText: "—" },
+          { id: "ex_ruins", name: "远古遗迹", rarity: "epic", gap: "ruins", ops: [{ t: "gapReward", type: "ruins" }], follow: [{ key: "encounter.oldgod", v: 0.30, weeks: 5200 }], effectText: "按科技差结算", costText: "探索失败：全船异常 +6", followText: "100 年内古神权重 ×1.3" },
+          { id: "ex_colony", name: "前人类殖民地", rarity: "rare", gap: "colony", ops: [{ t: "gapReward", type: "colony" }], effectText: "按科技差结算", costText: "探索失败：全船异常 +3", followText: "—" },
           { id: "ex_wreck", name: "遗弃船", rarity: "rare", gap: "wreck", ops: [{ t: "gapReward", type: "wreck" }], effectText: "按科技差结算", costText: "探索失败：磨损 +0.04", followText: "—" },
-          { id: "ex_alien", name: "外星文明", rarity: "legendary", gap: "alien", ops: [{ t: "gapReward", type: "alien" }], effectText: "按科技差结算", costText: "探索失败：全船感染 +8", followText: "—" },
+          { id: "ex_alien", name: "外星文明", rarity: "legendary", gap: "alien", ops: [{ t: "gapReward", type: "alien" }], effectText: "按科技差结算", costText: "探索失败：全船异常 +8", followText: "—" },
           { id: "ex_ring_sample", name: "行星环采样", rarity: "common", need: { techMin: 0.30, cat: "eng" }, ops: [{ t: "tech", v: 0.02 }, { t: "stock", k: "metal", v: 30 }, { t: "wear", v: 0.02 }], effectText: "科技 +2 点、金属 +30 吨", costText: "磨损 +0.02", followText: "—" },
           { id: "ex_beacon", name: "深空信标", rarity: "rare", need: { techMin: 0.45, cat: "eng" }, ops: [{ t: "stock", k: "metal", v: -25 }, { t: "intel", level: "high", weeks: 200 }, { t: "mod", key: "encounter.explore", v: 0.20, weeks: 2600 }], effectText: "情报 +1 档 200 周", costText: "金属 −25 吨", followText: "50 年探索权重 +0.20" },
-          { id: "ex_pod_drift", name: "漂流休眠舱", rarity: "rare", need: { techMin: 0.35, cat: "bio" }, ops: [{ t: "dormant", v: 24 }, { t: "stock", k: "drug", v: 40 }, { t: "stock", k: "metal", v: -15 }, { t: "randomInfect", p: 0.30, v: 5 }], effectText: "舱里 +24 人、药剂 +40", costText: "金属 −15 吨", followText: "30% 概率舱内感染 +5" },
+          { id: "ex_pod_drift", name: "漂流休眠舱", rarity: "rare", need: { techMin: 0.35, cat: "bio" }, ops: [{ t: "dormant", v: 24 }, { t: "stock", k: "drug", v: 40 }, { t: "stock", k: "metal", v: -15 }, { t: "randomInfect", p: 0.30, v: 5 }], effectText: "舱里 +24 人、药剂 +40", costText: "金属 −15 吨", followText: "30% 概率舱内异常 +5" },
           { id: "ex_debris", name: "陨石残骸", rarity: "common", need: { techMin: 0.20, cat: "eng" }, ops: [{ t: "stock", k: "metal", v: 45 }, { t: "wear", v: 0.05 }], effectText: "金属 +45 吨", costText: "磨损 +0.05", followText: "—" },
           { id: "ex_garden_world", name: "宜居行星", rarity: "epic", need: { techMin: 0.50, cat: "bio" }, ops: [{ t: "stock", k: "food", v: 120 }, { t: "stock", k: "water", v: 200 }, { t: "pop", group: "undecided", v: 30 }, { t: "mod", key: "encounter.explore", v: 0.40, weeks: 520 }, { t: "mod", key: "encounter.crisis", v: 0.15, weeks: 520 }], effectText: "粮 +120 吨、水 +200 吨、人口 +30", costText: "10 年探索权重 ×1.4", followText: "危机权重 +0.15（10 年）" },
-          { id: "ex_signal", name: "未知信号源", rarity: "legendary", need: { techMin: 0.60, cat: "soc" }, choices: ["tech", "god", "thralls"], ops: [{ t: "infect", v: 8 }, { t: "machine", k: "autonomy", v: 0.05 }], effectText: "三选一：科技 +10 点 / 随机古神契约 / 眷属 +3", costText: "感染 +8、机器自主 +0.05", followText: "机器哗变风险上升" }
+          { id: "ex_signal", name: "未知信号源", rarity: "legendary", need: { techMin: 0.60, cat: "soc" }, choices: ["tech", "god", "thralls"], ops: [{ t: "infect", v: 8 }, { t: "machine", k: "autonomy", v: 0.05 }], effectText: "三选一：科技 +10 点 / 随机古神契约 / 眷属 +3", costText: "异常 +8、机器自主 +0.05", followText: "机器哗变风险上升" }
         ],
         tech: [
           { id: "te_hydro_gene", name: "水培基因改良", rarity: "common", need: { techMin: 0.20 }, ops: [{ t: "infra", k: "hydro", v: 12 }, { t: "stock", k: "drug", v: -15 }], effectText: "水培 +12 单元", costText: "药剂 −15", followText: "—" },
@@ -1306,29 +1351,29 @@
           { id: "so_public_trial", name: "公开审判", rarity: "common", need: { orderMin: 0.30 }, ops: [{ t: "order", v: 0.05 }, { t: "queue", k: "O", v: 5, scope: "all" }, { t: "queue", k: "W", v: 3, scope: "all" }, { t: "queue", k: "S", v: 0.05, scope: "one" }], effectText: "秩序 +5%、服从 +5", costText: "一个部门的压力 +0.05", followText: "—" },
           { id: "so_ration_concession", name: "配给让步", rarity: "common", need: { orderMin: 0.25 }, ops: [{ t: "order", v: 0.03 }, { t: "queue", k: "W", v: -3, scope: "all" }, { t: "stockPct", k: "food", v: -0.04 }], effectText: "秩序 +3%、不服 −3", costText: "粮 −4% ×6 个月", followText: "—" },
           { id: "so_festival", name: "文化节", rarity: "rare", need: { orderMin: 0.35 }, ops: [{ t: "order", v: 0.04 }, { t: "queue", k: "W", v: -4, scope: "all" }, { t: "stock", k: "food", v: -15 }], effectText: "秩序 +4%、不服 −4", costText: "粮 −15 吨", followText: "—" },
-          { id: "so_relocate", name: "强制迁徙", rarity: "common", need: {}, ops: [{ t: "mod", key: "infectSpread", v: -0.10, weeks: 26 }, { t: "queue", k: "O", v: -2, scope: "all" }, { t: "queue", k: "W", v: 2, scope: "all" }], effectText: "感染扩散 −10%（26 周）", costText: "服从 −2、不服 +2", followText: "—" },
+          { id: "so_relocate", name: "强制迁徙", rarity: "common", need: {}, ops: [{ t: "mod", key: "infectSpread", v: -0.10, weeks: 26 }, { t: "queue", k: "O", v: -2, scope: "all" }, { t: "queue", k: "W", v: 2, scope: "all" }], effectText: "异常扩散 −10%（26 周）", costText: "服从 −2、不服 +2", followText: "—" },
           { id: "so_education", name: "教育普及", rarity: "epic", need: { techMin: 0.35, orderMin: 0.40 }, ops: [{ t: "tech", v: 0.02 }, { t: "mod", key: "eduMul", v: 2, weeks: 10400 }, { t: "stock", k: "food", v: -30 }, { t: "stock", k: "drug", v: -20 }], effectText: "教育迁移 ×2（200 年）、科技 +2 点", costText: "粮 −30 吨、药剂 −20", followText: "—" },
-          { id: "so_revival", name: "宗教复兴", rarity: "rare", need: { orderMin: 0.25 }, ops: [{ t: "queue", k: "O", v: 6, scope: "all" }, { t: "queue", k: "W", v: -2, scope: "all" }, { t: "infect", v: 2 }, { t: "mod", key: "encounter.oldgod", v: 0.10, weeks: 2600 }], effectText: "服从 +6、不服 −2", costText: "感染 +2", followText: "50 年古神权重 +0.10" },
+          { id: "so_revival", name: "宗教复兴", rarity: "rare", need: { orderMin: 0.25 }, ops: [{ t: "queue", k: "O", v: 6, scope: "all" }, { t: "queue", k: "W", v: -2, scope: "all" }, { t: "infect", v: 2 }, { t: "mod", key: "encounter.oldgod", v: 0.10, weeks: 2600 }], effectText: "服从 +6、不服 −2", costText: "异常 +2", followText: "50 年古神权重 +0.10" },
           { id: "so_inform_net", name: "告密网络", rarity: "rare", need: { orderMin: 0.30 }, ops: [{ t: "intel", level: "high", weeks: 200 }, { t: "queue", k: "O", v: 2, scope: "all" }, { t: "queue", k: "W", v: 2, scope: "all" }, { t: "queue", k: "S", v: 0.03, scope: "one" }], effectText: "情报 +1 档 200 周", costText: "不服 +2、同僚压力 +0.03", followText: "—" },
           { id: "so_birth_incentive", name: "生育激励", rarity: "common", need: { popMin: 2000 }, ops: [{ t: "mod", key: "birthMul", v: 1.5, weeks: 5200 }, { t: "mod", key: "foodUse", v: 1.05, weeks: 5200 }], effectText: "出生率 ×1.5（100 年）", costText: "粮消耗 +5%（100 年）", followText: "—" },
           { id: "so_purge_mid", name: "中层清洗", rarity: "epic", need: { orderMin: 0.45 }, ops: [{ t: "removeL2", v: 2 }, { t: "player", k: "dominion", v: 8 }, { t: "queue", k: "S", v: 0.08, scope: "all" }, { t: "queue", k: "W", v: 4, scope: "all" }], effectText: "移除 2 名中层贵族、统御 +8", costText: "其他人的压力 +0.08", followText: "—" },
           { id: "so_referendum", name: "全民公投", rarity: "legendary", need: { orderMin: 0.50 }, ops: [{ t: "order", v: 0.08 }, { t: "queue", k: "O", v: 5, scope: "all" }, { t: "queue", k: "W", v: 8, scope: "all" }, { t: "flag", k: "noSuppressUntil", weeks: 1352 }], effectText: "秩序 +8%、服从 +5", costText: "不服 +8", followText: "26 周内不能镇压" }
         ],
         oldgod: [
-          { id: "og_whisper", name: "低语入梦", rarity: "common", need: { infectionMin: 20 }, ops: [{ t: "thralls", v: 2 }, { t: "infect", v: 3 }, { t: "queue", k: "O", v: -2, scope: "all" }, { t: "mod", key: "encounter.oldgod", v: 0.15, weeks: 2600 }], effectText: "眷属 +2、感染 +3", costText: "服从 −2", followText: "50 年古神权重 +0.15" },
+          { id: "og_whisper", name: "低语入梦", rarity: "common", need: { infectionMin: 20 }, ops: [{ t: "thralls", v: 2 }, { t: "infect", v: 3 }, { t: "queue", k: "O", v: -2, scope: "all" }, { t: "mod", key: "encounter.oldgod", v: 0.15, weeks: 2600 }], effectText: "眷属 +2、异常 +3", costText: "服从 −2", followText: "50 年古神权重 +0.15" },
           { id: "og_blood_rite", name: "血祭仪式", rarity: "rare", need: { popMin: 1000 }, ops: [{ t: "godFavor", v: 20 }, { t: "pop", group: "L4", v: -30 }, { t: "order", v: -0.02 }], effectText: "神恩 +20", costText: "人口 −30、秩序 −2%", followText: "—" },
-          { id: "og_thrall_crown", name: "眷属加冕", rarity: "epic", need: { thrallsMin: 5 }, ops: [{ t: "thralls", v: 8 }, { t: "infect", v: 3 }, { t: "deptI", v: 0.10 }, { t: "mod", key: "prodMul", v: 0.90, weeks: 5200 }], effectText: "眷属 +8、感染 +3%", costText: "一个部门失序 +10%", followText: "该部门产出 −10%（100 年）" },
-          { id: "og_deep_call", name: "深潜召唤", rarity: "rare", need: { thrallsMin: 3 }, ops: [{ t: "summon" }, { t: "thralls", v: 5 }, { t: "order", v: -0.04 }, { t: "infect", v: 4 }], effectText: "立即触发一次召唤、眷属 +5", costText: "秩序 −4%、感染 +4", followText: "—" },
+          { id: "og_thrall_crown", name: "眷属加冕", rarity: "epic", need: { thrallsMin: 5 }, ops: [{ t: "thralls", v: 8 }, { t: "infect", v: 3 }, { t: "deptI", v: 0.10 }, { t: "mod", key: "prodMul", v: 0.90, weeks: 5200 }], effectText: "眷属 +8、异常 +3%", costText: "一个部门失序 +10%", followText: "该部门产出 −10%（100 年）" },
+          { id: "og_deep_call", name: "深潜召唤", rarity: "rare", need: { thrallsMin: 3 }, ops: [{ t: "summon" }, { t: "thralls", v: 5 }, { t: "order", v: -0.04 }, { t: "infect", v: 4 }], effectText: "立即触发一次召唤、眷属 +5", costText: "秩序 −4%、异常 +4", followText: "—" },
           { id: "og_pact", name: "古神契约", rarity: "legendary", need: { infectionMin: 30 }, choices: ["maw", "weaver", "star", "fecund"], ops: [], effectText: "与一位古神立约（4 选 1）", costText: "依神而定", followText: "永久写入 state.gods" },
-          { id: "og_forbidden_lore", name: "禁忌知识", rarity: "rare", need: { infectionMin: 25 }, ops: [{ t: "tech", v: 0.05 }, { t: "queue", k: "W", v: 5, scope: "all" }, { t: "infect", v: 4 }], effectText: "科技 +5 点", costText: "不服 +5、感染 +4", followText: "—" },
-          { id: "og_shelter", name: "眷属庇护", rarity: "common", need: { thrallsMin: 1 }, ops: [{ t: "garrison", k: "durability", v: 15 }, { t: "queue", k: "O", v: -3, scope: "all" }, { t: "infect", v: 2 }], effectText: "警备耐久 +15", costText: "服从 −3、感染 +2", followText: "—" },
+          { id: "og_forbidden_lore", name: "禁忌知识", rarity: "rare", need: { infectionMin: 25 }, ops: [{ t: "tech", v: 0.05 }, { t: "queue", k: "W", v: 5, scope: "all" }, { t: "infect", v: 4 }], effectText: "科技 +5 点", costText: "不服 +5、异常 +4", followText: "—" },
+          { id: "og_shelter", name: "眷属庇护", rarity: "common", need: { thrallsMin: 1 }, ops: [{ t: "garrison", k: "durability", v: 15 }, { t: "queue", k: "O", v: -3, scope: "all" }, { t: "infect", v: 2 }], effectText: "警备耐久 +15", costText: "服从 −3、异常 +2", followText: "—" },
           { id: "og_sacrifice", name: "献祭", rarity: "common", need: { godPact: true }, ops: [], effectText: "按来源献祭，神恩与秩序按对象结算", costText: "看来源（普通 / 贵族）", followText: "知情越多，服从掉得越多" },
-          { id: "og_star_whisper", name: "群星低语", rarity: "epic", need: { infectionMin: 40 }, ops: [{ t: "intel", level: "high", weeks: 100 }, { t: "godFavor", v: 8 }, { t: "infect", v: 6 }, { t: "queue", k: "W", v: 3, scope: "all" }], effectText: "情报 +1 档 100 周、神恩 +8", costText: "感染 +6、不服 +3", followText: "—" },
-          { id: "og_divine_birth", name: "神性孕育", rarity: "legendary", need: { infectionMin: 35, healthMin: 40 }, ops: [{ t: "birth", v: 40 }, { t: "player", k: "health", v: -15 }, { t: "thralls", v: 4 }, { t: "godFavor", v: 15 }, { t: "infect", v: 2 }], effectText: "怀孕必定成功、出生 +40", costText: "健康 −15、眷属 +4", followText: "新生儿感染 +10" }
+          { id: "og_star_whisper", name: "群星低语", rarity: "epic", need: { infectionMin: 40 }, ops: [{ t: "intel", level: "high", weeks: 100 }, { t: "godFavor", v: 8 }, { t: "infect", v: 6 }, { t: "queue", k: "W", v: 3, scope: "all" }], effectText: "情报 +1 档 100 周、神恩 +8", costText: "异常 +6、不服 +3", followText: "—" },
+          { id: "og_divine_birth", name: "神性孕育", rarity: "legendary", need: { infectionMin: 35, healthMin: 40 }, ops: [{ t: "birth", v: 40 }, { t: "player", k: "health", v: -15 }, { t: "thralls", v: 4 }, { t: "godFavor", v: 15 }, { t: "infect", v: 2 }], effectText: "怀孕必定成功、出生 +40", costText: "健康 −15、眷属 +4", followText: "新生儿异常 +10" }
         ],
         crisis: [
           { id: "cr_decompression", name: "舱段失压", rarity: "common", need: {}, choices: ["pay", "take"], ops: [], effectText: "支付金属 15 吨无伤", costText: "或人口 −12、秩序 −3%", followText: "—" },
-          { id: "cr_outbreak", name: "传染爆发", rarity: "rare", need: {}, ops: [{ t: "infect", v: 8 }, { t: "mod", key: "medCoverage", v: -0.10, weeks: 26 }], effectText: "全船感染 +8", costText: "医疗 −10%（26 周）", followText: "—" },
+          { id: "cr_outbreak", name: "传染爆发", rarity: "rare", need: {}, ops: [{ t: "infect", v: 8 }, { t: "mod", key: "medCoverage", v: -0.10, weeks: 26 }], effectText: "全船异常 +8", costText: "医疗 −10%（26 周）", followText: "—" },
           { id: "cr_machine_runaway", name: "机器暴走", rarity: "rare", need: {}, ops: [{ t: "wear", v: 0.10 }, { t: "mod", key: "prodMul", v: 0.92, weeks: 26 }, { t: "stock", k: "metal", v: -25 }], effectText: "磨损 +0.10、产能 −8%", costText: "金属 −25 吨修复", followText: "—" },
           { id: "cr_pre_mutiny", name: "哗变前夜", rarity: "common", need: {}, ops: [{ t: "queue", k: "S", v: 0.08, scope: "one" }, { t: "order", v: -0.03 }, { t: "garrison", k: "durability", v: -8 }], effectText: "一个部门的压力 +0.08", costText: "秩序 −3%、警备耐久 −8", followText: "—" },
           { id: "cr_meteor", name: "陨石雨", rarity: "common", need: {}, ops: [{ t: "wear", v: 0.06 }, { t: "stock", k: "metal", v: -15 }], effectText: "磨损 +0.06", costText: "金属 −15 吨", followText: "—" },
@@ -1336,7 +1381,7 @@
           { id: "cr_pod_failure", name: "休眠舱故障", rarity: "rare", need: {}, ops: [{ t: "infra", k: "pods", v: -10 }, { t: "dormant", v: -10 }], effectText: "休眠舱 −10", costText: "舱里 −10 人", followText: "—" },
           { id: "cr_captives", name: "俘虏押解", rarity: "common", need: {}, ops: [{ t: "captive", v: 6 }], effectText: "押回 6 名俘虏", costText: "监区要腾位置", followText: "俘虏可作献祭来源" },
           { id: "cr_blight", name: "农环病害", rarity: "common", need: {}, ops: [{ t: "stock", k: "food", v: -30 }, { t: "infra", k: "hydro", v: -5 }], effectText: "粮 −30 吨", costText: "水培 −5 单元", followText: "—" },
-          { id: "cr_god_stir", name: "古神苏醒", rarity: "epic", need: { godPact: true }, ops: [{ t: "devour", v: 15 }, { t: "infect", v: 6 }, { t: "godFavor", v: -10 }], effectText: "神噬进度 +15", costText: "神恩 −10、感染 +6", followText: "—" },
+          { id: "cr_god_stir", name: "古神苏醒", rarity: "epic", need: { godPact: true }, ops: [{ t: "devour", v: 15 }, { t: "infect", v: 6 }, { t: "godFavor", v: -10 }], effectText: "神噬进度 +15", costText: "神恩 −10、异常 +6", followText: "—" },
           { id: "cr_blackout", name: "全船停电", rarity: "legendary", need: {}, ops: [{ t: "mod", key: "prodMul", v: 0.75, weeks: 8 }, { t: "order", v: -0.06 }, { t: "machine", k: "autonomy", v: 0.05 }], effectText: "产能 −25%（8 周）", costText: "秩序 −6%、机器自主 +0.05", followText: "—" }
         ],
         trade: [
@@ -1558,7 +1603,7 @@
       supplyFoodT: 18,          // 补给窗口到货：粮食 +18 t（判定成立时）
       supplyMetalT: 12,         // 补给窗口到货：金属 +12 t
       quarantineWeeks: 26,      // 隔离检疫窗口：每半年一次
-      quarantineShare: 0.15     // 感染面超过该值时检疫事件升级为「事件」级
+      quarantineShare: 0.15     // 异常面超过该值时检疫事件升级为「事件」级
     },
 
     /* ---------------- 社会层：权力、服从、哗变、感染 ---------------- */
@@ -1628,7 +1673,7 @@
                     prodMul: 0.85, prodWeeks: monthsToWeeks(3),
                     iso: 0.25, isoWeeks: monthsToWeeks(3), infSpread: 0.60,
                     cdWeeks: monthsToWeeks(3), uses: [1, 0.80, 0.65],
-                    note: "产出 −15%，感染扩散 −40%，隔离执行度 +0.25，持续 3 个月量" },
+                    note: "产出 −15%，异常扩散 −40%，隔离执行度 +0.25，持续 3 个月量" },
         ritual:   { label: "仪式宣传", o: 6, w: -1, foodShare: 0.01, foodWeeks: monthsToWeeks(1),
                     needL1: true, cdWeeks: monthsToWeeks(3), uses: [1, 0.75, 0.50],
                     note: "消耗 1% 口径的口粮；L1 死亡后失效" }
@@ -1658,7 +1703,7 @@
       // 感染：全人群累积；贵族抵抗系数低（不易感染），转化时间更长
       // base/ageK/... 为「每月对感染度 C 的加成」，按 ×12/52 折到周
       infection: {
-        // 全船感染累积的整体时间尺度：1 = 原速率；调低即整体放慢感染演化
+        // 全船异常累积的整体时间尺度：1 = 原速率；调低即整体放慢感染演化
         // v1.1 平衡：1 → 0.126，被动不动约 980–990 年自然崩坏，轻度经营可过千年
         growthMul: 0.126,
         base: perWeek(0.006), ageK: perWeek(0.0018), ageCap: 25,
@@ -1670,7 +1715,9 @@
         thrallWeeks: { L1: monthsToWeeks(24), L2: monthsToWeeks(24),
                        L3: monthsToWeeks(18), L4: monthsToWeeks(12) },
         convertRate: perWeek(0.0025),        // 原 0.25%/月 → 0.0577%/周
-        convertRateNoble: perWeek(0.0008)    // 原 0.08%/月 → 0.0185%/周
+        convertRateNoble: perWeek(0.0008),   // 原 0.08%/月 → 0.0185%/周
+        // v6.66 水：水质每低 1 点，每周感染增长 +0.25
+        waterK: 0.25
       },
 
       // 召唤：12 名 / 均值 55 / 峰值 90，连续 6 个月【用户定】
@@ -2035,26 +2082,26 @@
           name: "传染爆发",
           tag: "医疗",
           trigger: { infectAbove: 0.22 },
-          triggerText: "感染占比高于 22%",
+          triggerText: "异常占比高于 22%",
           debuff: { prodMul: 0.93, orderPerWeek: -0.002 },
           debuffText: "全船产出 −7% · 每周秩序 −0.2%",
           choices: [
             {
               id: "isolate", label: "分区隔离", desc: "用空间换时间", mode: "one",
               subs: [
-                { id: "three", label: "封三舱", effect: "秩序 −4%、感染扩散暂停 8 周", ops: [{ t: "order", v: -0.04 }, { t: "infectLock", weeks: 8 }] },
-                { id: "screen", label: "全船筛检", effect: "产出 −5%（2 周）、感染扩散暂停 6 周", ops: [{ t: "prodTmp", v: -0.05, weeks: 2 }, { t: "infectLock", weeks: 6 }] }
+                { id: "three", label: "封三舱", effect: "秩序 −4%、异常扩散暂停 8 周", ops: [{ t: "order", v: -0.04 }, { t: "infectLock", weeks: 8 }] },
+                { id: "screen", label: "全船筛检", effect: "产出 −5%（2 周）、异常扩散暂停 6 周", ops: [{ t: "prodTmp", v: -0.05, weeks: 2 }, { t: "infectLock", weeks: 6 }] }
               ]
             },
             {
-              id: "treat", label: "集中用药", desc: "拿药剂压感染", mode: "one",
+              id: "treat", label: "集中用药", desc: "拿药剂压异常", mode: "one",
               subs: [
-                { id: "full", label: "全量用药", effect: "药剂 −60、感染扩散暂停 12 周", ops: [{ t: "stock", k: "drug", v: -60 }, { t: "infectLock", weeks: 12 }] },
+                { id: "full", label: "全量用药", effect: "药剂 −60、异常扩散暂停 12 周", ops: [{ t: "stock", k: "drug", v: -60 }, { t: "infectLock", weeks: 12 }] },
                 { id: "key", label: "只治关键岗", effect: "药剂 −25、扩散暂停 6 周、产出 −3%（2 周）", ops: [{ t: "stock", k: "drug", v: -25 }, { t: "infectLock", weeks: 6 }, { t: "prodTmp", v: -0.03, weeks: 2 }] }
               ]
             },
             {
-              id: "abandon", label: "放弃病区", desc: "把感染连同人一起切掉", mode: "one",
+              id: "abandon", label: "放弃病区", desc: "把异常连同人一起切掉", mode: "one",
               subs: [
                 { id: "cut", label: "断供病区", effect: "人口 −20、秩序 −3%、扩散暂停 8 周", ops: [{ t: "pop", v: -20 }, { t: "order", v: -0.03 }, { t: "infectLock", weeks: 8 }] },
                 { id: "euth", label: "安乐死", effect: "人口 −35、秩序 −6%、扩散暂停 12 周", ops: [{ t: "pop", v: -35 }, { t: "order", v: -0.06 }, { t: "infectLock", weeks: 12 }] }

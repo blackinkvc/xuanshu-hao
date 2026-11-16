@@ -259,6 +259,7 @@
 
       // —— 只读辅助（给图表与事件流用） ——
       getEvents: function () { return sim.getEvents(); },
+      getCovert: function () { return sim.getCovert ? sim.getCovert() : []; },
       getSeries: function () { return sim.getSeries(); },
       getInputs: function () { return sim.getInputs(); },
 

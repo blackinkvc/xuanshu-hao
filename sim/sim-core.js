@@ -519,6 +519,56 @@
     return true;
   }
 
+  /** 确定性掷点：FNV-1a，不用 Math.random，避免影响回放与 20 局复跑。 */
+  function covertRoll(state, key) {
+    var s = String(key) + "|" + (state.weeks | 0) + "|" + (state.loop | 0);
+    var h = 2166136261;
+    for (var i = 0; i < s.length; i++) {
+      h ^= s.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return ((h >>> 0) % 1000000) / 1000000;
+  }
+
+  /**
+   * 隐蔽事件：先按已有情报可见率掷一次。
+   * 可见 → 走 pushEvent，只给玩家视角文案；不可见 → 写 covertLog，带 hidden 标记与真实字段。
+   */
+  function pushCovert(state, cfg, key, type, level, title, text, basis, deltas, raw, note) {
+    var rate = 0.3;
+    if (global.XuanShuPeople && global.XuanShuPeople.visibleRate) {
+      rate = global.XuanShuPeople.visibleRate(state, cfg);
+    }
+    if (covertRoll(state, key) < rate) {
+      return pushEvent(state, cfg, type, level, title, text, basis, true, deltas, note);
+    }
+    var evYear = Math.floor(state.weeks / cfg.time.weeksPerYear);
+    var evWeek = (state.weeks % cfg.time.weeksPerYear) + 1;
+    var entry = {
+      t: Math.round(((state.loop - 1) * cfg.time.loopYears + state.weeks / cfg.time.weeksPerYear) * 100) / 100,
+      loop: state.loop,
+      year: evYear,
+      week: evWeek,
+      quarter: Math.floor((state.weeks % cfg.time.weeksPerYear) / cfg.time.weeksPerQuarter) + 1,
+      timeLabel: "第 " + (evYear + 1) + " 年第 " + evWeek + " 周",
+      type: type,
+      level: level || "事件",
+      title: title,
+      text: text,
+      basis: basis || "",
+      hidden: true,
+      visibleRate: Math.round(rate * 100) / 100
+    };
+    var D = cleanDeltas(deltas);
+    if (D) entry.deltas = D;
+    if (raw) entry.raw = raw;
+    if (note) entry.note = note;
+    if (!state.covertLog) state.covertLog = [];
+    state.covertLog.push(entry);
+    while (state.covertLog.length > 200) state.covertLog.shift();
+    return false;
+  }
+
   function eventIsKey(cfg, type, level) {
     var e = (cfg && cfg.events) || {};
     var lv = e.keyLevels && e.keyLevels[type];
@@ -582,13 +632,18 @@
     // 写回常驻的 bonus：thralls 每周由部门重算，只有 bonus 会跨周累积
     inf.bonus = nv(inf.bonus) + moved;
     inf.thralls = nv(inf.thralls) + moved;
-    if (moved > 0 && state.weeks - state.dream.lastLog >= (h.dreamLogWeeks || 8)) {
+    state.dream.pend = num(state.dream.pend, 0) + moved;
+    if (state.weeks - state.dream.lastLog >= 52 && state.dream.pend >= 2) {
+      var agg = state.dream.pend;
       state.dream.lastLog = state.weeks;
-      pushEvent(state, cfg, "dream_infection", "感染", "休眠舱里的低语",
-        "本周 " + moved + " 名休眠者被拖出梦境，成为眷属；眷属累计 " + inf.thralls,
+      state.dream.pend = 0;
+      pushCovert(state, cfg, "dream:" + state.weeks, "dream_infection", "异象",
+        "体征异常 · 休眠区",
+        "同区几名休眠者体征往下走，已经做了隔离观察",
         "梦中压力 " + (rate * 100).toFixed(3) + "%/位·周 · 低语 " + corr.toFixed(2) +
           " · 医疗压制 " + Math.round(h.dreamDrugShield * medCoverage * 100) + "%",
-        true, { "眷属": moved },
+        null,
+        { "人数": agg, "眷属累计": inf.thralls, "压力": rate * dormant },
         "被侵染者转为清醒眷属，仍计入人口；成瘾抵抗可减半压力");
     }
     return moved;
@@ -1224,8 +1279,8 @@
       pushEvent(state, cfg, "quarantine", "检疫",
         ishare >= M.quarantineShare ? "全船检疫升级" : "例行检疫",
         ishare >= M.quarantineShare
-          ? Math.round(ishare * 100) + "% 的人已经感染，隔离区扩大"
-          : "抽检完了，没发现新的感染者",
+          ? "抽检发现多例体征异常，隔离区扩大"
+          : "抽检完毕，未见新异常",
         "检疫周期 " + M.quarantineWeeks + " 周", true);
     }
     return yieldF;
@@ -1301,6 +1356,119 @@
       }
     }
     return h;
+  }
+
+  // v6.66 水系统：回收科技档位
+  function waterTier(tech, cfg) {
+    var tiers = (cfg.water && cfg.water.techTiers) || [];
+    var x = num(tech, 0);
+    for (var i = 0; i < tiers.length; i++) {
+      if (x < num(tiers[i].max, 1)) return tiers[i];
+    }
+    return tiers[tiers.length - 1] || { recycle: 0.95, kwhPerT: 100, residue: 0.05 };
+  }
+
+  // v6.66 水系统：两套独立设施（供水 / 回收）的落盘结构
+  function waterEnsure(state, cfg) {
+    if (!state.ship) return null;
+    var w = state.ship.water;
+    if (w && w.v === 1) return w;
+    function fac() {
+      return { integrity: 1, cap: 1, failed: false, repairUntil: -1, repairCount: 0, lastFailWeek: -999 };
+    }
+    state.ship.water = {
+      v: 1, sup: fac(), rec: fac(),
+      service: 1, quality: 1, techBonus: 0, mw: 0
+    };
+    return state.ship.water;
+  }
+
+  // v6.66 水系统：故障判定 / 修理进度 / 服务与水质
+  // 边界：这是挂在舰体之外的独立子系统；hull 的生保/管线损伤只作为「泄漏放大 + 故障率放大」输入，
+  // 水设施故障不回写 hull 六部件，hull 修理也不会顺手修好水设施——同一处损伤只扣一次。
+  function waterTick(state, cfg, ctx) {
+    var W = cfg.water || {};
+    var w = waterEnsure(state, cfg);
+    if (!w) return null;
+    var dt = 1 / cfg.time.weeksPerYear;
+    var tech = clamp(num(ctx && ctx.tech, 0), 0, 1);
+    var pipeD = clamp(Math.max(num(ctx && ctx.lifeD, 0), num(ctx && ctx.powerD, 0)), 0, 1);
+    var maint = clamp(num(ctx && ctx.maintGap, 0), 0, 1);
+    var awake = num(ctx && ctx.awake, 0);
+    var dormant = num(ctx && ctx.dormant, 0);
+    var throughput = awake * num(W.perCapitaAwake, 2.0) + dormant * num(W.perCapitaDormant, 0.15);
+    var tier = waterTier(tech, cfg);
+    var M = W.repair || {};
+
+    ["sup", "rec"].forEach(function (k) {
+      var f = w[k];
+      var C = (W.facility && W.facility[k]) || {};
+      // 修好：恢复服务、吃一次完好度天花板的永久折损、给一点科技进度
+      if (f.repairUntil >= 0 && state.weeks >= f.repairUntil) {
+        f.failed = false;
+        f.repairUntil = -1;
+        f.cap = clamp(num(f.cap, 1) - num(M.integrityCapLoss, 0.006), 0.75, 1);
+        f.integrity = Math.min(f.cap, num(f.integrity, 1) + num(C.repairIntegrity, 0.06));
+        w.techBonus = Math.min(num(M.techBonusCap, 0.03), num(w.techBonus, 0) + num(M.techGain, 0.003));
+        pushEvent(state, cfg, "water_fac", "水系统",
+          (k === "sup" ? "供水系统" : "水回收系统") + "修好了",
+          "修好后回收与供水恢复到当前完好度；本次修理让相关科技 +" +
+            (num(M.techGain, 0.003) * 100).toFixed(1) + " 个点（累计上限 " +
+            (num(M.techBonusCap, 0.03) * 100).toFixed(0) + " 个点）",
+          "科技 " + Math.round(tech * 100) + "%，第 " + Math.floor(state.weeks / cfg.time.weeksPerYear) + " 年",
+          false, null, "每次修理都会让完好度天花板永久降 0.6%");
+      }
+      // 几率性故障：MTBF 折算到本周，随科技/维护下降、随管线损伤上升
+      if (!f.failed && f.repairUntil < 0) {
+        var mtbf = Math.max(1, num(C.mtbfYears, 12));
+        var pY = (1 / mtbf) *
+          (1 + num(C.pipeK, 1.5) * pipeD) *
+          (1 + num(C.maintK, 0.8) * maint) *
+          (1 - num(C.techK, 0.35) * tech);
+        if (nextRand(state) < clamp(pY, 0, 1) * dt) {
+          f.failed = true;
+          f.integrity = clamp(num(f.integrity, 1) - num(C.failIntegrity, 0.08), 0.35, 1);
+          f.lastFailWeek = state.weeks;
+          pushEvent(state, cfg, "water_fac", "水系统",
+            (k === "sup" ? "供水系统故障" : "水回收系统故障"),
+            k === "sup"
+              ? "供水降压，舱内配水按周受限：个体健康下滑、服从度下降"
+              : "回收率骤降、水质下降：疾病死亡上升、感染风险抬头",
+            "MTBF " + mtbf + " 年，管线损伤 " + Math.round(pipeD * 100) + "%，维护缺口 " +
+              Math.round(maint * 100) + "%",
+            true, null, "故障不是线性磨损，是几率事件；越拖越难修");
+        }
+      }
+      // 自动开修：金属够就开工，修理时长随科技缩短
+      if (f.failed && f.repairUntil < 0) {
+        var need = num(C.repairMetal, 300) *
+          (1 + num(C.repairCountK, 0.18) * num(f.repairCount, 0)) *
+          (1 - num(C.repairTechK, 0.30) * tech);
+        if (num(state.stocks && state.stocks.metal, 0) >= need) {
+          state.stocks.metal = Math.max(0, num(state.stocks.metal, 0) - need);
+          f.repairCount = num(f.repairCount, 0) + 1;
+          f.repairUntil = state.weeks + Math.max(2,
+            Math.round(num(C.repairWeeks, 8) * (1 - num(C.repairSpeedK, 0.50) * tech)));
+          f.lastRepairMetal = Math.round(need * 10) / 10;
+        }
+      }
+    });
+
+    // 服务（供水）与水质（回收）：两套后果必须可区分
+    var supI = clamp(num(w.sup.integrity, 1), 0, 1);
+    var recI = clamp(num(w.rec.integrity, 1), 0, 1);
+    w.service = clamp((w.sup.failed ? num(W.effects.supFailService, 0.35) : 1) * supI, 0.10, 1);
+    var quality = 1
+      - num(W.effects.qualitySupFail, 0.15) * (w.sup.failed ? 1 : 0)
+      - num(W.effects.qualityRecFail, 0.45) * (w.rec.failed ? 1 : 0)
+      - num(W.effects.qualityIntegrityK, 0.25) * (1 - recI);
+    w.quality = clamp(quality, 0.20, 1);
+    w.tier = tier;
+    w.throughput = throughput;
+    w.tech = tech;
+    // 回收能耗：吨/年 × kWh/吨 → MW
+    w.mw = clamp(throughput * num(tier.kwhPerT, 100) / 8760 / 1000, 0, 5);
+    return w;
   }
 
   function hullTick(state, cfg, ctx) {
@@ -1531,6 +1699,19 @@
       state.hullCombatShock = 0;
       state.hullRadiation = 0;
     }
+    // v6.66 水系统：故障/修理先结算，回收电耗从可用电力里扣（排在休眠与农环之前）
+    var wTech = num(state.society && state.society.machine && state.society.machine.tech, 0);
+    var wDetail = (state.ship && state.ship.hull && state.ship.hull.detail) || {};
+    var WS = waterTick(state, cfg, {
+      tech: wTech,
+      awake: t0.awake,
+      dormant: t0.dormant,
+      lifeD: num(wDetail.life && wDetail.life.d, 0),
+      powerD: num(wDetail.power && wDetail.power.d, 0),
+      maintGap: num(state.last && state.last.maintGap, 0)
+    });
+    var waterMW = WS ? Math.min(num(WS.mw, 0), rest) : 0;
+    rest = Math.max(0, rest - waterMW);
     // 休眠维持：舱位电耗先扣，剩余才给农业/工业
     var dormantMW = Math.min(t0.dormant * ((cfg.hibernation && cfg.hibernation.mWPerDormant) || 0), rest);
     rest = Math.max(0, rest - dormantMW);
@@ -1686,14 +1867,29 @@
     if (cfg.food.cap > 0) state.stocks.food = Math.min(state.stocks.food, cfg.food.cap);
     var shortfall = need - consumed;
 
-    // 水
-    var throughput = t0.awake * cfg.water.perCapitaAwake +
-      t0.dormant * cfg.water.perCapitaDormant;
-    // 水：闭环回收率 + 可回收比例（「闭环回收突破」这类长期修正）
-    var recycle = clamp(cfg.water.recycle + mAdd("waterRecycle", 0) + mAdd("waterRecover", 0), 0, 0.9995) *
+    // 水（v6.66）：只留三个真实损耗通道——排污残渣、泄漏、农环闭式补液
+    var wtier = waterTier(wTech, cfg);
+    var throughputY = t0.awake * num(cfg.water.perCapitaAwake, 2.0) +
+      t0.dormant * num(cfg.water.perCapitaDormant, 0.15);
+    var recRate = clamp(num(wtier.recycle, 0.95) + mAdd("waterRecycle", 0) + mAdd("waterRecover", 0), 0, 0.9995) *
       clamp(lifeMW / cfg.energy.lifeMW, 0.60, 1);
-    var loss = throughput * (1 - recycle);
-    state.stocks.water = clamp(state.stocks.water + (cfg.water.supplyTpy - loss) * dt, 0, cfg.water.cap);
+    if (WS) {
+      if (WS.rec.failed) recRate *= num(cfg.water.effects.recFailMul, 0.78);
+      recRate *= clamp(num(WS.rec.integrity, 1), 0.35, 1);
+    }
+    var residueY = throughputY * num(wtier.residue, 0.04);
+    var irrigationY = num(state.infra.hydro, 0) * num(cfg.water.irrigCircTpyPerUnit, 40) *
+      (1 - num(cfg.water.irrigRecover, 0.97));
+    var pipeDamage = clamp(Math.max(
+      num(wDetail.life && wDetail.life.d, 0),
+      num(wDetail.power && wDetail.power.d, 0)), 0, 1);
+    var leakRate = num(cfg.water.leakRateY, 0.004) *
+      (1 + num(cfg.water.leakDamageK, 6) * pipeDamage);
+    var leakY = state.stocks.water * leakRate;
+    var supplyY = num(cfg.water.supplyTpy, 720) * (WS ? num(WS.service, 1) : 1);
+    var waterLossY = throughputY * (1 - recRate) + residueY + irrigationY + leakY;
+    var waterInY = Math.min(supplyY, Math.max(0, (cfg.water.cap - state.stocks.water) / dt + waterLossY));
+    state.stocks.water = clamp(state.stocks.water + (waterInY - waterLossY) * dt, 0, cfg.water.cap);
 
     // 死亡修正
     var extremeActive = !!I.extreme && state.phase >= 3;
@@ -1704,7 +1900,8 @@
     var nutriDisease = clamp(1 + cfg.nutrition.diseaseK * (1 - imm), 0.70, 1.80) *
       (NU.maln > 0 ? 1.25 : 1);
     var disease = cfg.death.diseaseK * (1 - medCoverage) * (1 + 1.5 * Math.max(0, 1 - rationActual)) *
-      nutriDisease;
+      nutriDisease *
+      (1 + num(cfg.water.effects.diseaseK, 0.80) * (1 - (WS ? num(WS.quality, 1) : 1)));
     var conflict = state.order < 0.45
       ? cfg.death.conflictK * Math.pow((0.45 - state.order) / 0.45, 2) : 0;
     var accident = cfg.death.accidentBase + cfg.death.accidentWear * state.wear;
@@ -1961,6 +2158,8 @@
     }
     // 行动状态：监禁/失踪拉低秩序，值勤/训练/仪式小幅回补（按人头摊薄）
     if (act) orderEq += act.totals.orderAvg;
+    // v6.66 供水故障：降压配水，服从度按平衡点扣减（不是每周无上限硬扣）
+    if (WS && WS.sup && WS.sup.failed) orderEq -= num(cfg.water.effects.supOrderEq, 0.05);
     // 成瘾：服从性加成（三档加权），化学极乐额外 +12%；戒断人数按醒态占比扣秩序
     orderEq += clamp(AD.obey || 0, 0, 0.18);
     if (AD.bliss) orderEq += cfg.addict.bliss.orderGain;
@@ -2127,7 +2326,19 @@
       metalSupply: metalSupplyY,
       maintGap: maintGap,
       dormantMW: dormantMW,
-      drugMaint: drugMaint
+      drugMaint: drugMaint,
+      waterMW: waterMW,
+      waterTier: wtier,
+      waterThroughputTpy: throughputY,
+      waterRecycleRate: recRate,
+      waterResidueTpy: residueY,
+      waterIrrigationTpy: irrigationY,
+      waterLeakTpy: leakY,
+      waterSupplyTpy: waterInY,
+      waterLossTpy: waterLossY,
+      waterService: WS ? num(WS.service, 1) : 1,
+      waterQuality: WS ? num(WS.quality, 1) : 1,
+      waterTechBonus: WS ? num(WS.techBonus, 0) : 0
     };
 
     state.weeks++;
@@ -2155,9 +2366,11 @@
           pushEvent(state, cfg, "hibernation", "维系", "休眠维系",
             "冻着 " + Math.round(dormNow) + " 人 · 舱位电耗 " + (dormantMW || 0).toFixed(2) + " MW · 药剂维持 " +
               (drugMaint || 0).toFixed(1) + " 份",
+            "舱位电耗与药剂维持按年结算",
+            false, { "人口": 0 },
             "梦中压力累计 " + (state.dream ? state.dream.pressure.toFixed(2) : "0") +
-              " · 累计眷属 " + (state.dream ? state.dream.infected : 0),
-            false, { "人口": 0 }, "维持成本先扣电再扣药；梦中侵染另计");
+              " · 累计眷属 " + (state.dream ? state.dream.infected : 0) +
+              "；维持成本先扣电再扣药，梦中侵染另计");
         }
       }
     }
@@ -2202,6 +2415,7 @@
     fresh.loop = nextLoop;
     fresh.events = keepEvents;
     fresh.series = keepSeries;
+    fresh.covertLog = [];
     fresh.inputs = clone(state.inputs);
     fresh.cooldown = state.cooldown;
     state.loop = fresh.loop;
@@ -2422,6 +2636,38 @@
               parts: state.ship.hull.detail || {}
             } : null
           } : null,
+          // v6.66 水系统：两套独立设施的完好度/故障/维修状态与本周水账
+          waterSystem: state.ship && state.ship.water ? {
+            service: Math.round(num(state.ship.water.service, 1) * 1000) / 1000,
+            quality: Math.round(num(state.ship.water.quality, 1) * 1000) / 1000,
+            tech: Math.round(num(state.ship.water.tech, 0) * 1000) / 1000,
+            tier: state.ship.water.tier || null,
+            techBonus: Math.round(num(state.ship.water.techBonus, 0) * 1000) / 1000,
+            mw: Math.round(num(state.ship.water.mw, 0) * 1000) / 1000,
+            sup: {
+              integrity: Math.round(num(state.ship.water.sup.integrity, 1) * 1000) / 1000,
+              cap: Math.round(num(state.ship.water.sup.cap, 1) * 1000) / 1000,
+              failed: !!state.ship.water.sup.failed,
+              repairUntil: state.ship.water.sup.repairUntil,
+              repairCount: num(state.ship.water.sup.repairCount, 0)
+            },
+            rec: {
+              integrity: Math.round(num(state.ship.water.rec.integrity, 1) * 1000) / 1000,
+              cap: Math.round(num(state.ship.water.rec.cap, 1) * 1000) / 1000,
+              failed: !!state.ship.water.rec.failed,
+              repairUntil: state.ship.water.rec.repairUntil,
+              repairCount: num(state.ship.water.rec.repairCount, 0)
+            }
+          } : null,
+          water: {
+            throughputTpy: num(state.last && state.last.waterThroughputTpy, 0),
+            recycleRate: num(state.last && state.last.waterRecycleRate, 0),
+            residueTpy: num(state.last && state.last.waterResidueTpy, 0),
+            irrigationTpy: num(state.last && state.last.waterIrrigationTpy, 0),
+            leakTpy: num(state.last && state.last.waterLeakTpy, 0),
+            supplyTpy: num(state.last && state.last.waterSupplyTpy, 0),
+            lossTpy: num(state.last && state.last.waterLossTpy, 0)
+          },
           repair: state.repair,
           factions: factionSummary(state),
           phase: state.phase,
@@ -2564,6 +2810,7 @@
 
       getSeries: function () { return state.series; },
       getEvents: function () { return state.events; },
+      getCovert: function () { return state.covertLog || []; },
       getConfig: function () { return cfg; },
 
       /* ---------- 玩家身份层 ---------- */
@@ -2918,7 +3165,9 @@
     diffMetrics: diffMetrics,
     killProportional: killProportional,
     cleanDeltas: cleanDeltas,
-    eventIsKey: eventIsKey
+    eventIsKey: eventIsKey,
+    pushCovert: pushCovert,
+    covertRoll: covertRoll
   };
 
   if (typeof module !== "undefined" && module.exports) module.exports = global.XuanShuSim;

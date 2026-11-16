@@ -336,7 +336,7 @@
         key: "encounter.oldgod", v: D.god, until: state.weeks + 5200, weeks: 5200,
         mul: false, cardId: "statue"
       });
-      var le = "供奉 1 座古神雕像（" + D.name + "）：感染 −" + D.infect + "、秩序 +" +
+      var le = "供奉 1 座古神雕像（" + D.name + "）：异常 −" + D.infect + "、秩序 +" +
         Math.round(D.order * 100) + "%" + (D.tech ? "、科技 +" + Math.round(D.tech * 100) + " 点" : "") +
         "，100 年内遇古神概率 +" + D.god.toFixed(2);
       pushLine(t, le);
