@@ -346,6 +346,20 @@
     p.pc.health = clamp(h, 0, 100);
     careTick(state, cfg, p);
     p.pc.health = clamp(p.pc.health, 0, 100);
+    // v1.4 孕期按周推进（原先写在 yearly 里，一年只 +1，界面上的「第 N 周」会卡住不动）
+    if (p.pc.pregnant) {
+      p.pc.pregnantWeeks = num(p.pc.pregnantWeeks, 0) + 1;
+      if (p.pc.pregnantWeeks >= num(cfg.player.pregnancyWeeks, 39)) {
+        p.pc.pregnant = 0;
+        p.pc.pregnantWeeks = 0;
+        p.pc.health = clamp(num(p.pc.health, 0) - 10, 0, 100);
+        if (state.groups && state.groups.undecided) {
+          state.groups.undecided.awake = num(state.groups.undecided.awake) + 1;
+        }
+        pushEvent(state, cfg, "player_birth", "身份", "你有了一个孩子", "健康 −10，船上多了 1 个孩子。",
+      { "健康": -10, "人口": 1 }, "船上添了一口人");
+      }
+    }
     if (p.pc.health <= 0 && p.pc.alive) {
       p.pc.alive = false;
       p.pc.health = 0;
@@ -361,20 +375,7 @@
     if (!p.started || p.mode === "creator" || !p.pc.alive) return;
     p.pc.age = num(p.pc.age, 34) + 1;
 
-    if (p.pc.pregnant) {
-      p.pc.pregnantWeeks = num(p.pc.pregnantWeeks, 0) + 1;
-      if (p.pc.pregnantWeeks >= cfg.player.pregnancyWeeks) {
-        p.pc.pregnant = 0;
-        p.pc.pregnantWeeks = 0;
-        p.pc.health = clamp(p.pc.health - 10, 0, 100);
-        if (state.groups && state.groups.undecided) {
-          state.groups.undecided.awake = num(state.groups.undecided.awake) + 1;
-        }
-        pushEvent(state, cfg, "player_birth", "身份", "你有了一个孩子", "健康 −10，船上多了 1 个孩子。",
-      { "健康": -10, "人口": 1 }, "船上添了一口人");
-      }
-      return;
-    }
+    if (p.pc.pregnant) return;   // 孕期推进与分娩在每周结算里跑，年度只负责判定是否受孕
 
     if (p.pc.health < 50 || state.weeks < p.pc.confinedUntil || state.weeks < p.pc.interrogatedUntil) return;
     var chance = num(cfg.player.pregnancyBase, 0.08) * (p.pc.health / 100) *
