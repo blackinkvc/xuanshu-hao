@@ -65,7 +65,10 @@
         { id: "service",   name: "勤务·礼仪",  short: "勤务", awake: 400, dormant: 0,    mortality: 0.0120, color: "#8a9a7b" },
         { id: "medical",   name: "服务·医疗",  short: "服务", awake: 212, dormant: 0,    mortality: 0.0130, color: "#a68b6f" },
         { id: "noble",     name: "贵族",       short: "贵族", awake: 120, dormant: 1600, mortality: 0.0030, color: "#c9b37a", minAwake: 60 },
-        { id: "clone",     name: "变异克隆",   short: "克隆", awake: 440, dormant: 0,    mortality: 0.0833, color: "#7d728f", clone: true },
+        // 克隆不再走组级自然死亡率：改由 genetics 判死（变异 ≥25 / 健康 <35 / 寿限）
+        { id: "clone",     name: "变异克隆",   short: "克隆", awake: 440, dormant: 0,    mortality: 0, color: "#7d728f", clone: true },
+        // 克隆子代：培养仓里的平民胎儿/少年，15 岁判定后转入平民编制；不进克隆占比
+        { id: "incubator", name: "培养仓·子代", short: "子代", awake: 0, dormant: 0, mortality: 0, color: "#9c8fb0" },
         { id: "undecided", name: "未定·未成年", short: "未定", awake: 596, dormant: 0,    mortality: 0.0220, color: "#5d6675" },
         // 遗弃殖民舰带回来的遗民：默认休眠，唤醒走同一套复温死亡公式
         { id: "derelict",  name: "遗民",       short: "遗民", awake: 0,   dormant: 0,    mortality: 0.0100, color: "#9a8f7a" }
@@ -155,6 +158,13 @@
       // 纯吃库存 27,887 / 561.2 ≈ 49.7 年；产线 + 回收把总续航推到 200 年。
       stockInit: 27887,
       cap: 27887,               // v6.63：不再是 0（无上限），由舱容反算
+      // 口粮双轨：免费维生只给 70% 配给（吃不饱但饿不死），剩下 30% 由个人工资购买
+      freeShare: 0.70,          // 免费维生口粮占标准需求的比例
+      paidShare: 0.30,          // 需个人付费补充的比例
+      paidPrice: 2,             // 付费口粮单价（⭐/kg）
+      malnHealthPerYear: 2.5,   // 只吃免费口粮时健康每年下降上限
+      malnK: 0.25,              // 买不起付费口粮的人口比例 → 营养三维下调系数
+      malnRecoverPerYear: 0.8,  // 恢复速度
       // v6.65：三条通道不再写常数，全部按「结构 × 系数」推导。
       // 科技档位共用一张表：单产 / 回收系数 / 损耗系数随档取值，不线性插值。
       techTiers: [
@@ -302,12 +312,73 @@
     clone: {
       podsInit: 96,             // 【档案】工业级 96 筒
       outputPerPodYear: 0.40,   // 【推定】96 筒 ≈ 38 具/年（年量）
-      capShare: 0.18,           // 【档案】克隆人口上限 18%
       nobleShare: 0.008,        // 【推定】贵族靠克隆延续
       podMetal: 18,             // 【推定】
       podLeadWeeks: monthsToWeeks(12),   // 原 12 个月 → 52 周
-      capPauseWeeks: monthsToWeeks(24),  // 触及上限后暂停 24 个月 → 104 周
-      maxPods: 140
+      maxPods: 140               // 克隆产量完全由产线指令决定，不设人口上限
+    },
+
+    /* ---------------- 就业 ---------------- */
+    labor: {
+      workAge: 16,              // 15 岁判定出仓，16 岁起可上岗
+      wageScaleSplit: 0.8,      // 工资拆半卡：一岗两人，各拿 0.8 档
+      workScaleSplit: 0.85,     // 工时减半：两人分一岗，总产出低于一人满岗
+      unrestRateK: 0.55,        // 失业率对 unrest 的权重
+      unrestLongK: 0.30,        // 长期失业（>26 周）占比权重
+      unrestDeprivedK: 0.35,    // 买不起口粮/药占比权重
+      unrestLag: 0.05,          // 每周向目标靠拢 5%，约 20 周滞后
+      orderEqK: 0.12,           // orderEq 扣减系数
+      orderWeekK: 0.0015        // 每周直接压秩序的系数
+    },
+
+    /* ---------------- 研发 / 技能点（v7.0） ----------------
+       技能点不是从 machine.tech 现算，而是由「教育点」结算而来：
+       15 岁判定后开始累计 → 每 5 年结算一次（教育点不清空）→ 进可用余额。
+       休眠期不累计、不结算；醒后第一年打 5 折；变异 >15 再打 5 折，>22 不结算。
+       研发要扣点数、耗时、耗资源，可以失败；失败后已扣的点不退，重试需再花一次。 */
+    research: {
+      enabled: true,
+      settleYears: 5,
+      skillPerEdu: 0.006,        // 1 教育点 = 0.006 技能点
+      startEduAt: 15,
+      eduPerYear: { noble: 1.35, original: 1.35, commoner: 1.00, clone: 0.55 },
+      mutDiscount: { at: 15, mul: 0.5, zeroAt: 22 },
+      wakeDiscount: 0.5,
+      nodes: [
+        { id: "agri_blight", name: "枯萎病防治", cost: 40, weeks: 44, res: { drug: 40 }, fail: 0.25, pre: [], effect: "disease:blight" },
+        { id: "agri_mold", name: "霉变抑制", cost: 34, weeks: 40, res: { drug: 30 }, fail: 0.22, pre: [], effect: "disease:mold" },
+        { id: "agri_pest", name: "虫害治理", cost: 46, weeks: 48, res: { metal: 30 }, fail: 0.28, pre: [], effect: "disease:pest" },
+        { id: "agri_yield_1", name: "水培增产 I", cost: 14, weeks: 26, res: { metal: 20 }, fail: 0.15, pre: [], effect: "foodMul:0.04" },
+        { id: "agri_yield_2", name: "水培增产 II", cost: 26, weeks: 34, res: { metal: 35 }, fail: 0.20, pre: ["agri_yield_1"], effect: "foodMul:0.05" },
+        { id: "agri_sterile", name: "无菌农环", cost: 55, weeks: 56, res: { drug: 60 }, fail: 0.35, pre: ["agri_blight", "agri_mold"], effect: "diseaseChance:0.70" },
+        { id: "med_painkiller", name: "镇痛剂改良", cost: 16, weeks: 26, res: { drug: 25 }, fail: 0.18, pre: [], effect: "painRelief:5" },
+        { id: "med_dna", name: "DNA 修复产线", cost: 35, weeks: 40, res: { drug: 50 }, fail: 0.30, pre: [], effect: "dnaCost:0.80" },
+        { id: "med_health", name: "广谱抗衰", cost: 22, weeks: 32, res: { drug: 30 }, fail: 0.22, pre: [], effect: "healthBase:2" },
+        { id: "hib_tier", name: "深层停育", cost: 28, weeks: 38, res: { drug: 35 }, fail: 0.28, pre: [], effect: "sleepRelief:0.01" },
+        { id: "hib_stable", name: "舱体稳定", cost: 20, weeks: 30, res: { metal: 25 }, fail: 0.18, pre: [], effect: "hibDrug:0.90" },
+        { id: "clone_pod", name: "培养筒提效", cost: 18, weeks: 28, res: { metal: 25 }, fail: 0.18, pre: [], effect: "cloneOut:1.08" },
+        { id: "clone_screen", name: "判定精度", cost: 24, weeks: 34, res: { drug: 20 }, fail: 0.22, pre: [], effect: "screenMin:-2" },
+        { id: "clone_edu", name: "克隆教育包", cost: 20, weeks: 30, res: { drug: 15 }, fail: 0.20, pre: [], effect: "cloneEdu:0.15" }
+      ]
+    },
+
+    /* ---------------- 农环病害分级（v7.0） ----------------
+       每百年约 4 次基础爆发，级别越高破坏越大、概率越低；
+       每种病一条专属科技，研发完成后该类永久不再出现；根治按级别扣技能点，可能失败。 */
+    agri: {
+      enabled: true,
+      baseOutbreakPerYear: 0.04,
+      diseases: [
+        { id: "blight", name: "枯萎病", tech: "agri_blight" },
+        { id: "mold", name: "霉变", tech: "agri_mold" },
+        { id: "pest", name: "虫害", tech: "agri_pest" }
+      ],
+      grades: [
+        { g: 1, p: 0.60, prodMul: 0.96, foodPerWeek: -1.5, cure: 6, fail: 0.10, weeks: [8, 14] },
+        { g: 2, p: 0.27, prodMul: 0.90, foodPerWeek: -3.5, cure: 12, fail: 0.15, weeks: [14, 22] },
+        { g: 3, p: 0.10, prodMul: 0.82, foodPerWeek: -6.0, cure: 20, fail: 0.22, weeks: [22, 32] },
+        { g: 4, p: 0.03, prodMul: 0.70, foodPerWeek: -10.0, cure: 32, fail: 0.30, weeks: [32, 44] }
+      ]
     },
 
     /* ---------------- 金属 ---------------- */
@@ -400,7 +471,13 @@
         L1: 6, L2: 6, L3: 4, L3low: 3, L4: 2, L4low: 2,
         clone: 2, undecided: 4, dormantNoble: 1
       },
-      wages: { L1: 300, L2: 180, L3: 110, L3low: 100, L4: 55, L4low: 50, clone: 25 },
+      // 克隆月薪 25 → 30（+20%）：克隆工资要乘出勤×秩序系数（0.5–1），
+      // 历史上实际到手约 19–25⭐，而付费口粮 11.3 + 止痛药 11.3 ≈ 22.6⭐
+      // （若按基本篮子口径则 29.3⭐）。30 让典型到手 23–30⭐，刚好覆盖刚性支出，
+      // 又不留出「药和按摩都能随便买」的余量。
+      wages: { L1: 300, L2: 180, L3: 110, L3low: 100, L4: 55, L4low: 50, clone: 30 },
+      // 个人钱包初始余额（止痛药、付费口粮从这里扣）
+      personalWalletStart: { clone: 50, noble: 60, commoner: 20 },
       undecidedSubsidy: 10,      // 未定每人每月，船方支出
       attendance: {
         "值勤": 1.00, "任务": 0.90, "训练": 0.85, "育幼": 0.60,
@@ -408,7 +485,7 @@
         "休眠": 0, "失踪/叛逃": 0
       },
       orderFloor: 0.5,           // 秩序系数 = clamp(0.5 + 0.5×order, 0.5, 1)
-      basket: { sideShares: 10, funSessions: 1, clean: 4, misc: 6 },
+      basket: { funSessions: 1, clean: 4, misc: 6 },
       prices: { side: 2, fun: 8, drug: 30 },
       sideCapSlave: 30,          // 非贵族副食上限（份/人/月）；贵族不限并可记入囤货
       // 税率档位：玩家可调，当前档位索引存 state.coin.tax.{consume,service}
@@ -422,9 +499,33 @@
       l4HoldCap: 500,            // L4 个人持有上限
       l4ExcessTake: 0.20,        // 超限部分每月收缴比例
       drugCover: 1.0,            // 1 份药剂覆盖 1 人月
-      foodPoorK: 0.25,           // 买不起副食时营养三维的每周下调系数
       medPoorK: 0.15,            // 买不起药剂时 medCoverage 的最大折减
-      orderPenaltyK: 0.04        // 买不起娱乐时 orderEq 的扣减系数
+      orderPenaltyK: 0.04,       // 买不起娱乐时 orderEq 的扣减系数
+
+      /* ---- 按摩服务经济（v7.2） ----
+         两条钱流都走个人 wallet 真实转账，不新开账户：
+         ① 克隆 → 克隆按摩师：单价 5⭐，每人每月最多 1 次，缓解部分痛苦；
+         ② 贵族 → 平民按摩师：单价 45⭐，是克隆档的 9 倍，贵族每月按概率购买。
+         按摩只压一部分痛苦（12，满效止痛药为 45），替代不了止痛药；
+         克隆月薪 30 刚覆盖刚性支出，去按摩就挤掉买药的钱，反之亦然。 */
+      massage: {
+        enabled: true,
+        cloneMasseurShare: 0.05,   // 克隆在岗劳动力中按摩师占比（约 180 人在岗 → 约 9 名）
+        cloneCapacity: 25,         // 每名克隆按摩师每月最多接客数
+        clonePrice: 5,             // 克隆人之间单次价格（⭐）
+        clonePainMin: 20,          // 痛苦达到 mild 档才想按
+        cloneCrowdOutP: 0.15,      // 有药钱时仍有 15% 选择先按摩，从而挤掉当月药钱（权衡可见）
+        cloneRelief: 12,           // 单次缓解痛苦点数（止痛药满效 45）
+        cloneWeeks: 2,             // 缓解持续周数
+        commonerMasseurShare: 0.02,// 平民在岗劳动力中按摩师占比（1244→约 25 名）
+        nobleCapacity: 8,          // 每名平民按摩师每月最多接贵族客数
+        noblePrice: 45,            // 贵族单次价格（⭐），克隆档的 9 倍
+        nobleBuyP: 0.35,           // 贵族每月购买概率（按 seq+月份确定性抽样）
+        nobleWeeks: 2,
+        nobleRelief: 8,
+        oClone: 3,                 // 克隆队列按摩覆盖率满员时的服从加成
+        oNoble: 2                  // 贵族队列按摩覆盖率满员时的服从加成
+      }
     },
 
     /* ---------------- 能源 ---------------- */
@@ -596,6 +697,11 @@
          未登记的新类型默认按「关键」保留，宁可多留也不丢历史。 */
       keyTypes: [
         "player_start", "player_death", "player_birth", "player_pregnant",
+        // 玩家自身操作（养护/义体/用药/娱乐/行动/操控/税率/消费/交易/回收）
+        "player_tune", "player_upkeep", "player_cyber_start", "player_cyber_install",
+        "player_cyber_remove", "player_cyber_fail", "player_drug", "player_gene",
+        "player_leisure", "player_repair", "player_withdraw", "player_aging",
+        "player_tax", "player_buy", "player_trade", "player_salvage", "ship_repair",
         "structure", "pop_floor", "revive_fail",
         "phase", "run", "loop",
         "encounter", "player_action", "action",
@@ -792,22 +898,122 @@
       // 消费点：派系好感（society.charm.oK）、买卖价格（trade 交涉折让）。
       charm: { min: 22, max: 88 },
       // 癫狂：药物与教义激起的亢奋。高癫狂判断力差，更容易被拉成眷属
-      mania: { min: 18, max: 62 },
-      // v6.60 全员基因变异度（0–100）：开局按身份背景与辐射史随机。
-      // 贵族的强抵抗来自「变异度低」，不是身份本身；克隆/奴工变异度高所以易感。
+      mania: { min: 18, max: 62 }
+    },
+
+    /* ---------------- 遗传层（v1，0–25 变异尺度） ----------------
+       三个隐藏基因都走「多基因座加性 + 孟德尔分离 + 位点突变」，不取父母平均：
+         耐受 tol           决定同样变异值下健康掉多少（只进 mutK，不改变异增速）
+         抗辐射 radMul      压低每年太空辐射增量
+         寿命 lifespanGene  自然寿限
+       变异：出生 1–5；每年一次独立辐射增量；≥25 死亡。
+       旧 0–100 口径已整体删除，不留兜底。 */
+    genetics: {
+      enabled: true,
       mutation: {
-        byGroup: {
-          original: 6, noble: 12, combat: 26, tech: 22, service: 32,
-          medical: 28, clone: 62, undecided: 36, derelict: 46
+        birthMin: 1,
+        birthMax: 5,
+        deathAt: 25,
+        healthOnset: 5,
+        painOnset: 5
+      },
+      // 每年一次独立判定：Δ = radMul × max(0, N(mean, sd))
+      radiation: { mean: 0.38, sd: 0.10, floor: 0 },
+      tolerance: {
+        loci: 3,
+        alleleFreq: [0.35, 0.40, 0.25],
+        alleleValue: [0, 1, 2],
+        base: 25,
+        perPoint: 3.9,
+        noise: 3,
+        min: 10,
+        max: 78,
+        // T4 祖型隐性：aa 时 +8；a 频率 0.03（携带率 3% 不变）
+        archaic: { alleleFreq: [0.97, 0.03], bonus: 8 }
+      },
+      radResist: {
+        loci: 3,
+        alleleFreq: [0.35, 0.40, 0.25],
+        alleleValue: [0, 1, 2],
+        baseMul: 1.30,
+        perRaw: -0.075,
+        minMul: 0.50,
+        maxMul: 1.30,
+        // 统计口径：rawR ≥ highRaw 记为「抗辐射」（radMul ≤ 0.775，约 P20）
+        highRaw: 7
+      },
+      lifespan: {
+        loci: 4,
+        alleleFreq: [0.5, 0.5],
+        alleleValue: [0, 1],
+        base: 60,
+        perPoint: 15,
+        noise: 4,
+        min: 45,
+        max: 300
+      },
+      mutRate: 0.004,
+      health: {
+        base: 100,
+        mutKBase: 10.5,
+        mutKPerTol: -0.22,
+        mutKMin: 0.05,
+        mutKMax: 2.40,
+        mutOnset: 5,
+        mutK: 3.8,
+        ageOnset: 12,
+        ageK: 0.9,
+        deathBelow: 35
+      },
+      pain: {
+        mutOnset: 6, mutK: 7.0, hpOnset: 70, hpK: 1.2,
+        min: 0, max: 100, urgeAt: 30,
+        bands: { mild: 20, clear: 45, severe: 70 }
+      },
+      screen: {
+        age: 30,
+        healthMin: 42,
+        group: "clone",
+        // 统计口径：tol ≥ highTol 记为「高耐受」；tol < lowTol 记为「低耐受」
+        highTol: 49.5,
+        lowTol: 42.2,
+        recycle: { metal: 0.9, drug: 1.5, food: 0.6 },
+        fetusRecycle: { metal: 0.1, drug: 0.3, food: 0.1 }
+      },
+      drugs: {
+        painkiller: {
+          name: "止痛剂", price: 13, weeks: 5, onset: 1, full: 2, decay: 2,
+          painRelief: 45, mutMul: 0.15, healthMul: 0.10, addict: 3,
+          withdrawPain: 10, withdrawWeeks: 2, urgeAt: 30
         },
-        spread: 16
-      }
+        dnaRepair: {
+          name: "DNA 修复剂", price: 640, weeks: 0, mutRelief: 2.0,
+          healthCost: 3, cooldownWeeks: 26, techMin: 0.35
+        }
+      },
+      // 克隆子代：30 岁判定通过者进繁育池 → 配对受孕 → 培养仓 → 15 岁判定为平民
+      breed: {
+        enabled: true,
+        conceptionPerYear: 0.55,   // 每对繁育者每年受孕概率
+        maxPairsPerYear: 12,
+        pregnancyWeeks: 39,
+        incubatorWeeks: 34,        // 出仓前的培养仓时长（贵族规格）
+        incubatorCap: 60,
+        eduTrack: "commoner",      // 普通知识手册
+        eduPass: 10,               // 15 岁判定：普通教材下累计教育点 ≥10 才算合格
+        screenAge: 15,
+        screenHealth: 45,
+        childGroup: "incubator"
+      },
+      // 隐藏基因不上玩家视图；只有真值/调试接口可见
+      visible: { techMin: 0.35, showNumbers: false }
     },
 
     // v6.58 贵族生命周期：清醒/休眠双周期 + 三条时间轴 + 八档休眠衰老系数。
     // 主角不进入这套周期（按正常衰老）；休眠期资历不增长，只涨 existYears。
     nobleLife: {
       groups: ["original", "noble"],
+      awakeCap: 165,             // v7.0：醒态贵族（含原初体）硬上限；超出强制休眠，仍计入人口
       lifespanBio: 120,
       awakeYears: { L1: 20, L2: 20, L3: 15 },
       sleepYears: { L1: 20, L2: 20, L3: 15 },
@@ -875,6 +1081,7 @@
       modes: ["ruler", "mid", "slave", "creator"],
       creatorEntry: true,
       startingHealth: 82,
+      startingMutation: 3,           // 0–25 新尺度；与新生儿 1–5 同口径，避免初始同龄潮首年断崖
       healthRegress: 0.010,
       // v1.3 感染慢性侵蚀：按「感染-年」累积（每周 C/100/52），超过免疫容忍度后
       // 才开始按周扣健康；阈值以下不产生影响，避免动摇被动侧千年内的死亡分布。
@@ -976,25 +1183,25 @@
             food: {
               name: "口粮", unit: "吨/周", stock: "food",
               tiers: [
-                { id: "lean", label: "省粮", cost: 0.10, hp: 0.05, mind: -0.05, spirit: 0.00, addict: 0.00 },
-                { id: "std", label: "标准", cost: 0.16, hp: 0.22, mind: 0.04, spirit: 0.02, addict: 0.00 },
-                { id: "rich", label: "优养", cost: 0.28, hp: 0.45, mind: 0.10, spirit: 0.06, addict: 0.00 }
+                { id: "lean", label: "省粮", cost: 0.10, hp: 0.10, mind: -0.04, spirit: 0.00, addict: 0.00 },
+                { id: "std", label: "标准", cost: 0.16, hp: 0.40, mind: 0.04, spirit: 0.02, addict: 0.00 },
+                { id: "rich", label: "优养", cost: 0.28, hp: 0.62, mind: 0.11, spirit: 0.06, addict: 0.00 }
               ]
             },
             drug: {
               name: "药剂", unit: "份/周", stock: "drug",
               tiers: [
                 { id: "off", label: "停用", cost: 0, hp: -0.06, mind: 0.00, spirit: -0.02, addict: -0.04 },
-                { id: "keep", label: "维持", cost: 0.06, hp: 0.12, mind: 0.03, spirit: 0.05, addict: 0.02 },
-                { id: "boost", label: "强化", cost: 0.14, hp: 0.30, mind: 0.06, spirit: 0.15, addict: 0.06 }
+                { id: "keep", label: "维持", cost: 0.06, hp: 0.34, mind: 0.03, spirit: 0.05, addict: 0.02 },
+                { id: "boost", label: "强化", cost: 0.14, hp: 0.56, mind: 0.06, spirit: 0.15, addict: 0.06 }
               ]
             },
             clean: {
               name: "清洁与耗材", unit: "吨水/周", stock: "water",
               tiers: [
                 { id: "off", label: "省略", cost: 0, hp: -0.04, mind: -0.02, spirit: 0.00, addict: 0.00, infectRelief: 0 },
-                { id: "std", label: "常规", cost: 0.02, hp: 0.06, mind: 0.02, spirit: 0.01, addict: 0.00, infectRelief: 0.0015 },
-                { id: "full", label: "彻底", cost: 0.05, hp: 0.12, mind: 0.04, spirit: 0.02, addict: 0.00, infectRelief: 0.004 }
+                { id: "std", label: "常规", cost: 0.02, hp: 0.08, mind: 0.02, spirit: 0.01, addict: 0.00, infectRelief: 0.0015 },
+                { id: "full", label: "彻底", cost: 0.05, hp: 0.14, mind: 0.04, spirit: 0.02, addict: 0.00, infectRelief: 0.004 }
               ]
             }
           },
@@ -1004,9 +1211,10 @@
            部位：肢体 / 感官 / 内脏 / 体表 / 神经；同部位只能装一件。
            安装与拆除都占时间（weeks），从按下即扣星币/金属/工质，到期结算成败。
            拆除成功的件进入主角私有回收仓库（占体积，上限 warehouseCapM3）；
-           仓库里有同件时再装不重复扣金属与工质。 */
+           仓库里有同件时再装不重复扣金属与工质。
+           上限按实际件体积定：七件合计 6.7 m³，3.6 m³ 约放三件，塞满会挡住下一次拆除。 */
         cyber: {
-          warehouseCapM3: 12,
+          warehouseCapM3: 3.6,
           parts: {
             arm: {
               name: "液压义肢", slot: "肢体", tech: 45, volume: 1.2,
@@ -1510,7 +1718,7 @@
           titheEveryYears: 0,
           passive: { foodUseMul: 1.08, infectionCPerYear: 0.5 },
           bless: { pregnancy: 1.5 },
-          curse: { cloneMutant: 0.10, cloneDeathMul: 1.20 }
+          curse: { cloneMutant: 0.10 }
         }
       }
     },
@@ -1521,10 +1729,12 @@
       // v6.37：牌库剩余低于此值才洗一轮补牌；为 0 时只在抽空后补。
       refillWhenBelow: 3,
       rarityWeights: { common: 0.58, rare: 0.28, epic: 0.11, legendary: 0.03 },
-      categories: ["explore", "tech", "resource", "society", "oldgod", "crisis", "trade"],
+      // v6.62：危机不再走奇遇牌库。危机只由 crisisStanding 按船上状态越线触发，
+      // 玩家只选处置方式，不能从三张卡里挑「要发生哪种危机」。
+      categories: ["explore", "tech", "resource", "society", "oldgod", "trade"],
       cards: {
         explore: [
-          { id: "ex_metal_asteroid", name: "富金属小行星", rarity: "common", need: { techMin: 0.30, cat: "eng" }, ops: [{ t: "stock", k: "metal", v: 90 }, { t: "wear", v: 0.03 }, { t: "weeks", v: 8 }, { t: "prop", v: 6 }], follow: [{ key: "encounter.crisis", v: 0.10, weeks: 520 }], effectText: "金属 +90 吨", costText: "磨损 +0.03、占用 8 周、工质 −6 吨", followText: "10 年内危机权重 +0.10" },
+          { id: "ex_metal_asteroid", name: "富金属小行星", rarity: "common", need: { techMin: 0.30, cat: "eng" }, ops: [{ t: "stock", k: "metal", v: 90 }, { t: "wear", v: 0.03 }, { t: "weeks", v: 8 }, { t: "prop", v: 6 }], effectText: "金属 +90 吨", costText: "磨损 +0.03、占用 8 周、工质 −6 吨", followText: "—" },
           { id: "ex_ice_asteroid", name: "冰质小行星", rarity: "common", need: { techMin: 0.25, cat: "eng" }, ops: [{ t: "stock", k: "water", v: 400 }, { t: "stock", k: "metal", v: -10 }, { t: "weeks", v: 6 }, { t: "prop", v: 4 }], effectText: "水 +400 吨", costText: "金属 −10 吨、占用 6 周、工质 −4 吨", followText: "—" },
           { id: "ex_derelict", name: "废弃殖民舰", rarity: "rare", need: { techMin: 0.40, cat: "eng" }, ops: [], effectText: "七选项：探索 / 回收物资 / 回收蛋白质 / 苏醒全部 / 带走部分 / 带走全部 / 留下基因", costText: "工质与伤亡按勾选结算", followText: "带走的人要占本舰休眠余位" },
           { id: "ex_ruins", name: "远古遗迹", rarity: "epic", gap: "ruins", ops: [{ t: "gapReward", type: "ruins" }, { t: "kill", p: 0.45, v: 5 }], follow: [{ key: "encounter.oldgod", v: 0.30, weeks: 5200 }], effectText: "按科技差结算", costText: "探索失败：全船异常 +6、45% 概率死 5 人", followText: "100 年内古神权重 +0.30" },
@@ -1535,8 +1745,8 @@
           { id: "ex_beacon", name: "深空信标", rarity: "rare", need: { techMin: 0.45, cat: "eng" }, ops: [{ t: "stock", k: "metal", v: -25 }, { t: "intel", level: "high", weeks: 200 }, { t: "mod", key: "encounter.explore", v: 0.20, weeks: 2600 }], effectText: "情报 +1 档 200 周", costText: "金属 −25 吨", followText: "50 年探索权重 +0.20" },
           { id: "ex_pod_drift", name: "漂流休眠舱", rarity: "rare", need: { techMin: 0.35, cat: "bio" }, ops: [{ t: "dormant", v: 24 }, { t: "stock", k: "drug", v: 40 }, { t: "stock", k: "metal", v: -15 }, { t: "randomInfect", p: 0.30, v: 5 }], effectText: "舱里 +24 人、药剂 +40", costText: "金属 −15 吨", followText: "30% 概率舱内异常 +5" },
           { id: "ex_debris", name: "陨石残骸", rarity: "common", need: { techMin: 0.20, cat: "eng" }, ops: [{ t: "stock", k: "metal", v: 45 }, { t: "wear", v: 0.05 }], effectText: "金属 +45 吨", costText: "磨损 +0.05", followText: "—" },
-          { id: "ex_garden_world", name: "宜居行星", rarity: "epic", need: { techMin: 0.50, cat: "bio" }, ops: [{ t: "stock", k: "food", v: 120 }, { t: "stock", k: "water", v: 200 }, { t: "pop", group: "undecided", v: 30 }, { t: "mod", key: "encounter.explore", v: 0.40, weeks: 520 }, { t: "mod", key: "encounter.crisis", v: 0.15, weeks: 520 }], effectText: "粮 +120 吨、水 +200 吨、人口 +30", costText: "探索权重 +0.40、危机 +0.15（均 10 年）", followText: "危机权重 +0.15（10 年）" },
-          { id: "ex_signal", name: "未知信号源", rarity: "legendary", need: { techMin: 0.60, cat: "soc" }, choices: ["tech", "god", "thralls"], ops: [{ t: "infect", v: 8 }, { t: "machine", k: "autonomy", v: 0.05 }], effectText: "三选一：科技 +10 点 / 随机古神契约 / 眷属 +3", costText: "异常 +8、机器自主 +0.05", followText: "机器哗变风险上升" }
+          { id: "ex_garden_world", name: "宜居行星", rarity: "epic", need: { techMin: 0.50, cat: "bio" }, ops: [{ t: "stock", k: "food", v: 120 }, { t: "stock", k: "water", v: 200 }, { t: "pop", group: "undecided", v: 30 }, { t: "mod", key: "encounter.explore", v: 0.40, weeks: 520 }], effectText: "粮 +120 吨、水 +200 吨、人口 +30", costText: "探索权重 +0.40（10 年）", followText: "—" },
+          { id: "ex_signal", name: "未知信号源", rarity: "legendary", need: { techMin: 0.60, cat: "soc" }, choices: ["tech", "god", "thralls"], choiceLabels: { tech: "解析信号：科技 +10", god: "回应信号：随机古神契约", thralls: "接收眷属 +3" }, ops: [{ t: "infect", v: 8 }, { t: "machine", k: "autonomy", v: 0.05 }], effectText: "三选一：科技 +10 点 / 随机古神契约 / 眷属 +3", costText: "异常 +8、机器自主 +0.05", followText: "机器哗变风险上升" }
         ],
         tech: [
           { id: "te_hydro_gene", name: "水培基因改良", rarity: "common", need: { techMin: 0.20 }, ops: [{ t: "infra", k: "hydro", v: 12 }, { t: "stock", k: "drug", v: -15 }], effectText: "水培 +12 单元", costText: "药剂 −15", followText: "—" },
@@ -1586,28 +1796,15 @@
           { id: "og_star_whisper", name: "群星低语", rarity: "epic", need: { infectionMin: 40 }, ops: [{ t: "intel", level: "high", weeks: 100 }, { t: "godFavor", v: 8 }, { t: "infect", v: 6 }, { t: "queue", k: "W", v: 3, scope: "all" }], effectText: "情报 +1 档 100 周、神恩 +8", costText: "异常 +6、不服 +3", followText: "—" },
           { id: "og_divine_birth", name: "神性孕育", rarity: "legendary", need: { infectionMin: 35, healthMin: 40 }, ops: [{ t: "birth", v: 40 }, { t: "player", k: "health", v: -15 }, { t: "thralls", v: 4 }, { t: "godFavor", v: 15 }, { t: "infect", v: 2 }], effectText: "怀孕必定成功、出生 +40", costText: "健康 −15、眷属 +4", followText: "新生儿异常 +10" }
         ],
-        crisis: [
-          { id: "cr_decompression", name: "舱段失压", rarity: "common", need: {}, choices: ["pay", "take"], ops: [], effectText: "支付金属 15 吨无伤", costText: "或人口 −12、秩序 −3%", followText: "—" },
-          { id: "cr_outbreak", name: "传染爆发", rarity: "rare", need: {}, ops: [{ t: "infect", v: 8 }, { t: "mod", key: "medCoverage", v: -0.10, weeks: 26 }], effectText: "全船异常 +8", costText: "医疗 −10%（26 周）", followText: "—" },
-          { id: "cr_machine_runaway", name: "机器暴走", rarity: "rare", need: {}, ops: [{ t: "wear", v: 0.10 }, { t: "mod", key: "prodMul", v: 0.92, weeks: 26 }, { t: "stock", k: "metal", v: -25 }], effectText: "磨损 +0.10、产能 −8%", costText: "金属 −25 吨修复", followText: "—" },
-          { id: "cr_pre_mutiny", name: "哗变前夜", rarity: "common", need: {}, ops: [{ t: "queue", k: "S", v: 0.08, scope: "one" }, { t: "order", v: -0.03 }, { t: "garrison", k: "durability", v: -8 }], effectText: "一个部门的压力 +0.08", costText: "秩序 −3%、警备耐久 −8", followText: "—" },
-          { id: "cr_meteor", name: "陨石雨", rarity: "common", need: {}, ops: [{ t: "wear", v: 0.06 }, { t: "stock", k: "metal", v: -15 }], effectText: "磨损 +0.06", costText: "金属 −15 吨", followText: "—" },
-          { id: "cr_drought", name: "断水", rarity: "rare", need: {}, ops: [{ t: "stock", k: "water", v: -300 }, { t: "order", v: -0.02 }, { t: "stock", k: "metal", v: -20 }], effectText: "水 −300 吨", costText: "秩序 −2%、金属 −20 吨", followText: "—" },
-          { id: "cr_pod_failure", name: "休眠舱故障", rarity: "rare", need: {}, ops: [{ t: "infra", k: "pods", v: -10 }, { t: "dormant", v: -10 }], effectText: "休眠舱 −10", costText: "舱里 −10 人", followText: "—" },
-          { id: "cr_captives", name: "俘虏押解", rarity: "common", need: {}, ops: [{ t: "captive", v: 6 }], effectText: "押回 6 名俘虏", costText: "监区要腾位置", followText: "俘虏可作献祭来源" },
-          { id: "cr_blight", name: "农环病害", rarity: "common", need: {}, ops: [{ t: "stock", k: "food", v: -30 }, { t: "infra", k: "hydro", v: -5 }], effectText: "粮 −30 吨", costText: "水培 −5 单元", followText: "—" },
-          { id: "cr_god_stir", name: "古神苏醒", rarity: "epic", need: { godPact: true }, ops: [{ t: "devour", v: 15 }, { t: "infect", v: 6 }, { t: "godFavor", v: -10 }], effectText: "神噬进度 +15", costText: "神恩 −10、异常 +6", followText: "—" },
-          { id: "cr_blackout", name: "全船停电", rarity: "legendary", need: {}, ops: [{ t: "mod", key: "prodMul", v: 0.75, weeks: 8 }, { t: "order", v: -0.06 }, { t: "machine", k: "autonomy", v: 0.05 }], effectText: "产能 −25%（8 周）", costText: "秩序 −6%、机器自主 +0.05", followText: "—" }
-        ],
         trade: [
-          { id: "tr_negotiator", name: "行星代理人", rarity: "rare", need: { orderMin: 0.25 }, choices: ["谈谈"], ops: [], effectText: "按心理价成交 / 还价 / 武力夺取", costText: "资源当量", followText: "谈崩会敌对" },
-          { id: "tr_gene_mortgage", name: "基因抵押商", rarity: "rare", need: { orderMin: 0.30 }, choices: ["抵押"], ops: [], effectText: "以后代基因处置权换即时金属", costText: "逐年秩序与产出", followText: "到期不赎即违约" },
-          { id: "tr_trader", name: "巡回商船", rarity: "common", need: { orderMin: 0.30 }, choices: ["metal", "food"], ops: [], effectText: "金属 +40 t 或 粮 +50 吨", costText: "另一项 −20 吨", followText: "—" },
+          { id: "tr_negotiator", name: "行星代理人", rarity: "rare", need: { orderMin: 0.25 }, choices: ["谈谈"], choiceLabels: { "谈谈": "开始谈判" }, ops: [], effectText: "按心理价成交 / 还价 / 武力夺取", costText: "资源当量", followText: "谈崩会敌对" },
+          { id: "tr_gene_mortgage", name: "基因抵押商", rarity: "rare", need: { orderMin: 0.30 }, choices: ["抵押"], choiceLabels: { "抵押": "签下抵押" }, ops: [], effectText: "以后代基因处置权换即时金属", costText: "逐年秩序与产出", followText: "到期不赎即违约" },
+          { id: "tr_trader", name: "巡回商船", rarity: "common", need: { orderMin: 0.30 }, choices: ["metal", "food"], choiceLabels: { metal: "换金属：金属 +40 / 粮 −20", food: "换粮：粮 +50 / 金属 −20" }, ops: [], effectText: "金属 +40 t 或 粮 +50 吨", costText: "另一样 −20 吨", followText: "—" },
           { id: "tr_intel_broker", name: "情报贩子", rarity: "rare", need: { orderMin: 0.35 }, ops: [{ t: "intel", level: "high", weeks: 200 }, { t: "stock", k: "metal", v: -20 }], effectText: "情报 +1 档 200 周", costText: "金属 −20 吨", followText: "—" },
           { id: "tr_mercenary", name: "雇佣兵", rarity: "rare", need: { orderMin: 0.30 }, ops: [{ t: "garrison", k: "strength", v: 15 }, { t: "mod", key: "garrison", v: 15, weeks: 5200 }, { t: "stock", k: "food", v: -25 }], effectText: "警备兵力 +15（100 年）", costText: "粮 −25 吨", followText: "—" },
           { id: "tr_tech_grain", name: "技术换粮", rarity: "common", need: { techMin: 0.30 }, ops: [{ t: "stock", k: "food", v: 50 }, { t: "tech", v: -0.01 }], effectText: "粮 +50 吨", costText: "科技 −1 点", followText: "—" },
-          { id: "tr_slave_trade", name: "奴隶买卖", rarity: "common", need: { orderMin: 0.25 }, choices: ["sell", "buy"], ops: [], effectText: "卖：金属 +25 吨、人口 −20", costText: "买：人口 +20、金属 −35 吨", followText: "—" },
-          { id: "tr_relic_auction", name: "古物拍卖", rarity: "epic", need: { orderMin: 0.40 }, choices: ["tech", "god", "thralls"], ops: [{ t: "stock", k: "metal", v: -60 }], effectText: "随机：科技 +4 点 / 古神契约 / 眷属 +3", costText: "金属 −60 吨", followText: "—" },
+          { id: "tr_slave_trade", name: "奴隶买卖", rarity: "common", need: { orderMin: 0.25 }, choices: ["sell", "buy"], choiceLabels: { sell: "卖出奴隶：金属 +25 / 人口 −20", buy: "买入奴隶：俘虏 +20 / 金属 −35" }, ops: [], effectText: "卖：金属 +25 吨、人口 −20（优先卖俘虏）", costText: "买：俘虏 +20、金属 −35 吨", followText: "买入的奴隶先入俘虏池" },
+          { id: "tr_relic_auction", name: "古物拍卖", rarity: "epic", need: { orderMin: 0.40 }, choices: ["tech", "god", "thralls"], choiceLabels: { tech: "拍下研究：科技 +4", god: "拍下献祭：随机古神契约", thralls: "拍下眷属 +3" }, ops: [{ t: "stock", k: "metal", v: -60 }], effectText: "随机：科技 +4 点 / 古神契约 / 眷属 +3", costText: "金属 −60 吨", followText: "—" },
           { id: "tr_water_rights", name: "水权交易", rarity: "common", need: { orderMin: 0.25 }, ops: [{ t: "stock", k: "water", v: 200 }, { t: "stock", k: "metal", v: -18 }], effectText: "水 +200 吨", costText: "金属 −18 吨", followText: "—" },
           { id: "tr_drug_market", name: "药品黑市", rarity: "rare", need: { orderMin: 0.30 }, ops: [{ t: "stock", k: "drug", v: 80 }, { t: "order", v: -0.02 }], effectText: "药剂 +80", costText: "秩序 −2%", followText: "—" },
           { id: "tr_supply_contract", name: "长期补给合约", rarity: "epic", need: { orderMin: 0.40 }, ops: [{ t: "mod", key: "foodPerYear", v: 10, weeks: 10400 }, { t: "mod", key: "metalPerYear", v: 6, weeks: 10400 }, { t: "stock", k: "metal", v: -30 }, { t: "order", v: -0.02 }], effectText: "粮 +10 t/年、金属 +6 t/年（200 年）", costText: "金属 −30 t 定金", followText: "—" },
@@ -1704,8 +1901,8 @@
         expo: 2.4,                // 消耗随倍率的指数
         jetPeakMW: 102            // 主推进峰值功率上限（MW）
       },
-      // 遭遇权重按类别乘 r^K：危机/探索随速度升，贸易/舒适随速度降
-      encounterK: { crisis: 1.5, explore: 0.9, tech: 0.2, trade: -0.8, society: -0.6 },
+      // 遭遇权重按类别乘 r^K：探索随速度升，贸易/舒适随速度降（危机不再走牌库）
+      encounterK: { explore: 0.9, tech: 0.2, trade: -0.8, society: -0.6 },
       /* 磨损大修（金属＋时间）：科技门槛按 200 年实际产出校准，48 点对应 unlock 中段；
          金属消耗随当前磨损线性升，工期 3 周，期间产出 −4% */
       wearRepairTech: 48,
@@ -2049,7 +2246,7 @@
                   desc: "年死亡概率 = (100−健康)% × 0.6" },
         freeze: { name: "冷冻刑", termMul: 1.20, hpPerYear: 0, mindPerYear: -0.5, willPerYear: 0,
                   orderShift: 0, laborMetalPerYear: 0, spreadMul: 0.35,
-                  desc: "关押成本低，知情概率低" },
+                  desc: "关押花费低，知情概率低" },
         wipe:   { name: "记忆抹除", termMul: 1.00, hpPerYear: -0.5, mindPerYear: -0.4, willPerYear: 0,
                   mindStart: -8, willStart: -3, orderShift: 0.06, laborMetalPerYear: 0.40, spreadMul: 1.00,
                   desc: "一次性重创理智与意志，换取短期服从" },
@@ -2159,13 +2356,15 @@
     crisisStanding: {
       enabled: true,
       maxActive: 2,
-      evalEveryWeeks: 2,
+      maxNewPerEval: 1,
+      evalEveryWeeks: 1,
       cooldownWeeks: 104,
       defs: [
         {
           id: "cr_standing_mutiny",
           name: "哗变前夜",
           tag: "秩序",
+          severity: 5,
           trigger: { orderBelow: 0.40, mutinyLevel: 3 },
           triggerText: "秩序低于 40%，或哗变等级达到 3",
           debuff: { prodMul: 0.94, orderPerWeek: -0.003 },
@@ -2180,9 +2379,9 @@
               ]
             },
             {
-              id: "crackdown", label: "强硬镇压", desc: "用警备和宵禁压住，代价记在秩序上", mode: "multi", min: 1, max: 2,
+              id: "crackdown", label: "强硬镇压", desc: "用警备和宵禁压住，花费记在秩序上", mode: "multi", min: 1, max: 2,
               subs: [
-                { id: "arrest", label: "抓捕带头者 8 人", effect: "人口 −8、秩序 +4%", ops: [{ t: "pop", v: -8 }, { t: "order", v: 0.04 }] },
+                { id: "arrest", label: "抓捕带头者 8 人", effect: "人口 −8、秩序 +4%", ops: [{ t: "pop", v: -8 }], risk: { p: 0.65, success: [{ t: "order", v: 0.04 }], successText: "抓捕干净，秩序 +4%", fail: [{ t: "order", v: -0.05 }, { t: "garrison", v: -8 }], failText: "走漏风声：秩序再 −5%、警备 −8" } },
                 { id: "guard", label: "警备队加班", effect: "金属 −12、警备 +6", ops: [{ t: "stock", k: "metal", v: -12 }, { t: "garrison", v: 6 }] },
                 { id: "curfew", label: "宵禁四周", effect: "秩序 +3%、产出 −4%（4 周）", ops: [{ t: "order", v: 0.03 }, { t: "prodTmp", v: -0.04, weeks: 4 }] }
               ]
@@ -2200,30 +2399,31 @@
           id: "cr_standing_hull",
           name: "舱段失压",
           tag: "船体",
-          trigger: { hullPart: { id: "life", above: 0.80 } },
-          triggerText: "生保/环境部件损伤高于 80%",
+          severity: 5,
+          trigger: { hullPart: { id: "life", above: 0.50 } },
+          triggerText: "生保/环境部件损伤高于 50%",
           debuff: { prodMul: 0.95 },
           debuffText: "全船产出 −5%（损伤本身由舰体模型逐周积分，不再额外扣结构）",
           choices: [
             {
-              id: "repair", label: "组织抢修", desc: "花金属换结构，最稳但最贵", mode: "one",
+              id: "repair", label: "组织抢修", desc: "花金属补生保件，最稳但最贵", mode: "one",
               subs: [
-                { id: "one_bay", label: "抢一处舱段", effect: "金属 −25、结构 +6", ops: [{ t: "stock", k: "metal", v: -25 }, { t: "structure", v: 6 }] },
-                { id: "two_bays", label: "同时抢两处", effect: "金属 −45、结构 +10", ops: [{ t: "stock", k: "metal", v: -45 }, { t: "structure", v: 10 }] }
+                { id: "one_bay", label: "抢一处舱段", effect: "金属 −25、生保件损伤 −6%", ops: [{ t: "stock", k: "metal", v: -25 }, { t: "hullPart", id: "life", v: -0.06 }] },
+                { id: "two_bays", label: "同时抢两处", effect: "金属 −45、生保件损伤 −10%", ops: [{ t: "stock", k: "metal", v: -45 }], risk: { p: 0.70, success: [{ t: "hullPart", id: "life", v: -0.10 }], successText: "两处舱段同时封住，生保件损伤 −10%", fail: [{ t: "hullPart", id: "life", v: 0.03 }], failText: "两处顾不过来：生保件损伤再 +3%" } }
               ]
             },
             {
-              id: "seal", label: "封舱弃段", desc: "少一段舱，换船体止漏", mode: "one",
+              id: "seal", label: "封舱弃段", desc: "少一段舱，换生保件止漏", mode: "one",
               subs: [
-                { id: "drop_hab", label: "弃居住环", effect: "人口 −20、结构 +4", ops: [{ t: "pop", v: -20 }, { t: "structure", v: 4 }] },
-                { id: "drop_farm", label: "弃农环", effect: "粮 −25 吨、结构 +4", ops: [{ t: "stock", k: "food", v: -25 }, { t: "structure", v: 4 }] }
+                { id: "drop_hab", label: "弃居住环", effect: "人口 −20、生保件损伤 −4%", ops: [{ t: "pop", v: -20 }, { t: "hullPart", id: "life", v: -0.04 }] },
+                { id: "drop_farm", label: "弃农环", effect: "粮 −25 吨、生保件损伤 −4%", ops: [{ t: "stock", k: "food", v: -25 }, { t: "hullPart", id: "life", v: -0.04 }] }
               ]
             },
             {
               id: "endure", label: "减压硬撑", desc: "不投料，靠限速和值守熬", mode: "one",
               subs: [
-                { id: "slow", label: "减压慢行", effect: "产出 −3%（4 周）、结构 +1", ops: [{ t: "prodTmp", v: -0.03, weeks: 4 }, { t: "structure", v: 1 }] },
-                { id: "watch_all", label: "全员戒备", effect: "秩序 −2%、结构 +2", ops: [{ t: "order", v: -0.02 }, { t: "structure", v: 2 }] }
+                { id: "slow", label: "减压慢行", effect: "产出 −3%（4 周）、生保件损伤 −1%", ops: [{ t: "prodTmp", v: -0.03, weeks: 4 }, { t: "hullPart", id: "life", v: -0.01 }] },
+                { id: "watch_all", label: "全员戒备", effect: "秩序 −2%、生保件损伤 −2%", ops: [{ t: "order", v: -0.02 }, { t: "hullPart", id: "life", v: -0.02 }] }
               ]
             }
           ]
@@ -2232,13 +2432,14 @@
           id: "cr_standing_water",
           name: "断水",
           tag: "生保",
-          trigger: { waterBelow: 1000 },
-          triggerText: "淡水库存低于 1000 吨",
+          severity: 4,
+          trigger: { waterBelow: 1200 },
+          triggerText: "淡水库存低于 1200 吨",
           debuff: { prodMul: 0.90, orderPerWeek: -0.002 },
           debuffText: "全船产出 −10% · 每周秩序 −0.2%",
           choices: [
             {
-              id: "ration_water", label: "全船限水", desc: "立刻省出水，代价是秩序", mode: "one",
+              id: "ration_water", label: "全船限水", desc: "立刻省出水，花费记在秩序上", mode: "one",
               subs: [
                 { id: "all", label: "全员均摊", effect: "秩序 −3%、水 +180 吨", ops: [{ t: "order", v: -0.03 }, { t: "stock", k: "water", v: 180 }] },
                 { id: "lower", label: "只限下两层", effect: "秩序 −5%、水 +120 吨", ops: [{ t: "order", v: -0.05 }, { t: "stock", k: "water", v: 120 }] }
@@ -2247,7 +2448,7 @@
             {
               id: "repair_loop", label: "抢修循环", desc: "修泵或挪用生保水", mode: "one",
               subs: [
-                { id: "pump", label: "换泵", effect: "金属 −30、水 +260 吨", ops: [{ t: "stock", k: "metal", v: -30 }, { t: "stock", k: "water", v: 260 }] },
+                { id: "pump", label: "换泵", effect: "金属 −30、水 +260 吨", ops: [{ t: "stock", k: "metal", v: -30 }], risk: { p: 0.80, success: [{ t: "stock", k: "water", v: 260 }], successText: "新泵接入，水 +260 吨", fail: [{ t: "stock", k: "water", v: -40 }], failText: "接口不匹配，又漏掉 40 吨" } },
                 { id: "life_water", label: "挪用生保水", effect: "水 +150 吨、秩序 −2%", ops: [{ t: "stock", k: "water", v: 150 }, { t: "order", v: -0.02 }] }
               ]
             },
@@ -2264,8 +2465,12 @@
           id: "cr_standing_blight",
           name: "农环病害",
           tag: "粮食",
-          trigger: { foodBelow: 1200 },
-          triggerText: "粮食库存低于 1200 吨（约 2.1 年口粮）",
+          severity: 3,
+          // v6.63：阈值 1800 → 6000（约 10.7 年口粮），连续 2 周；农环/生保科技越高，发病概率越低
+          // 每周概率 p = 0.07 − 0.05×科技，最低 0.01；冷却 260 周（5 年）
+          trigger: { foodBelow: 6000, weeks: 2, chanceTech: { base: 0.07, perTech: 0.05 } },
+          cooldownWeeks: 260,
+          triggerText: "粮食库存低于 6000 吨（约 10.7 年口粮），连续 2 周；农环/生保科技越高，发病概率越低",
           debuff: { foodPerWeek: -6 },
           debuffText: "每周粮食 −6 吨",
           choices: [
@@ -2296,6 +2501,7 @@
           id: "cr_standing_infection",
           name: "传染爆发",
           tag: "医疗",
+          severity: 5,
           trigger: { infectAbove: 0.22 },
           triggerText: "异常占比高于 22%",
           debuff: { prodMul: 0.93, orderPerWeek: -0.002 },
@@ -2311,7 +2517,7 @@
             {
               id: "treat", label: "集中用药", desc: "拿药剂压异常", mode: "one",
               subs: [
-                { id: "full", label: "全量用药", effect: "药剂 −60、异常扩散暂停 12 周", ops: [{ t: "stock", k: "drug", v: -60 }, { t: "infectLock", weeks: 12 }] },
+                { id: "full", label: "全量用药", effect: "药剂 −60、异常扩散暂停 12 周", ops: [{ t: "stock", k: "drug", v: -60 }], risk: { p: 0.75, success: [{ t: "infectLock", weeks: 12 }], successText: "药压住了，扩散暂停 12 周", fail: [{ t: "order", v: -0.03 }], failText: "药量不够，病区抢药：秩序 −3%" } },
                 { id: "key", label: "只治关键岗", effect: "药剂 −25、扩散暂停 6 周、产出 −3%（2 周）", ops: [{ t: "stock", k: "drug", v: -25 }, { t: "infectLock", weeks: 6 }, { t: "prodTmp", v: -0.03, weeks: 2 }] }
               ]
             },
@@ -2328,6 +2534,7 @@
           id: "cr_standing_blackout",
           name: "全船停电",
           tag: "能源",
+          severity: 4,
           trigger: { energyBelow: 45, wearAbove: 0.80 },
           triggerText: "供电低于 45 MW，或磨损高于 80%",
           debuff: { prodMul: 0.85, orderPerWeek: -0.002 },
@@ -2350,7 +2557,7 @@
             {
               id: "overload", label: "强行超载", desc: "电回来了，船体记账", mode: "one",
               subs: [
-                { id: "over", label: "超载运行", effect: "护盾 −8、磨损 +2%", ops: [{ t: "shield", v: -8 }, { t: "wear", v: 0.02 }] },
+                { id: "over", label: "超载运行", effect: "护盾 −8、磨损 +2%", ops: [{ t: "shield", v: -8 }, { t: "wear", v: 0.02 }], risk: { p: 0.65, successText: "电压稳住了", fail: [{ t: "shield", v: -16 }, { t: "wear", v: 0.05 }, { t: "machineAuto", v: 0.05 }], failText: "过载击穿：护盾再 −16、磨损再 +5%、机器自主 +0.05" } },
                 { id: "bypass", label: "绕过保险", effect: "结构 −3、产出 +2%（2 周）", ops: [{ t: "structure", v: -3 }, { t: "prodTmp", v: 0.02, weeks: 2 }] }
               ]
             }
@@ -2360,6 +2567,7 @@
           id: "cr_standing_machine",
           name: "机器暴走",
           tag: "机械",
+          severity: 3,
           trigger: { autonomyAbove: 0.45 },
           triggerText: "机器自主性高于 0.45",
           debuff: { prodMul: 0.92, wearPerWeek: 0.0015 },
@@ -2382,8 +2590,247 @@
             {
               id: "teardown", label: "拆解主板", desc: "拆掉才不再夺权，产能长期受损", mode: "one",
               subs: [
-                { id: "core", label: "拆控制核心", effect: "金属 +30、产出 −8%（8 周）", ops: [{ t: "stock", k: "metal", v: 30 }, { t: "prodTmp", v: -0.08, weeks: 8 }, { t: "machineDept" }] },
-                { id: "firmware", label: "降级固件", effect: "金属 −15、自主回落一档", ops: [{ t: "stock", k: "metal", v: -15 }, { t: "machineDept" }] }
+                { id: "core", label: "拆控制核心", effect: "金属 +30、自主降一档、产出 −8%（8 周）", ops: [{ t: "stock", k: "metal", v: 30 }], risk: { p: 0.60, success: [{ t: "prodTmp", v: -0.08, weeks: 8 }, { t: "machineDept" }], successText: "主板拆下，机器失去一层调度权", fail: [{ t: "prodTmp", v: -0.10, weeks: 4 }, { t: "wear", v: 0.03 }], failText: "拆错主板：产出 −10%（4 周）、磨损 +3%" } },
+                { id: "firmware", label: "降级固件", effect: "金属 −15、自主回落一档", ops: [{ t: "stock", k: "metal", v: -15 }, { t: "machineDept" }] },
+                { id: "overhaul_all", label: "整机大修", effect: "金属 −25、产出 −10%（4 周）、自主回落一档", ops: [{ t: "stock", k: "metal", v: -25 }, { t: "prodTmp", v: -0.10, weeks: 4 }, { t: "machineDept" }] }
+              ]
+            }
+          ]
+        },
+        {
+          id: "cr_standing_rad",
+          name: "辐射病潮",
+          tag: "医疗",
+          severity: 4,
+          trigger: { radAbove: 0.35 },
+          triggerText: "累积辐射剂量高于 0.35",
+          debuff: { prodMul: 0.94, orderPerWeek: -0.001 },
+          debuffText: "全船产出 −6% · 每周秩序 −0.1%",
+          choices: [
+            {
+              id: "dose", label: "全船投药", desc: "用抗辐射剂把剂量压下去", mode: "one",
+              subs: [
+                { id: "full", label: "足量服药", effect: "药剂 −40、辐射 −0.18", ops: [{ t: "stock", k: "drug", v: -40 }, { t: "rad", v: -0.18 }] },
+                { id: "key", label: "只保关键岗", effect: "药剂 −18、辐射 −0.08、产出 −3%（2 周）", ops: [{ t: "stock", k: "drug", v: -18 }, { t: "rad", v: -0.08 }, { t: "prodTmp", v: -0.03, weeks: 2 }] }
+              ]
+            },
+            {
+              id: "rotate", label: "轮换班次", desc: "少暴露，靠时间摊薄剂量", mode: "one",
+              subs: [
+                { id: "slow", label: "减速航行", effect: "辐射 −0.10、产出 −4%（4 周）", ops: [{ t: "rad", v: -0.10 }, { t: "prodTmp", v: -0.04, weeks: 4 }] },
+                { id: "shifts", label: "三班倒", effect: "辐射 −0.05、秩序 −2%", ops: [{ t: "rad", v: -0.05 }, { t: "order", v: -0.02 }] }
+              ]
+            },
+            {
+              id: "seal", label: "封舱减员", desc: "把高剂量区直接切掉", mode: "one",
+              subs: [
+                { id: "cut", label: "撤空高剂量舱", effect: "人口 −12、辐射 −0.16", ops: [{ t: "pop", v: -12 }, { t: "rad", v: -0.16 }] },
+                { id: "euth", label: "放弃重症", effect: "人口 −20、秩序 −4%、辐射 −0.20", ops: [{ t: "pop", v: -20 }, { t: "order", v: -0.04 }, { t: "rad", v: -0.20 }], risk: { p: 0.70, successText: "病区清空，剂量回落", fail: [{ t: "order", v: -0.04 }], failText: "消息走漏，秩序再 −4%" } }
+              ]
+            }
+          ]
+        },
+        {
+          id: "cr_standing_device",
+          name: "设备过热",
+          tag: "设备",
+          severity: 3,
+          trigger: { hullPartAny: [{ id: "power", above: 0.65 }, { id: "drive", above: 0.65 }] },
+          triggerText: "电力或推进部件损伤高于 65%",
+          debuff: { prodMul: 0.95, wearPerWeek: 0.001 },
+          debuffText: "全船产出 −5% · 每周磨损 +0.1%",
+          choices: [
+            {
+              id: "overhaul", label: "停机检修", desc: "停一段产，把部件压回去", mode: "one",
+              subs: [
+                { id: "power", label: "检修电力/管线", effect: "电力部件损伤 −10%、产出 −8%（3 周）", ops: [{ t: "hullPart", id: "power", v: -0.10 }, { t: "prodTmp", v: -0.08, weeks: 3 }] },
+                { id: "drive", label: "检修动力/推进", effect: "推进部件损伤 −10%、产出 −8%（3 周）", ops: [{ t: "hullPart", id: "drive", v: -0.10 }, { t: "prodTmp", v: -0.08, weeks: 3 }] }
+              ]
+            },
+            {
+              id: "swap", label: "拆件替换", desc: "花金属换新件", mode: "one",
+              subs: [
+                { id: "stock_power", label: "换电力备件", effect: "金属 −30、电力损伤 −14%", ops: [{ t: "stock", k: "metal", v: -30 }], risk: { p: 0.75, success: [{ t: "hullPart", id: "power", v: -0.14 }], successText: "电力备件装配成功", fail: [{ t: "wear", v: 0.03 }], failText: "装配不良，磨损 +3%" } },
+                { id: "stock_drive", label: "换推进备件", effect: "金属 −30、推进损伤 −14%", ops: [{ t: "stock", k: "metal", v: -30 }], risk: { p: 0.75, success: [{ t: "hullPart", id: "drive", v: -0.14 }], successText: "推进备件装配成功", fail: [{ t: "wear", v: 0.03 }], failText: "装配不良，磨损 +3%" } },
+                { id: "scrap", label: "拆旧件凑", effect: "金属 +15、磨损 +4%、两件损伤各 −5%", ops: [{ t: "stock", k: "metal", v: 15 }, { t: "wear", v: 0.04 }, { t: "hullPart", id: "power", v: -0.05 }, { t: "hullPart", id: "drive", v: -0.05 }] }
+              ]
+            },
+            {
+              id: "run", label: "带病运行", desc: "不动它，只压负荷", mode: "one",
+              subs: [
+                { id: "derate", label: "降负荷", effect: "产出 −5%（6 周）、两件损伤各 −1%", ops: [{ t: "prodTmp", v: -0.05, weeks: 6 }, { t: "hullPart", id: "power", v: -0.01 }, { t: "hullPart", id: "drive", v: -0.01 }], holdWeeks: 6 },
+                { id: "watch", label: "加强巡检", effect: "秩序 −1%、暂缓 4 周", ops: [{ t: "order", v: -0.01 }], holdWeeks: 4 }
+              ]
+            }
+          ]
+        },
+        {
+          id: "cr_standing_meteor",
+          name: "陨石击穿",
+          tag: "船体",
+          severity: 3,
+          // v6.63：原牌库 cr_meteor 独立成条，盯磨损而不是生保件
+          trigger: { wearAbove: 0.45, weeks: 2 },
+          triggerText: "船壳磨损高于 45%，连续 2 周",
+          cooldownWeeks: 78,
+          debuff: { prodMul: 0.96, wearPerWeek: 0.001 },
+          debuffText: "全船产出 −4% · 每周磨损 +0.1%",
+          choices: [
+            {
+              id: "patch", label: "紧急封堵", desc: "先堵住击穿点", mode: "one",
+              subs: [
+                { id: "quick", label: "抢堵击穿点", effect: "金属 −15；80% 封住", ops: [{ t: "stock", k: "metal", v: -15 }], risk: { p: 0.80, success: [{ t: "wear", v: -0.03 }], successText: "击穿点封住，磨损 −3%", fail: [{ t: "wear", v: 0.02 }], failText: "封堵失败：磨损再 +2%" } },
+                { id: "weld", label: "焊补船壳", effect: "金属 −8、产出 −3%（2 周）、磨损 −1%", ops: [{ t: "stock", k: "metal", v: -8 }, { t: "prodTmp", v: -0.03, weeks: 2 }, { t: "wear", v: -0.01 }] }
+              ]
+            },
+            {
+              id: "armor", label: "加固船壳", desc: "花大钱换长期", mode: "one",
+              subs: [
+                { id: "plate", label: "加装装甲板", effect: "金属 −35、磨损 −8%", ops: [{ t: "stock", k: "metal", v: -35 }, { t: "wear", v: -0.08 }] },
+                { id: "ribs", label: "加焊肋骨", effect: "金属 −20、磨损 −4%、产出 −4%（4 周）", ops: [{ t: "stock", k: "metal", v: -20 }, { t: "wear", v: -0.04 }, { t: "prodTmp", v: -0.04, weeks: 4 }] }
+              ]
+            },
+            {
+              id: "evade", label: "绕行规避", desc: "不修，先躲", mode: "one",
+              subs: [
+                { id: "detour", label: "绕行陨石带", effect: "产出 −5%（6 周）、磨损 −2%", ops: [{ t: "prodTmp", v: -0.05, weeks: 6 }, { t: "wear", v: -0.02 }] },
+                { id: "shield", label: "护盾前置", effect: "护盾 −10、磨损 −1%", ops: [{ t: "shield", v: -10 }, { t: "wear", v: -0.01 }] }
+              ]
+            }
+          ]
+        },
+        {
+          id: "cr_standing_pods",
+          name: "休眠舱失温",
+          tag: "生保",
+          severity: 4,
+          // v6.63：原牌库 cr_pod_failure 独立成条，盯休眠人数 + 供电
+          trigger: { all: [{ dormantAbove: 1000 }, { energyBelow: 55 }], weeks: 3 },
+          triggerText: "休眠人数高于 1000，且供电低于 55 MW，连续 3 周",
+          cooldownWeeks: 104,
+          debuff: { prodMul: 0.97, orderPerWeek: -0.001 },
+          debuffText: "全船产出 −3% · 每周秩序 −0.1%",
+          choices: [
+            {
+              id: "power", label: "优先供能", desc: "把电先给休眠区", mode: "one",
+              subs: [
+                { id: "first", label: "休眠舱优先", effect: "产出 −10%（4 周）；75% 稳住", ops: [{ t: "prodTmp", v: -0.10, weeks: 4 }], risk: { p: 0.75, successText: "温控稳住，无人损失", fail: [{ t: "dormantLoss", v: 12 }], failText: "温控仍失稳：12 名休眠者死亡" } },
+                { id: "cycle", label: "分区轮供", effect: "产出 −6%（4 周）、秩序 −1%", ops: [{ t: "prodTmp", v: -0.06, weeks: 4 }, { t: "order", v: -0.01 }] }
+              ]
+            },
+            {
+              id: "move", label: "转移休眠者", desc: "把人从失温舱挪走", mode: "one",
+              subs: [
+                { id: "wake", label: "紧急唤醒 120 人", effect: "休眠 −120、苏醒 +120、粮 −15 吨、秩序 −2%", ops: [{ t: "wake", v: 120 }, { t: "stock", k: "food", v: -15 }, { t: "order", v: -0.02 }] },
+                { id: "dump", label: "弃置失温舱位", effect: "休眠者 −10、产出 −3%（2 周）、秩序 −1%", ops: [{ t: "dormantLoss", v: 10 }, { t: "prodTmp", v: -0.03, weeks: 2 }, { t: "order", v: -0.01 }] }
+              ]
+            },
+            {
+              id: "repair", label: "抢修温控", desc: "换件或旁路", mode: "one",
+              subs: [
+                { id: "parts", label: "换温控组件", effect: "金属 −25；70% 恢复", ops: [{ t: "stock", k: "metal", v: -25 }], risk: { p: 0.70, successText: "温控恢复，无人损失", fail: [{ t: "dormantLoss", v: 8 }], failText: "组件不匹配：8 名休眠者死亡" } },
+                { id: "bypass", label: "旁路旧回路", effect: "金属 −10、产出 −4%（3 周）", ops: [{ t: "stock", k: "metal", v: -10 }, { t: "prodTmp", v: -0.04, weeks: 3 }] }
+              ]
+            }
+          ]
+        },
+        {
+          id: "cr_standing_captives",
+          name: "俘虏哗动",
+          tag: "秩序",
+          severity: 4,
+          // v6.63：原牌库 cr_captives 独立成条；奴隶贸易/掠袭负责补俘虏
+          trigger: { all: [{ captivesAtLeast: 8 }, { orderBelow: 0.55 }], weeks: 2 },
+          triggerText: "在押俘虏 ≥8 且秩序低于 55%，连续 2 周",
+          cooldownWeeks: 78,
+          debuff: { prodMul: 0.96, orderPerWeek: -0.002 },
+          debuffText: "全船产出 −4% · 每周秩序 −0.2%",
+          choices: [
+            {
+              id: "absorb", label: "收编", desc: "把俘虏变成自己人", mode: "one",
+              subs: [
+                { id: "work", label: "编入劳动队", effect: "俘虏 −4、金属 +12、秩序 +2%、服从 +2", ops: [{ t: "captives", v: -4 }, { t: "stock", k: "metal", v: 12 }, { t: "order", v: 0.02 }, { t: "queue", k: "O", v: 2 }] },
+                { id: "core", label: "吸收骨干", effect: "俘虏 −6；70% 成功", ops: [{ t: "captives", v: -6 }], risk: { p: 0.70, success: [{ t: "order", v: 0.03 }, { t: "queue", k: "O", v: 2 }], successText: "骨干归心：秩序 +3%、服从 +2", fail: [{ t: "order", v: -0.04 }, { t: "queue", k: "O", v: -3 }], failText: "骨干煽动：秩序 −4%、服从 −3" } }
+              ]
+            },
+            {
+              id: "labor", label: "劳役/转卖", desc: "用俘虏换资源", mode: "one",
+              subs: [
+                { id: "force", label: "强制劳役", effect: "俘虏 −6、金属 +25、秩序 −2%、服从 −1", ops: [{ t: "captives", v: -6 }, { t: "stock", k: "metal", v: 25 }, { t: "order", v: -0.02 }, { t: "queue", k: "O", v: -1 }] },
+                { id: "sell", label: "转卖俘虏", effect: "俘虏 −6、金属 +15、粮 +20、秩序 −1%", ops: [{ t: "captives", v: -6 }, { t: "stock", k: "metal", v: 15 }, { t: "stock", k: "food", v: 20 }, { t: "order", v: -0.01 }] }
+              ]
+            },
+            {
+              id: "suppress", label: "镇压/放逐", desc: "用警备压住", mode: "one",
+              subs: [
+                { id: "guard", label: "增派守卫", effect: "金属 −12、警备 +6、秩序 +1%", ops: [{ t: "stock", k: "metal", v: -12 }, { t: "garrison", v: 6 }, { t: "order", v: 0.01 }] },
+                { id: "exile", label: "放逐荒星", effect: "俘虏 −8、粮 −20 吨、秩序 +3%、服从 +2", ops: [{ t: "captives", v: -8 }, { t: "stock", k: "food", v: -20 }, { t: "order", v: 0.03 }, { t: "queue", k: "O", v: 2 }] }
+              ]
+            }
+          ]
+        },
+        {
+          id: "cr_standing_god",
+          name: "神噬苏醒",
+          tag: "古神",
+          severity: 5,
+          // v6.63：原牌库 cr_god_stir 独立成条；无噬约玩家 devour 为 0，不会响
+          trigger: { devourAbove: 25, weeks: 3 },
+          triggerText: "神噬高于 25，连续 3 周",
+          cooldownWeeks: 156,
+          debuff: { prodMul: 0.95, orderPerWeek: -0.001 },
+          debuffText: "全船产出 −5% · 每周秩序 −0.1%",
+          choices: [
+            {
+              id: "offer", label: "献祭平息", desc: "喂饱它，换安静", mode: "one",
+              subs: [
+                { id: "captives", label: "献祭俘虏", effect: "俘虏 −6、神噬 −8、秩序 +2%", ops: [{ t: "captives", v: -6 }, { t: "devour", v: -8 }, { t: "order", v: 0.02 }] },
+                { id: "sleepers", label: "献祭休眠者", effect: "休眠者 −8、神噬 −6、秩序 −1%", ops: [{ t: "dormantLoss", v: 8 }, { t: "devour", v: -6 }, { t: "order", v: -0.01 }] }
+              ]
+            },
+            {
+              id: "shrine", label: "加固神龛", desc: "用金属封住", mode: "one",
+              subs: [
+                { id: "seal", label: "金属封龛", effect: "金属 −35、神噬 −5、产出 −3%（4 周）", ops: [{ t: "stock", k: "metal", v: -35 }, { t: "devour", v: -5 }, { t: "prodTmp", v: -0.03, weeks: 4 }] },
+                { id: "relic", label: "换新祭器", effect: "金属 −15、神噬 −2、秩序 +1%", ops: [{ t: "stock", k: "metal", v: -15 }, { t: "devour", v: -2 }, { t: "order", v: 0.01 }] }
+              ]
+            },
+            {
+              id: "purge", label: "清洗教团", desc: "抓人、断供", mode: "one",
+              subs: [
+                { id: "arrest", label: "抓捕祭司", effect: "人口 −6、秩序 −3%；65% 压下神噬", ops: [{ t: "pop", v: -6 }, { t: "order", v: -0.03 }], risk: { p: 0.65, success: [{ t: "devour", v: -12 }, { t: "queue", k: "O", v: 2 }], successText: "祭司落网：神噬 −12、服从 +2", fail: [{ t: "order", v: -0.05 }, { t: "garrison", v: -6 }], failText: "教团反扑：秩序 −5%、警备 −6" } },
+                { id: "cut", label: "断供教会", effect: "秩序 −2%、神噬 −4、产出 +2%（4 周）", ops: [{ t: "order", v: -0.02 }, { t: "devour", v: -4 }, { t: "prodTmp", v: 0.02, weeks: 4 }] }
+              ]
+            },
+            {
+              id: "ignore", label: "置之不理", desc: "先不管", mode: "one",
+              subs: [
+                { id: "watch", label: "只做记录", effect: "无消耗、暂缓 6 周、秩序 −2%", ops: [{ t: "order", v: -0.02 }], holdWeeks: 6 }
+              ]
+            }
+          ]
+        },
+        {
+          id: "cr_standing_jobs",
+          name: "失业潮",
+          tag: "社会",
+          severity: 4,
+          // v6.63：新增。失业率/人数 + 情报双条件，连续 8 周
+          trigger: { all: [{ laborHigh: { rate: 0.08, count: 160 } }, { intelAtLeast: "mid" }], weeks: 8 },
+          triggerText: "失业率高于 8% 或失业人数高于 160，且情报达到中级，连续 8 周",
+          cooldownWeeks: 104,
+          debuff: { prodMul: 0.95, orderPerWeek: -0.002 },
+          debuffText: "全船产出 −5% · 每周秩序 −0.2%",
+          choices: [
+            {
+              id: "measure", label: "处置方式", desc: "六选一，互斥；持续政策在危机解除后继续生效", mode: "one",
+              subs: [
+                { id: "recycle", label: "回收多余克隆人", effect: "克隆人 −60、金属 +12、产出 −3%（2 周）、秩序 +2%、服从 +2", ops: [{ t: "popGroup", id: "clone", v: -60 }, { t: "stock", k: "metal", v: 12 }, { t: "prodTmp", v: -0.03, weeks: 2 }, { t: "order", v: 0.02 }, { t: "queue", k: "O", v: 2 }], risk: { p: 0.95, successText: "回收完成，岗位压力下降", fail: [{ t: "order", v: -0.02 }, { t: "queue", k: "O", v: -2 }], failText: "回收流程出错：秩序 −2%、服从 −2" } },
+                { id: "recycle_old", label: "回收年长克隆人", effect: "年龄≥24 的克隆人 −40、金属 +8、产出 −2%（2 周）、秩序 +1%、服从 +1", ops: [{ t: "popGroup", id: "clone", v: -40, ageMin: 24 }, { t: "stock", k: "metal", v: 8 }, { t: "prodTmp", v: -0.02, weeks: 2 }, { t: "order", v: 0.01 }, { t: "queue", k: "O", v: 1 }], risk: { p: 0.95, successText: "年长克隆人平稳退出", fail: [{ t: "order", v: -0.02 }, { t: "queue", k: "O", v: -2 }], failText: "名单泄露：秩序 −2%、服从 −2" } },
+                { id: "project", label: "新建项目创造就业", effect: "金属 −50、粮 −80；85% 落地 80 个岗位（52 周）", ops: [{ t: "stock", k: "metal", v: -50 }, { t: "stock", k: "food", v: -80 }], risk: { p: 0.85, success: [{ t: "laborJobs", v: 80, weeks: 52 }, { t: "order", v: 0.04 }, { t: "queue", k: "O", v: 4 }, { t: "prodTmp", v: 0.02, weeks: 8 }], successText: "项目开工：岗位 +80（52 周）、秩序 +4%、服从 +4", fail: [{ t: "laborJobs", v: 40, weeks: 52 }, { t: "stock", k: "metal", v: -10 }, { t: "order", v: -0.01 }, { t: "queue", k: "O", v: -1 }], failText: "工期延误：只落地 40 个岗位，追加金属 −10" } },
+                { id: "free_food", label: "限时免费食物（健康线）", effect: "粮 −60、13 周口粮拉到健康线 1.0、秩序 +6%、服从 +5", ops: [{ t: "stock", k: "food", v: -60 }, { t: "freeFood", weeks: 13 }, { t: "order", v: 0.06 }, { t: "queue", k: "O", v: 5 }, { t: "prodTmp", v: -0.01, weeks: 4 }], risk: { p: 1, successText: "免费食物生效，健康线维持 13 周", failText: "无（行政命令即时生效）" } },
+                { id: "compete", label: "多人竞争岗位", effect: "52 周月度竞争：按素质判定，有人上岗有人下岗；秩序 −2%、服从 −2", ops: [{ t: "compete", weeks: 52 }, { t: "order", v: -0.02 }, { t: "queue", k: "O", v: -2 }, { t: "prodTmp", v: 0.03, weeks: 8 }], risk: { p: 1, successText: "竞争机制启动，每 4 周判定一次", failText: "无（政策即时生效）" } },
+                { id: "wage_cut", label: "削减工资（岗位对拆）", effect: "岗位 ×2（封顶劳动力）、工资系数 0.8、工时减半；秩序 −5%、服从 −5、产出 −4%（8 周）", ops: [{ t: "laborSplit" }, { t: "order", v: -0.05 }, { t: "queue", k: "O", v: -5 }, { t: "prodTmp", v: -0.04, weeks: 8 }], risk: { p: 1, successText: "岗位对拆生效：工资 0.8、工时减半", failText: "无（政策即时生效）" } }
               ]
             }
           ]
@@ -2734,7 +3181,7 @@
             {
               id: "seize", label: "查封私药", risk: "中",
               who: ["lord", "noble"],
-              desc: "把私人囤的药全收上来，秩序上要付代价",
+              desc: "把私人囤的药全收上来，花费记在秩序上",
               effectsText: ["秩序 −4%", "警备 +2", "镇痛药剂 +90 份"],
               ops: [
                 { t: "order", v: -4 }, { t: "garrison", v: 2 },

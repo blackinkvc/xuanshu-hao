@@ -217,7 +217,8 @@
     var inflow = prod + rec - need;      // 未计损耗的年净流入（t/年）
     var net = inflow - spoilTpy;
     var years;
-    if (inflow >= 0) years = 999;        // 收敛到 inflow/k，不会见底
+    if (stock <= 0) years = 0;           // 库存已归零：再生能力再强也撑不了，不能报 999
+    else if (inflow >= 0) years = 999;   // 收敛到 inflow/k，不会见底
     else if (k <= 0) years = stock / (-inflow);
     else years = Math.log(1 + k * stock / (-inflow)) / k;
     var r1 = function (v) { return Math.round(v * 10) / 10; };
@@ -519,6 +520,54 @@
     return true;
   }
 
+  /**
+   * 玩家操作写事件：周次/年季由 pushEvent 补，文案统一「改前 → 改后」+ 代价。
+   * 同一周内对同一个输入键反复拖动（界面 onChange 逐格触发）只留一条：
+   * 改前保留本周首次的值，改后取最后一次的值，避免一次拖拽刷出几十条。
+   */
+  function logTune(state, cfg, key, before, after, deltas, note) {
+    if (before === after) return null;
+    var list = (cfg.ui && cfg.ui.sliders) || [], sp = null;
+    for (var i = 0; i < list.length; i++) if (list[i].key === key) { sp = list[i]; break; }
+    var LABEL = { ration: "粮食配给比例", dormancyTarget: "休眠推进力度", speedC: "航速" };
+    var label = (sp && sp.label) || LABEL[key] || key;
+    // 代价/影响口径：站点事件流只渲染 text，所以除了 note 字段，也并进正文
+    var costText = note || (sp && sp.note) || "";
+    var fmt = function (v) {
+      if (typeof v === "boolean") return v ? "开" : "关";
+      if (!isNum(v)) return String(v);
+      if (key === "speedC") return (Math.round(v * 1000) / 1000) + "c";
+      if (sp && sp.percent) return Math.round(v * 100) + "%";
+      var d = (sp && typeof sp.digits === "number") ? sp.digits : 2;
+      var p = Math.pow(10, d);
+      return (Math.round(v * p) / p) + ((sp && sp.unit) || "");
+    };
+    var evYear = Math.floor(state.weeks / cfg.time.weeksPerYear);
+    var evWeek = (state.weeks % cfg.time.weeksPerYear) + 1;
+    var evs = state.events || [];
+    for (var j = evs.length - 1; j >= 0 && j >= evs.length - 40; j--) {
+      var e = evs[j];
+      if (e.type !== "player_tune" || e.basis !== key) continue;
+      if (e.year !== evYear || e.week !== evWeek) break;
+      // 本周来回改回原值：没有净变化，撤掉这条，别留「A → A」
+      if ((e.tuneBefore === undefined ? before : e.tuneBefore) === after) {
+        evs.splice(j, 1);
+        return null;
+      }
+      e.text = fmt(e.tuneBefore === undefined ? before : e.tuneBefore) + " → " + fmt(after) +
+        (costText ? "（" + costText + "）" : "");
+      var dm = cleanDeltas(deltas);
+      if (dm) e.deltas = dm; else delete e.deltas;
+      return e;
+    }
+    pushEvent(state, cfg, "player_tune", "调节", "调节 · " + label,
+      fmt(before) + " → " + fmt(after) + (costText ? "（" + costText + "）" : ""),
+      key, true, deltas, costText);
+    var last = state.events[state.events.length - 1];
+    if (last && last.type === "player_tune" && last.basis === key) last.tuneBefore = before;
+    return last;
+  }
+
   /** 确定性掷点：FNV-1a，不用 Math.random，避免影响回放与 20 局复跑。 */
   function covertRoll(state, key) {
     var s = String(key) + "|" + (state.weeks | 0) + "|" + (state.loop | 0);
@@ -711,6 +760,12 @@
     nu.imm = clamp(0.50 + 0.50 * Math.min(nu.vit, nu.micro) -
       0.40 * Math.max(0, 0.80 - nu.protein), 0, 1.6);
     nu.fit = clamp(0.70 + 0.30 * nu.protein - 0.20 * (1 - nu.micro), 0.5, 1);
+    // 缺药：戒断累积压低免疫与体能（滞后项，恢复比上行慢）
+    var dshort = clamp(num0(state.health && state.health.drugShort, 0), 0, 1);
+    if (dshort > 0) {
+      nu.imm = clamp(nu.imm * (1 - 0.12 * dshort), 0, 1.6);
+      nu.fit = clamp(nu.fit * (1 - 0.10 * dshort), 0.35, 1);
+    }
 
     // 3) 营养补剂：只补缺口，不替代产能
     var deficit = ((1 - nu.protein) + (1 - nu.vit) + (1 - nu.micro)) / 3;
@@ -998,6 +1053,12 @@
       wearFloor: 0.01 + 0.04 * jit(36),
       // 道德值（0–100）：停供、回收、抢收都会动它；低于 30 时回收被拒
       morality: 55 + Math.round(jit(38) * 12),
+      // 遗传层统计与策略：变异/健康/痛苦/30 岁判定由 people.geneticsTick 写回
+      genetics: {
+        screened: 0, passed: 0, failed: 0, breedPool: 0,
+        mutationDeaths: 0, healthDeaths: 0, lifespanDeaths: 0,
+        painkiller: "need"
+      },
       // 商栈（v6.53 第四波）：商誉 / 热度 / 雕像 / 本船报价；salt 固定取 seed，出货可复现
       trade: {
         visits: 0, rep: 50, heat: 0, statues: 0, salt: seed >>> 0,
@@ -1026,7 +1087,6 @@
       series: [],
       flags: { atrocity: false },
       latches: {},
-      clonePause: 0,
       streaks: { badRation: 0, extreme: 0, strike: 0 },
       budget: { hydro: 0, pods: 0, clone: 0 },
       // 舱容推导结果（nMaxV / cut / fitsVolume）：与建设配额 budget 分开存，避免互相覆盖
@@ -1087,6 +1147,10 @@
     // 个体层：真实位置名册（人数变化时同步，位置按周确定性推导）
     if (global.XuanShuPeople && cfg.people && cfg.people.enabled !== false) {
       state.people = global.XuanShuPeople.create(cfg);
+    }
+    // 研发层：技能点余额、科技树状态机、农环病害
+    if (global.XuanShuResearch && cfg.research && cfg.research.enabled !== false) {
+      global.XuanShuResearch.ensure(state, cfg);
     }
     // 玩家身份层：未选身份前不推进时间，但状态先建好，便于前端展示三选一
     if (global.XuanShuPlayer && cfg.player && cfg.player.enabled !== false) {
@@ -1866,17 +1930,28 @@
       state.stocks.metal -= metal;
       state.coins -= coin;
       s.build = { until: state.weeks + weeks, addT: addT, spaceM2: needM2 };
+      pushEvent(state, cfg, "player_salvage", "回收", "回收仓库 · 开工扩建",
+        "容量 " + Math.round(num(s.capT, 0)) + " → " + Math.round(num(s.capT, 0) + addT) + " 吨（完工后）；金属 −" +
+        metal + " 吨、星币 −" + coin + "、占 " + needM2 + " m²、工期 " + weeks + " 周",
+        "salvage:build", true, null, "扩建期间容量不增加，完工才可用");
       return { ok: true, msg: "仓库开工：" + addT + " 吨容量 · 金属 −" + metal + " · 星币 −" + coin +
         " · 工期 " + weeks + " 周 · 占 " + needM2 + " m²" };
     }
 
     if (id === "rest") {
       if (s.restArea) return { ok: false, msg: "奴隶休息区已经被占用了" };
+      var capBefore = num(s.capT, 0);
       s.capT += num(S.restArea && S.restArea.addCapT, 240);
       s.restArea = true;
       // 服从 / 健康 一次性代价：服从走队列 O（0–100），健康走群体福祉均值
       applyCompliance(state, cfg, num(S.restArea && S.restArea.obey, -0.03));
       applyWellbeingHealth(state, num(S.restArea && S.restArea.health, -0.02));
+      pushEvent(state, cfg, "player_salvage", "回收", "回收仓库 · 占用奴隶休息区",
+        "容量 " + Math.round(capBefore) + " → " + Math.round(num(s.capT, 0)) + " 吨；服从 −" +
+        Math.abs(num(S.restArea && S.restArea.obey, -0.03) * 100).toFixed(0) + "%、群体健康 −" +
+        Math.abs(num(S.restArea && S.restArea.health, -0.02) * 100).toFixed(0) + "%；此后每周秩序 −" +
+        Math.abs(num(S.restArea && S.restArea.orderPerWeek, -0.01) * 100).toFixed(1) + "%",
+        "salvage:rest", true, null, "省了金属和工期，花费是服从、健康与每周失窃");
       return { ok: true, msg: "占用了奴隶休息区：容量 +" + num(S.restArea && S.restArea.addCapT, 240) +
         " 吨；每周有失窃与破坏风险，秩序 −" + Math.abs(num(S.restArea && S.restArea.orderPerWeek, -0.01)) + "/周" };
     }
@@ -1889,6 +1964,12 @@
       salvageConsume(state, cfg, amt);
       s.stats.discardedT += amt;
       state.order = clamp(num(state.order, 0.5) + num(S.discard && S.discard.order, -0.005), 0.05, 1);
+      pushEvent(state, cfg, "player_salvage", "回收", "回收仓库 · 丢弃积压",
+        "丢 " + sr1(amt) + " 吨（库存 " + sr1(have) + " → " + sr1(Math.max(0, have - amt)) + "）；秩序 −" +
+        Math.abs(num(S.discard && S.discard.order, -0.005) * 100).toFixed(1) + "%",
+        "salvage:discard", true,
+        { "秩序": Math.round(num(S.discard && S.discard.order, -0.005) * 1000) / 10 },
+        "金属永久消失，换回库容");
       return { ok: true, msg: "丢弃积压 " + sr1(amt) + " 吨，金属永久消失，秩序 −" +
         Math.abs(num(S.discard && S.discard.order, -0.005) * 100).toFixed(1) + "%" };
     }
@@ -2052,6 +2133,8 @@
         week: state.weeks
       });
     }
+    // 研发层：教育点累计、5 年结算、科技树推进、农环病害爆发/根治
+    if (global.XuanShuResearch) global.XuanShuResearch.weekly(state, cfg);
 
     // 周期事件（周级）：设备故障 / 维修、轮班、补给、隔离检疫
     var maintYield = stepMaintenance(state, cfg);
@@ -2121,6 +2204,9 @@
     if (state.nutrition) {
       production *= clamp(state.nutrition.fit * (state.nutrition.unfit || 1), 0.5, 1);
     }
+    // 就业：岗位拆半后的工时折损 + 缺药导致的产能下滑
+    production *= clamp(num(state.labor && state.labor.workScale, 1), 0, 1);
+    production *= (1 - 0.08 * clamp(num(state.health && state.health.drugShort, 0), 0, 1));
     production *= AD.fitMul;
     if (AD.bliss) production *= (1 - cfg.addict.bliss.prodLoss);
     // 基因抵押：被抵押人群产出 ×0.85，按醒态占比摊到全船
@@ -2148,6 +2234,8 @@
     if (global.XuanShuCrisis) {
       production *= global.XuanShuCrisis.prodMul(state, cfg);
     }
+    // 研发：水培增产 + 农环病害对粮产的折损
+    if (global.XuanShuResearch) production *= global.XuanShuResearch.foodMul(state, cfg);
     var planet = I.planetCut ? 0 : (cfg.food.planetTpy + mAdd("foodPerYear", 0));
     // v6.63：行星补给只覆盖离港前的窗口（planetYears），之后全靠船上产线 + 回收
     var absYear = (state.loop - 1) * cfg.time.loopYears + state.weeks / cfg.time.weeksPerYear;
@@ -2159,7 +2247,14 @@
       : (t0.awake * cfg.food.perCapitaTpy +
         t0.dormant * cfg.food.perCapitaTpy * cfg.food.dormantFactor);
     var standardNeed = baseDemand * dt;
-    var need = standardNeed * I.ration * mMul("foodUse", 1) * gMul("foodUse", 1);
+    // 口粮双轨：免费维生份额全船发；付费份额按克隆个人钱包的实际购买率折算
+    var freeShare = clamp(num(cfg.food.freeShare, 0.70), 0, 1);
+    var paidShare = clamp(num(cfg.food.paidShare, 0.30), 0, 1);
+    var GS0 = state.genetics || {};
+    var paidRate = num(GS0.foodWant, 0) > 0
+      ? clamp(1 - num(GS0.foodFail, 0) / num(GS0.foodWant, 0), 0, 1) : 1;
+    var covered = clamp(freeShare + paidShare * paidRate, 0, 1);
+    var need = standardNeed * I.ration * covered * mMul("foodUse", 1) * gMul("foodUse", 1);
     // v6.65 仓储损耗：科技档 × 仓储条件 × 占用率，下限 0.6%/年；按现存库存折损
     var spoilK = foodSpoilK(state, cfg);
     var spoilageLoss = state.stocks.food * spoilK * dt;
@@ -2224,11 +2319,13 @@
     var weekDeaths = 0;
     cfg.population.groups.forEach(function (g) {
       var s = state.groups[g.id];
+      // 克隆组生死完全由遗传模块判（变异/健康/寿限/30 岁判定），
+      // 这里直接跳过，避免自然率、疾病、冲突、辐射等通道与遗传判死叠乘。
+      if (g.clone && cfg.genetics && cfg.genetics.enabled) return;
       var rate = g.mortality * (1 + (AD.deathMul || 0));
       if (GM && GM.active && !g.clone) {
         rate *= 1 + cfg.trade.mortgage.deathMul * clamp(GM.n / Math.max(1, t0.awake), 0, 1);
       }
-      if (g.clone) rate = g.mortality / clamp(rationActual, 0.35, 1);
       var d = Math.min(s.awake, s.awake * (rate + extra) * dt * noise(0.08));
       s.awake -= d;
       weekDeaths += d;
@@ -2258,16 +2355,10 @@
       clamp((rationActual - 0.45) / 0.4, 0, 1) *
       clamp(energy / cfg.energy.baseMW, 0, 1) *
       (0.85 + 0.15 * medCoverage) * mMul("cloneMul", 1) * gMul("cloneMul", 1);
-    var t1 = totals(state, cfg);
-    var cloneShareNow = (state.groups.clone.awake + state.groups.clone.dormant) / Math.max(1, t1.total);
-    if (state.clonePause > 0) {
-      state.clonePause--;
-      cloneOutY = 0;
-    } else if (cloneShareNow >= cfg.clone.capShare) {
-      state.clonePause = cfg.clone.capPauseWeeks;
-      cloneOutY = 0;
+    // 研发：培养筒提效
+    if (global.XuanShuResearch) {
+      cloneOutY *= global.XuanShuResearch.mods(state, cfg).cloneOut;
     }
-    var cloneCapped = state.clonePause > 0 || cloneShareNow >= cfg.clone.capShare;
     var cloneM = cloneOutY * dt;
     state.groups.clone.awake += cloneM * (1 - cfg.clone.nobleShare);
     state.groups.noble.awake += cloneM * cfg.clone.nobleShare;
@@ -2487,6 +2578,13 @@
       var wNow = state.addict.withdraw.light + state.addict.withdraw.mid + state.addict.withdraw.heavy;
       orderEq -= 0.10 * clamp(wNow / Math.max(1, t3.awake), 0, 1);
     }
+    // 失业—贫困压力与缺药：直接压平衡点
+    if (state.labor) {
+      orderEq -= num(cfg.labor && cfg.labor.orderEqK, 0.12) * clamp(num(state.labor.unrest, 0), 0, 1);
+    }
+    if (state.health) {
+      orderEq -= 0.06 * clamp(num(state.health.drugShort, 0), 0, 1);
+    }
     state.order = clamp(state.order + (orderEq - state.order) * cfg.order.relax * dt, 0.05, 1);
 
     // 阶段
@@ -2557,10 +2655,6 @@
       "想睡的有 " + Math.round(targetDorm) + " 人，舱位只有 " + state.infra.pods + " 个",
       "目标 " + Math.round(targetDorm) + " 人，缺口 " + Math.max(0, Math.round(targetDorm - t2.dormant)), null,
       "舱位满了，多出来的人只能继续醒着");
-
-    latchEvent(state, cfg, "clone_cap", cloneCapped, "clone_cap", "预警", "克隆人太多了",
-      "克隆人已经占到 " + (cloneShareNow * 100).toFixed(1) + "%",
-      "档案上限 18%；产量归零直到占比回落", null, "克隆占比碰到上限，产量先停");
 
     latchEvent(state, cfg, "pop_floor", t4.total < 1600, "pop_floor", "危机", "人不够了",
       "全船只剩 " + Math.round(t4.total) + " 人，撑不住航行编制",
@@ -2754,7 +2848,6 @@
     state.projects = fresh.projects;
     state.flags = { atrocity: false };
     state.latches = {};
-    state.clonePause = 0;
     state.streaks = { badRation: 0, extreme: 0, strike: 0 };
     state.budget = fresh.budget;
     state.cap = applyBudgetCap(state, cfg);
@@ -2875,8 +2968,10 @@
 
       setInputs: function (patch) {
         if (!patch) return api.getInputs();
+        var before = {};
         Object.keys(patch).forEach(function (k) {
           if (typeof state.inputs[k] === "undefined") return;
+          before[k] = state.inputs[k];
           if (typeof state.inputs[k] === "boolean") state.inputs[k] = !!patch[k];
           else if (isNum(patch[k])) state.inputs[k] = patch[k];
         });
@@ -2884,6 +2979,9 @@
           if (isNum(state.inputs[sp.key])) {
             state.inputs[sp.key] = clamp(state.inputs[sp.key], sp.min, sp.max);
           }
+        });
+        Object.keys(before).forEach(function (k) {
+          logTune(state, cfg, k, before[k], state.inputs[k]);
         });
         return api.getInputs();
       },
@@ -2894,7 +2992,10 @@
         if (!isNum(v)) return api.getState();
         var min = (cfg.ship && cfg.ship.speedMin) || 0.020;
         var max = (cfg.ship && cfg.ship.speedMax) || 0.065;
+        var before = state.ship.speedC;
         state.ship.speedC = clamp(v, min, max);
+        logTune(state, cfg, "speedC", before, state.ship.speedC, null,
+          "航速按周折成工质消耗与传动负荷，越高越费");
         return api.getState();
       },
 
@@ -2927,6 +3028,19 @@
           speedC: state.ship.speedC,
           order: state.order
         };
+        if (after.ration !== before.ration) {
+          logTune(state, cfg, "ration", before.ration, after.ration,
+            { "秩序": Math.round((after.order - before.order) * 1000) / 10 },
+            "配给改动按周牵动秩序；下一次结算按新配给扣粮");
+        }
+        if (after.dormancyTarget !== before.dormancyTarget) {
+          logTune(state, cfg, "dormancyTarget", before.dormancyTarget, after.dormancyTarget, null,
+            "受舱位、药剂与最低醒态限制，越推越难");
+        }
+        if (after.speedC !== before.speedC) {
+          logTune(state, cfg, "speedC", before.speedC, after.speedC, null,
+            "航速按周折成工质消耗与传动负荷，越高越费");
+        }
         return { ok: true, before: before, after: after };
       },
 
@@ -3147,6 +3261,17 @@
           // 群体状态：清醒 / 休眠两套个体聚合（加权平均 + 分位）
           wellbeing: state.wellbeing || ((global.XuanShuPeople && state.people)
             ? global.XuanShuPeople.wellbeing(state, cfg) : null),
+          // 遗传层：30 岁判定、繁育池、三类占比、变异/健康/寿限死亡
+          genetics: (global.XuanShuPeople && state.people)
+            ? global.XuanShuPeople.geneticsSummary(state, cfg) : null,
+          // 就业层：岗位表、在岗/失业、失业时长、买不起人数、unrest
+          labor: state.labor ? clone(state.labor) : null,
+          // 研发层：技能点余额、科技树节点、农环病害
+          research: (global.XuanShuResearch && state.research)
+            ? global.XuanShuResearch.summary(state, cfg) : null,
+          // 克隆子代：繁育池、孕期、培养仓
+          breed: (global.XuanShuPeople && global.XuanShuPeople.breedSummary && state.people)
+            ? global.XuanShuPeople.breedSummary(state, cfg) : null,
           // 梦里侵染：压力、累计感染、最近日志周
           dream: state.dream ? clone(state.dream) : null,
           // 药剂池 / 营养四维 / 成瘾三档 / 辐射（v6.29）
@@ -3416,7 +3541,13 @@
           state.wear = clamp(w - drop, 0, 1);
         }
         state.repair = { until: state.weeks + Math.round(num(cfg.ship && cfg.ship.wearRepairWeeks, 3)), cost: cost, at: state.weeks };
-        return { ok: true, msg: "大修开工：−" + cost + " 吨金属 · 六部件损伤各 −" + drop.toFixed(2) + " · 工期 " + (state.repair.until - state.weeks) + " 周（期间产出 −4%）" };
+        var rw = state.repair.until - state.weeks;
+        pushEvent(state, cfg, "ship_repair", "维修", "船体大修 · 开工",
+          "磨损 " + Math.round(w * 100) + "% → 六部件各 −" + Math.round(drop * 100) + "%；金属 −" + cost +
+          " 吨，工期 " + rw + " 周", "wearRepair", true,
+          { "磨损": -Math.round(drop * 100) },
+          "金属与工期是硬花费，期间产出 −4%");
+        return { ok: true, msg: "大修开工：−" + cost + " 吨金属 · 六部件损伤各 −" + drop.toFixed(2) + " · 工期 " + rw + " 周（期间产出 −4%）" };
       },
 
       /* ---------- 商栈与掠夺（v6.53 第四波） ---------- */
@@ -3459,7 +3590,13 @@
       salvageCrew: function (n) {
         var s = salvageEnsure(state, cfg);
         var lim = salvageCfg(cfg).crew || {};
+        var before = s.crew;
         s.crew = clamp(Math.round(num(n, s.crew)), num(lim.min, 0), num(lim.max, 24));
+        if (s.crew !== before) {
+          pushEvent(state, cfg, "player_salvage", "回收", "拆解值勤 · 定员",
+            before + " 人 → " + s.crew + " 人", "salvageCrew", true, null,
+            "人少只拉长工期，不降损耗率");
+        }
         return { ok: true, crew: s.crew, msg: "拆解/回收值勤 " + s.crew + " 人" };
       },
       /** 空间不足三条路：build（payload.size 0/1/2）/ rest / discard */
@@ -3608,7 +3745,49 @@
         var s = clone(state);
         s.series = [];
         s.events = [];
+        if (global.XuanShuPeople && global.XuanShuPeople.geneticsSummary) {
+          s.genetics = global.XuanShuPeople.geneticsSummary(state, cfg);
+        }
         return s;
+      },
+
+      /** 遗传层汇总：30 岁判定、繁育池、三类占比、变异/健康死亡 */
+      genetics: function () {
+        var out = global.XuanShuPeople && global.XuanShuPeople.geneticsSummary
+          ? global.XuanShuPeople.geneticsSummary(state, cfg)
+          : { enabled: false };
+        if (out && global.XuanShuPeople && global.XuanShuPeople.breedSummary) {
+          out.breed = global.XuanShuPeople.breedSummary(state, cfg);
+        }
+        if (out && global.XuanShuResearch) out.research = global.XuanShuResearch.summary(state, cfg);
+        return out;
+      },
+
+      /** 研发层：技能点余额、科技树、农环病害 */
+      research: function () {
+        return global.XuanShuResearch ? global.XuanShuResearch.summary(state, cfg) : { enabled: false };
+      },
+      /** 开始研发某节点：扣点 + 扣资源，到周数后判定成败 */
+      researchStart: function (id) {
+        return global.XuanShuResearch ? global.XuanShuResearch.start(state, cfg, id) : { ok: false, msg: "研发层未加载" };
+      },
+      /** 根治当前农环病害：按级别扣技能点，可能失败（失败仍扣点、病程延长） */
+      researchCure: function (id) {
+        return global.XuanShuResearch ? global.XuanShuResearch.cure(state, cfg, id) : { ok: false, msg: "研发层未加载" };
+      },
+
+      /** 止痛药策略：none / half / full（full 15⭐/5 周，half 半价半效） */
+      setPainkiller: function (mode) {
+        return global.XuanShuPeople && global.XuanShuPeople.setPainkiller
+          ? global.XuanShuPeople.setPainkiller(state, cfg, mode)
+          : { ok: false, msg: "people 层未加载" };
+      },
+
+      /** 给单个克隆用 DNA 修复剂：640⭐、变异 −2.0、健康代价 26 周 */
+      useDnaRepair: function (seq) {
+        return global.XuanShuPeople && global.XuanShuPeople.useDnaRepair
+          ? global.XuanShuPeople.useDnaRepair(state, cfg, seq)
+          : { ok: false, msg: "people 层未加载" };
       },
 
       restore: function (obj) {
@@ -3685,6 +3864,8 @@
     killProportional: killProportional,
     cleanDeltas: cleanDeltas,
     eventIsKey: eventIsKey,
+    pushEvent: pushEvent,
+    logTune: logTune,
     pushCovert: pushCovert,
     covertRoll: covertRoll
   };

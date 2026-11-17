@@ -100,7 +100,7 @@
       L1: num(W.L1, 300), L2: num(W.L2, 180),
       L3: num(W.L3, 110), L3low: num(W.L3low, 100),
       L4: num(W.L4, 55), L4low: num(W.L4low, 50),
-      clone: num(W.clone, 25), undecided: num(C.undecidedSubsidy, 10)
+      clone: num(W.clone, 30), undecided: num(C.undecidedSubsidy, 10)
     };
     var months = {
       L1: num(M.L1, 6), L2: num(M.L2, 6),
@@ -199,7 +199,7 @@
     if (q.kind === "L1") return num(W.L1, 300);
     if (q.kind === "L2") return num(W.L2, 180);
     if (q.id === "L4_und") return 0;               // 未定走补贴，不走工资
-    if (q.kind === "L4clone" || q.id === "L4_clone") return num(W.clone, 25);
+    if (q.kind === "L4clone" || q.id === "L4_clone") return num(W.clone, 30);
     if (q.layer === "L3") {
       var hi3 = (q.dept === "技术" || q.dept === "医疗" || q.dept === "指挥" || q.dept === "农环");
       return hi3 ? num(W.L3, 110) : num(W.L3low, 100);
@@ -240,7 +240,7 @@
     if (!nu) return;
     var fp = clamp(num(e.foodPoor, 0), 0, 1);
     if (fp <= 0) return;
-    var K = num(cfgOf(cfg).foodPoorK, 0.25);
+    var K = num(((cfgOf(cfg) || {}).food || {}).malnK, 0.25);
     nu.protein = clamp(num(nu.protein, 1) - K * fp, 0, 1.2);
     nu.vit = clamp(num(nu.vit, 1) - K * 0.8 * fp, 0, 1.2);
     nu.micro = clamp(num(nu.micro, 1) - K * 0.6 * fp, 0, 1.2);
@@ -266,18 +266,50 @@
     var attend = attendanceOf(ctx && ctx.act, C, undN);
     var prices = C.prices || {};
     var basket = C.basket || {};
-    var sideCost = num(basket.sideShares, 10) * num(prices.side, 2);
     var funCost = num(basket.funSessions, 1) * num(prices.fun, 8);
     var cleanCost = num(basket.clean, 4);
     var miscCost = num(basket.misc, 6);
-    var drugPrice = num(prices.drug, 30);
 
     var flow = blankFlow();
     flow.week = state.weeks | 0;
     // 税池独立于 state.coins（拆解回收建仓的船方账户），避免星币税收淹没既有拆解经济
     var taxPool = Math.max(0, num(c.taxPool, 0));
     var agg = { totalN: 0, foodPoorN: 0, funPoorN: 0, cleanPoorN: 0, drugPoorN: 0 };
+    var Ls = state.labor || {};
+    var wScale = clamp(num(Ls.wageScale, 1), 0, 1);
 
+    function classArr(cls) {
+      var g = (state.people && state.people.groups) || {};
+      if (cls === "noble") return (g.original || []).concat(g.noble || []);
+      if (cls === "clone") return g.clone || [];
+      if (cls === "undecided") return (g.undecided || []).concat(g.incubator || []);
+      return (g.combat || []).concat(g.tech || []).concat(g.service || []).concat(g.medical || []);
+    }
+
+    /* ---- 1) 非克隆工资：同阶层汇总后逐人进个人钱包（只发在岗者） ---- */
+    var wageAgg = { noble: 0, commoner: 0 };
+    qs.forEach(function (q) {
+      var n = Math.max(0, num(q.n, 0));
+      if (n <= 0 || q.kind === "L4clone" || q.id === "L4_und") return;
+      var cls = (q.layer === "L1" || q.layer === "L2") ? "noble" : "commoner";
+      var wagePer = wageOf(q, C);
+      if (q.layer !== "L1" && q.layer !== "L2") wagePer *= attend * orderF;
+      wageAgg[cls] += wagePer * clamp(num(q.empRatio, 1), 0, 1) * n * wScale;
+    });
+    var perHeadOf = { noble: 0, commoner: 0 };
+    ["noble", "commoner"].forEach(function (cls) {
+      var w = num(wageAgg[cls], 0);
+      if (w <= 0) return;
+      var emp = classArr(cls).filter(function (p) { return !p.dormant && p.employed; });
+      if (!emp.length) { flow.wageUnpaid = num(flow.wageUnpaid, 0) + w; return; }
+      var perHead = w / emp.length;
+      emp.forEach(function (p) { p.wallet = num(p.wallet, 0) + perHead; });
+      perHeadOf[cls] = perHead;
+      flow.wage += w;
+    });
+
+    /* ---- 2) 消费与统计：口粮/药已由 rationTick 走个人钱包，这里只结算副食娱乐 ---- */
+    var consumeTax = 0;
     qs.forEach(function (q) {
       var n = Math.max(0, num(q.n, 0));
       q.coin = Math.max(0, num(q.coin, 0));
@@ -291,93 +323,84 @@
 
       var wagePer = wageOf(q, C);
       if (q.layer !== "L1" && q.layer !== "L2") wagePer *= attend * orderF;
-      var wage = wagePer * n;
-      q.coin += wage;
-      flow.wage += wage;
-
-      // 基本篮子：按优先级逐项买，买不起的项记缺口，后面各项一并归零
-      var per = q.coin / n;
-      var spend = 0, sideSpend = 0, funSpend = 0;
-      var poor = { side: 0, fun: 0, clean: 0, misc: 0 };
-      var items = [
-        { key: "side", cost: sideCost },
-        { key: "fun", cost: funCost },
-        { key: "clean", cost: cleanCost },
-        { key: "misc", cost: miscCost }
-      ];
-      items.forEach(function (it) {
-        if (per >= it.cost) {
-          var s = n * it.cost;
-          q.coin -= s;
-          per -= it.cost;
-          spend += s;
-          if (it.key === "side") sideSpend += s;
-          if (it.key === "fun") funSpend += s;
-        } else {
-          poor[it.key] = clamp(n * (1 - per / Math.max(0.0001, it.cost)), 0, n);
-          var s2 = n * Math.max(0, per);
-          q.coin -= s2;
-          spend += s2;
-          if (it.key === "side") sideSpend += s2;
-          if (it.key === "fun") funSpend += s2;
-          per = 0;
-        }
-      });
-      flow.consume += spend;
-
-      // 消费税（只对副食+娱乐）与站务费（按余额），都进船方账户
-      var ct = clamp((sideSpend + funSpend) * consumeRate, 0, q.coin);
-      q.coin -= ct;
-      taxPool += ct;
-      flow.tax += ct;
-      var wt = clamp(q.coin * serviceRate, 0, q.coin);
-      q.coin -= wt;
-      taxPool += wt;
-      flow.wealthTax += wt;
-
-      // L4 持有上限：超限部分每月收缴，防止奴隶层无界攒钱
-      if (q.layer === "L4" && num(C.l4HoldCap, 500) > 0) {
-        var capT = num(C.l4HoldCap, 500) * n;
-        if (q.coin > capT) {
-          var take = (q.coin - capT) * clamp(num(C.l4ExcessTake, 0.20), 0, 1);
-          q.coin -= take;
-          taxPool += take;
-          flow.confiscate += take;
-        }
+      if (q.kind === "L4clone") {
+        // 克隆人：在岗才发工资，逐人进个人钱包；失业 = 0⭐
+        var arrC = classArr("clone");
+        var perHeadC = wagePer * wScale;
+        var wageC = 0, walletSum = 0;
+        arrC.forEach(function (p) {
+          if (!p.dormant && p.employed) {
+            p.wallet = num(p.wallet, 0) + perHeadC;
+            wageC += perHeadC;
+          }
+          walletSum += num(p.wallet, 0);
+        });
+        q.coin = walletSum;
+        flow.wage += wageC;
+        q.coinStats = {
+          n: arrC.length, coin: q.coin, per: arrC.length > 0 ? q.coin / arrC.length : 0,
+          wage: wageC, wagePer: perHeadC, basket: 0, tax: 0,
+          poorFood: 0, poorFun: 0, poorClean: 0, poorDrug: 0
+        };
+        agg.totalN += arrC.length;
+        q.drugBoughtMonth = 0;
+        q.funBoughtMonth = 0;
+        q.sideBoughtMonth = 0;
+        return;
       }
 
-      // 未定补贴：船方出钱；不够就按比例少发
-      if (q.id === "L4_und") {
-        var sub = n * num(C.undecidedSubsidy, 10);
+      var cls = (q.layer === "L1" || q.layer === "L2") ? "noble" : "commoner";
+      if (q.id === "L4_und") cls = "undecided";
+      var arr = classArr(cls);
+      // 未定/未成年不是「失业」，仍发兜底补贴；在岗与否不挂钩
+      if (cls === "undecided" && arr.length) {
+        var sub = arr.length * num(C.undecidedSubsidy, 10);
         var pay = Math.min(sub, Math.max(0, taxPool));
         taxPool -= pay;
-        q.coin += pay;
+        var perSub = pay / arr.length;
+        arr.forEach(function (p) { if (!p.dormant) p.wallet = num(p.wallet, 0) + perSub; });
         flow.subsidy += pay;
         flow.subsidyUnpaid += Math.max(0, sub - pay);
       }
-
-      // 玩家/API 额外买的药与娱乐，抵扣本月缺口
-      var drugCov = Math.min(n, num(q.drugBoughtMonth, 0) * num(C.drugCover, 1));
-      var funCov = Math.min(n, num(q.funBoughtMonth, 0));
-      var pf = poor.side;
-      var pfun = Math.max(0, poor.fun - funCov);
-      var pcl = poor.clean;
-      var pd = (q.coin / n < drugPrice) ? Math.max(0, n - drugCov) : 0;
-
+      var poorFun = 0, poorClean = 0, poorMisc = 0;
+      var walletSum = 0, wageC = 0;
+      arr.forEach(function (p) {
+        if (p.dormant) return;
+        if (p.employed) wageC += num(perHeadOf[cls], 0);
+        // 贵族由船方供养：不扣付费口粮与基本篮子，个人星币全部是可支配收入
+        // （否则 180⭐ 的贵族工资被 165 人平摊后只剩十几⭐，永远买不起任何服务）
+        if (cls === "noble") { walletSum += num(p.wallet, 0); return; }
+        // 副食/娱乐/清洁/杂项：从个人钱包扣，买不起记缺口
+        var funSpend = 0;
+        if (num(p.wallet, 0) >= funCost) { p.wallet -= funCost; funSpend = funCost; }
+        else poorFun++;
+        if (num(p.wallet, 0) >= cleanCost) p.wallet -= cleanCost; else poorClean++;
+        if (num(p.wallet, 0) >= miscCost) p.wallet -= miscCost; else poorMisc++;
+        consumeTax += funSpend * consumeRate;
+        walletSum += num(p.wallet, 0);
+      });
+      q.coin = walletSum;
       q.coinStats = {
-        n: n, coin: q.coin, per: q.coin / n, wage: wage, wagePer: wagePer, basket: spend,
-        tax: ct + wt, poorFood: pf, poorFun: pfun, poorClean: pcl, poorDrug: pd
+        n: arr.length, coin: q.coin, per: arr.length ? q.coin / arr.length : 0,
+        wage: wageC, wagePer: num(perHeadOf[cls], 0), basket: 0, tax: 0,
+        poorFood: 0, poorFun: poorFun, poorClean: poorClean, poorDrug: 0
       };
-      agg.totalN += n;
-      agg.foodPoorN += pf;
-      agg.funPoorN += pfun;
-      agg.cleanPoorN += pcl;
-      agg.drugPoorN += pd;
+      agg.totalN += arr.length;
+      agg.funPoorN += poorFun;
+      agg.cleanPoorN += poorClean;
 
       q.drugBoughtMonth = 0;
       q.funBoughtMonth = 0;
       q.sideBoughtMonth = 0;
     });
+
+    if (consumeTax > 0) { taxPool += consumeTax; flow.tax += consumeTax; }
+    // 口粮/止痛药缺口统一取自 rationTick 的 buyFail，不再另算一套
+    var bf = state.labor && state.labor.buyFail;
+    if (bf) {
+      agg.foodPoorN = num(bf.foodFail, 0);
+      agg.drugPoorN = num(bf.drugFail, 0);
+    }
 
     // 税池只留一个月补贴的缓冲，超出部分销毁（设计里税本来就是货币回笼）
     var poolCap = Math.max(0, num(C.taxPoolCap, 20000));
@@ -386,6 +409,25 @@
       taxPool = poolCap;
     }
     c.taxPool = taxPool;
+
+    /* ---- 3) 按摩服务：月度真实钱包转账（客户 → 按摩师），转账后刷新队列余额 ---- */
+    if (global.XuanShuPeople && global.XuanShuPeople.massageTick) {
+      global.XuanShuPeople.massageTick(state, cfg);
+      qs.forEach(function (q) {
+        var cls = q.kind === "L4clone" ? "clone"
+          : (q.id === "L4_und" ? "undecided"
+            : ((q.layer === "L1" || q.layer === "L2") ? "noble" : "commoner"));
+        var arr = classArr(cls);
+        var sum = 0;
+        arr.forEach(function (p) { sum += num(p.wallet, 0); });
+        q.coin = sum;
+        if (q.coinStats) {
+          q.coinStats.coin = sum;
+          q.coinStats.per = arr.length ? sum / arr.length : 0;
+        }
+      });
+    }
+
     flow.net = flow.wage + flow.subsidy - flow.consume - flow.tax - flow.wealthTax - flow.confiscate;
     c.flow = flow;
     c.effects = {
@@ -460,6 +502,15 @@
 
     q.coin -= cost;
     c.purchases[item] = num(c.purchases[item], 0) + cost;
+    if (global.XuanShuSim && global.XuanShuSim.pushEvent) {
+      var NAMES = { side: "副食", fun: "娱乐", drug: "药剂" };
+      var UNITS = { side: "份", fun: "次", drug: "份" };
+      global.XuanShuSim.pushEvent(state, cfg, "player_buy", "消费",
+        "星币购买 · " + (NAMES[item] || item),
+        "买 " + qty + (UNITS[item] || "份") + "，单价 " + unit + "⭐，共 " + cost + "⭐；余额 " +
+        num(q.coin + cost, 0) + "⭐ → " + q.coin + "⭐", "coinBuy:" + item + "/" + q.id, true, null,
+        item === "drug" ? "药剂同时从库存扣减，不能透支" : "只动这个队列的个人星币，不进税池");
+    }
     return { ok: true, msg: "已购买", qid: q.id, item: item, qty: qty, unit: unit, cost: cost, balance: q.coin };
   }
 
@@ -504,9 +555,8 @@
     var t = taxState(state, cfg);
     var qs = (state.society && state.society.queues) || [];
     var basket = C.basket || {}, prices = C.prices || {};
-    var sideCost = num(basket.sideShares, 10) * num(prices.side, 2);
     var funCost = num(basket.funSessions, 1) * num(prices.fun, 8);
-    var basketCost = sideCost + funCost + num(basket.clean, 4) + num(basket.misc, 6);
+    var basketCost = num((C.food || {}).paidPrice, 2) * 5 + funCost + num(basket.clean, 4) + num(basket.misc, 6);
     var cRate = tierRate(T.consumeRates, (choice && choice.consume != null) ? choice.consume : t.consume, 0.10);
     var sRate = tierRate(T.serviceRates, (choice && choice.service != null) ? choice.service : t.service, 0.02);
     var totalN = 0, poorN = 0;
@@ -518,7 +568,7 @@
       // 可用额 = 月工资/补贴 + 上期结余人均（与实际结算口径一致，结余会被站务费削掉）
       var per = q.coinStats ? Math.max(0, num(q.coinStats.per, 0)) : Math.max(0, num(q.coin, 0) / n);
       var avail = wage + per;
-      var consumeBase = Math.min(sideCost + funCost, Math.max(0, avail));
+      var consumeBase = Math.min(funCost, Math.max(0, avail));
       var net = avail - consumeBase * cRate - Math.max(0, avail - basketCost) * sRate;
       var share = clamp((basketCost - net) / basketCost, 0, 1);
       poorN += n * share;
@@ -549,7 +599,7 @@
     });
     var e = c.effects || blankEffects();
     var basket = C.basket || {}, prices = C.prices || {};
-    var basketCost = num(basket.sideShares, 10) * num(prices.side, 2)
+    var basketCost = num((C.food || {}).paidPrice, 2) * 5
       + num(basket.funSessions, 1) * num(prices.fun, 8)
       + num(basket.clean, 4) + num(basket.misc, 6);
     return {
@@ -590,6 +640,14 @@
     t.consume = ci;
     t.service = si;
     c.tax = t;
+    if ((before.consume !== ci || before.service !== si) && global.XuanShuSim && global.XuanShuSim.pushEvent) {
+      var cl0 = num(cl[before.consume], 0), cl1 = num(cl[ci], 0);
+      var sl0 = num(sl[before.service], 0), sl1 = num(sl[si], 0);
+      global.XuanShuSim.pushEvent(state, cfg, "player_tax", "经济", "调整税率",
+        "消费税 " + Math.round(cl0 * 100) + "% → " + Math.round(cl1 * 100) + "%；站务费 " +
+        Math.round(sl0 * 100) + "% → " + Math.round(sl1 * 100) + "%（下一次月结生效，已过的月不改）",
+        "coinSetTax", true, null, "税率越高税池越厚，但穷人更买不起副食/娱乐");
+    }
     return {
       ok: true,
       msg: "税率档位已调整（下次月结生效）",
@@ -688,6 +746,7 @@
       flow: copyFlow(c.flow || blankFlow()),
       last: c.last ? { week: c.last.week, flow: copyFlow(c.last.flow), effects: c.last.effects } : null,
       purchases: { side: round(num(c.purchases.side, 0), 0), fun: round(num(c.purchases.fun, 0), 0), drug: round(num(c.purchases.drug, 0), 0) },
+      massage: (state.massage && state.massage.last) || null,
       layers: layers,
       tax: taxView(state, cfg),
       top: all.rows.length ? all.rows[all.rows.length - 1].qid : null,

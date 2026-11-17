@@ -15,7 +15,7 @@
 
   var CAT_LABEL = {
     explore: "探索", tech: "科技", resource: "资源", society: "社会",
-    oldgod: "古神", crisis: "危机", trade: "交易"
+    oldgod: "古神", trade: "交易"
   };
   var RARITY_RANK = { common: 0, rare: 1, epic: 2, legendary: 3 };
 
@@ -142,6 +142,8 @@
     if (!e.yearFires || typeof e.yearFires !== "object") e.yearFires = { year: null, n: 0 };
     if (typeof e.luck !== "number") e.luck = 1;
     if (!e.pending) e.pending = null;
+    // v6.62：旧档里残留的「危机牌」不是状态触发，直接清掉，交给 crisisStanding 按状态接管
+    if (e.pending && e.pending.cat === "crisis") e.pending = null;
     if (!e.planetsDone || typeof e.planetsDone !== "object") e.planetsDone = {};
     if (typeof e.planetCount !== "number") e.planetCount = 0;
     return e;
@@ -212,7 +214,6 @@
       resource: 0.80 + 1.60 * sh.avg + 0.80 * sh.food,
       society: 0.80 + 1.80 * (1 - order) + 0.50 * mutLv,
       oldgod: 0.35 + 0.30 * thralls + 2.60 * (meanC / 100) + 2.00 * share,
-      crisis: 0.70 + 0.50 * phase + 1.60 * wear + 1.20 * (1 - clamp(gAvail, 0, 1)),
       trade: 0.70 + 1.20 * (1 - order) + 0.60 * sh.metal
     };
 
@@ -234,7 +235,7 @@
     if (global.XuanShuGods && state.gods && state.gods.enabled) {
       w.explore *= global.XuanShuGods.gMul(state, cfg, "exploreMul", 1);
     }
-    // 航速钩子：按类别乘 r^K，跑得快危机/探索升、贸易/社会降。
+    // 航速钩子：按类别乘 r^K，跑得快探索升、贸易/社会降（危机已移出牌库）。
     // 不能对所有类别同乘——pickCategory 会按总和归一化，统一乘等于没改。
     if (state.ship && cfg.ship && cfg.ship.speedBaseC) {
       var sr = state.ship.speedC / cfg.ship.speedBaseC;
@@ -1026,17 +1027,28 @@
         }
         else { notes.push(pactByChoice(state, cfg, "random")); }
         break;
-      case "cr_decompression":
-        if (choice === "pay") { state.stocks.metal = Math.max(0, num(state.stocks.metal) - 15); notes.push("金属 −15 吨"); }
-        else { popAdjust(state, cfg, "L4", -12); state.order = clamp(num(state.order) - 0.03, 0.05, 1); notes.push("人口 −12、秩序 −3%"); }
-        break;
       case "tr_trader":
         if (choice === "food") { state.stocks.food = num(state.stocks.food) + 50; state.stocks.metal = Math.max(0, num(state.stocks.metal) - 20); notes.push("粮 +50 吨、金属 −20 吨"); }
         else { state.stocks.metal = num(state.stocks.metal) + 40; state.stocks.food = Math.max(0, num(state.stocks.food) - 20); notes.push("金属 +40 吨、粮 −20 吨"); }
         break;
       case "tr_slave_trade":
-        if (choice === "buy") { popAdjust(state, cfg, "undecided", 20); state.stocks.metal = Math.max(0, num(state.stocks.metal) - 35); notes.push("人口 +20、金属 −35 吨"); }
-        else { popAdjust(state, cfg, "L4", -20); state.stocks.metal = num(state.stocks.metal) + 25; notes.push("人口 −20、金属 +25 吨"); }
+        if (choice === "buy") {
+          // v6.63：买入的奴隶先计入俘虏池，由指挥层处置（编入劳动队/吸收/转卖）
+          var Pc = global.XuanShuPrison && global.XuanShuPrison.ensure(state, cfg);
+          if (Pc) Pc.captives = Math.max(0, num(Pc.captives) + 20);
+          state.stocks.metal = Math.max(0, num(state.stocks.metal) - 35);
+          notes.push("俘虏 +20、金属 −35 吨");
+        } else {
+          var Ps = global.XuanShuPrison && global.XuanShuPrison.ensure(state, cfg);
+          var sold = 0;
+          if (Ps && num(Ps.captives) > 0) {
+            sold = Math.min(20, num(Ps.captives));
+            Ps.captives = Math.max(0, num(Ps.captives) - sold);
+          }
+          if (sold < 20) popAdjust(state, cfg, "L4", -(20 - sold));
+          state.stocks.metal = num(state.stocks.metal) + 25;
+          notes.push("卖出人口 −20（俘虏 " + sold + "）、金属 +25 吨");
+        }
         break;
       case "tr_relic_auction":
         if (choice === "tech") { if (soc.machine) soc.machine.tech = clamp(num(soc.machine.tech) + 0.04, 0, 1); notes.push("科技 +4 点"); }
@@ -1307,7 +1319,7 @@
 
     pushEvent(state, cfg, "encounter", "奇遇",
       "奇遇 · " + card.name,
-      summary + (card.costText ? "（代价：" + card.costText + "）" : ""),
+      summary + (card.costText ? "（花费：" + String(card.costText).replace(/（眼下按 ×[\d.]+ 算）/, "") + "）" : ""),
       "类别 " + (e.pending.catLabel || e.pending.cat) + "，稀有度 " +
       (RARITY_LABEL[card.rarity] || "未知") + "，选了第 " + (i + 1) + " 张" +
       (opts.auto ? "（电脑代选）" : ""),
@@ -1596,9 +1608,9 @@
     var e = ensure(state, cfg);
     if (!e.pending) return -1;
     var prefs = {
-      ruler: ["society", "tech", "resource", "explore", "trade", "oldgod", "crisis"],
-      mid: ["tech", "resource", "society", "trade", "explore", "oldgod", "crisis"],
-      slave: ["resource", "society", "trade", "explore", "oldgod", "crisis", "tech"],
+      ruler: ["society", "tech", "resource", "explore", "trade", "oldgod"],
+      mid: ["tech", "resource", "society", "trade", "explore", "oldgod"],
+      slave: ["resource", "society", "trade", "explore", "oldgod", "tech"],
       creator: []
     };
     var mode = (state.player && state.player.mode) || "creator";
@@ -2382,13 +2394,18 @@
       var mt = Math.round(p.pop * num(hp.popValueSmall, 3) * 2);
       var dm = Math.round(mt * 0.4), df = Math.round(mt * 0.2), dd = Math.round(mt * 0.2);
       var dp = Math.min(Math.round(mt * 0.1 / 3), freePods(state, cfg));
+      var dc = Math.min(8, Math.max(1, Math.round(p.pop * 0.05)));
       addStock(state, cfg, "metal", dm); addStock(state, cfg, "food", df); addStock(state, cfg, "drug", dd);
       if (dp > 0) state.groups.derelict.dormant += dp;
+      if (global.XuanShuPrison) {
+        var Pp = global.XuanShuPrison.ensure(state, cfg);
+        Pp.captives = Math.max(0, num(Pp.captives) + dc);
+      }
       addTech(state, 0.01);
       state.order = clamp(num(state.order) - 0.03, 0.05, 1);
       addC(state, 2);
       lines.push("选择：武力夺取（M " + p.M + " ≥ F " + p.F + "）");
-      lines.push("得到：金属 +" + dm + " 吨、粮 +" + df + " 吨、药剂 +" + dd + " 份、休眠俘获 +" + dp + " 人、科技 +1 点");
+      lines.push("得到：金属 +" + dm + " 吨、粮 +" + df + " 吨、药剂 +" + dd + " 份、休眠俘获 +" + dp + " 人、俘虏 +" + dc + " 人、科技 +1 点");
       lines.push("关系：秩序 −3%、异常 +2");
     } else if (key === "eco") {
       var units = Math.round(num((AB.hydroUnits || [2, 6])[0]) +
@@ -2414,7 +2431,7 @@
       state.weeks += num(AB.scrapWeeks, 2);
       lines.push("选择：拆解废弃星残骸");
       lines.push("得到：金属 +" + sm + " 吨");
-      lines.push("代价：拆解耗时 " + num(AB.scrapWeeks, 2) + " 周（航行周已前移）");
+      lines.push("花费：拆解耗时 " + num(AB.scrapWeeks, 2) + " 周（航行周已前移）");
     } else if (key.indexOf("gift_") === 0) {
       var whisper = (num(RU.whisperBase, 0.8) + num(RU.whisperTier, 0.4) * p.tier) * p.dwell;
       var mind = Math.round(whisper * 10) / 10;
@@ -2439,7 +2456,7 @@
         addTech(state, 0.01);
         lines.push("得到：基因样本（金属 +20 吨、科技 +1 点）");
       }
-      lines.push("代价：低语 " + mind + "，秩序 −" + (ord * 100).toFixed(1) + "%、异常 +" + (1 + p.tier));
+      lines.push("花费：低语 " + mind + "，秩序 −" + (ord * 100).toFixed(1) + "%、异常 +" + (1 + p.tier));
       lines.unshift("选择：进入遗迹取走一件");
     }
 

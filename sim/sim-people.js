@@ -103,17 +103,79 @@
     return Math.round(lo + h01(seq, 41) * (hi - lo));
   }
 
-  function mutationOf(cfg, gid, seq) {
-    var M = (cfg.people && cfg.people.mutation) || {};
-    var base = num((M.byGroup || {})[gid], num(M.base, 34));
-    var spread = num(M.spread, 16);
-    return clamp(Math.round(base + h01(seq, 43) * spread), 0, 100);
+  function geneticsOn(cfg) {
+    return !!(global.XuanShuGenetics && global.XuanShuGenetics.enabled(cfg));
   }
 
-  function makePerson(ppl, cfg, gid) {
+  function ensureGenState() {
+    return {
+      screened: 0, passed: 0, failed: 0, mutationDeaths: 0,
+      healthDeaths: 0, lifespanDeaths: 0, screenDeaths: 0, externalDeaths: 0,
+      painkiller: "need", drugWant: 0, drugBought: 0, drugFail: 0,
+      causes: { mutation: 0, health: 0, lifespan: 0, screen: 0, external: 0 },
+      deathAges: []
+    };
+  }
+
+  // 死亡年龄环形缓冲：只留最近 512 条，避免无限增长
+  function pushDeathAge(S, age) {
+    if (!S || !isFinite(age)) return;
+    var buf = S.deathAges || (S.deathAges = []);
+    buf.push(Math.round(age * 10) / 10);
+    if (buf.length > 512) buf.shift();
+  }
+
+  function pctOf(arr, p) {
+    if (!arr || !arr.length) return 0;
+    var a = arr.slice().sort(function (x, y) { return x - y; });
+    var i = Math.min(a.length - 1, Math.max(0, Math.round((a.length - 1) * p)));
+    return a[i];
+  }
+
+  /**
+   * 遗传层初始化：基因型、表现型、出生变异、年龄、初始健康/痛苦。
+   * initial=true 时给克隆 0–29 岁的开局年龄，并按年补算历史辐射增量，
+   * 这样 30 岁判定时变异分布才是 8–12，而不是全员从 1–5 起跳。
+   */
+  function initGenetics(p, cfg, initial) {
+    var X = global.XuanShuGenetics;
+    if (!geneticsOn(cfg) || !X) {
+      p.mutation = 0; p.tol = 0; p.radMul = 1; p.lifespanGene = 300;
+      p.mutK = 1; p.age = 0; p.health = 80; p.pain = 0;
+      p.genome = null; p.screened = false; p.breedPool = false; p.pk = null;
+      p.gclass = "ordinary";
+      return;
+    }
+    var G = cfg.genetics;
+    p.genome = X.randomGenome(cfg, p.seq);
+    var ph = X.phenotype(cfg, p.genome);
+    p.tol = ph.tol;
+    p.radMul = ph.radMul;
+    p.rawR = ph.rawR;
+    p.lifespanGene = ph.lifespanGene;
+    p.mutK = ph.mutK;
+    p.gclass = X.classOf(cfg, ph);
+
+    p.mut0 = G.mutation.birthMin + X.h01(p.seq, 51) * (G.mutation.birthMax - G.mutation.birthMin);
+    p.age = 0;
+    if (initial && p.g === G.screen.group) p.age = X.h01(p.seq, 61) * 29;
+    var yrs = Math.floor(p.age);
+    var mut = p.mut0;
+    for (var y = 1; y <= yrs; y++) mut += X.annualDelta(cfg, p.seq, y, p.radMul, 0);
+    p.mutation = Math.min(G.mutation.deathAt, mut);
+    p.mutYear = yrs;
+    p.health = X.healthAt(cfg, p.mutation, p.tol, p.age, 1);
+    p.pain = X.painAt(cfg, p.mutation, p.health);
+    p.screened = false;
+    p.breedPool = false;
+    p.pk = null;
+    p.deathCause = null;
+  }
+
+  function makePerson(ppl, cfg, gid, initial) {
     var seq = ppl.seq++;
     var layer = pickLayer(cfg, gid, seq);
-    return {
+    var p = {
       seq: seq,
       id: "P" + (10000 + seq),
       g: gid,
@@ -121,8 +183,6 @@
       dept: (cfg.people.groupDept && cfg.people.groupDept[gid]) || "勤务",
       // 魅力：开局一次定值，休眠/唤醒都不改；派系好感与买卖交涉会用到
       charm: charmOf(cfg, seq),
-      // 基因变异度：易感性主因（越高越易感染），耐受度另算
-      mutation: mutationOf(cfg, gid, seq),
       // 植入是「真值」属性：装没装芯片在建造/入伍时就定了，不随周变化
       implanted: h01(seq, 23) < implantBaseOf(cfg, layer),
       dormant: false,
@@ -133,8 +193,27 @@
       cultSince: 0,
       cultC: 0,
       mania: Math.round(num(cfg.people.mania.min, 18) +
-        h01(seq, 29) * (num(cfg.people.mania.max, 62) - num(cfg.people.mania.min, 18)))
+        h01(seq, 29) * (num(cfg.people.mania.max, 62) - num(cfg.people.mania.min, 18))),
+      // 个人经济与就业：工资进钱包，失业即零收入；口粮/止痛药从钱包扣
+      wallet: 0,
+      employed: false,
+      job: "",
+      unemployedWeeks: 0,
+      foodPaid: false,
+      ration: 1,
+      maln: 0,
+      drugHurt: 0,
+      // 按摩服务：masseur 为当月身份，massageMonth 记录最近一次按摩的结算月
+      masseur: false,
+      massageMonth: -1,
+      massageUntil: -1,
+      massageRelief: 0
     };
+    // 个人钱包：全部阶层统一口径，工资、付费口粮、止痛药都从这里进出
+    var wstart = (cfg.coin && cfg.coin.personalWalletStart) || {};
+    p.wallet = num(wstart[classOfGroup(cfg, gid)], 0);
+    initGenetics(p, cfg, !!initial);
+    return p;
   }
 
   function create(cfg) {
@@ -142,7 +221,7 @@
     (cfg.population.groups || []).forEach(function (g) {
       var arr = (ppl.groups[g.id] = []);
       var n = Math.max(0, Math.round(num(g.awake) + num(g.dormant)));
-      for (var i = 0; i < n; i++) arr.push(makePerson(ppl, cfg, g.id));
+      for (var i = 0; i < n; i++) arr.push(makePerson(ppl, cfg, g.id, true));
       var dorm = Math.max(0, Math.min(n, Math.round(num(g.dormant))));
       for (var k = 0; k < n; k++) {
         arr[k].dormant = k >= n - dorm;
@@ -152,7 +231,276 @@
     return ppl;
   }
 
-  /** 每周同步名册规模：人数变了只在尾部增删，休眠只翻标志。 */
+  /* ---------------- 就业分配 ---------------- */
+
+  function classOfGroup(cfg, gid) {
+    var und = (cfg.population && cfg.population.undecidedId) || "undecided";
+    if (gid === und || gid === "incubator") return "undecided";
+    if (gid === "noble") return "noble";
+    if (gid === "clone") return "clone";
+    return "commoner";
+  }
+
+  /**
+   * 按岗位表给人上/下岗：在岗者优先保留，岗位收缩时裁最新入职，
+   * 空缺优先给失业最久的人。失业时长按周累计。
+   */
+  function assignJobs(state, cfg, slotsByClass) {
+    var out = { byClass: {}, unemployedWeeks: null, avgHealth: 70 };
+    var ppl = state.people;
+    if (!ppl || !ppl.groups) return out;
+    var workAge = num(cfg.labor && cfg.labor.workAge, 16);
+    var bucket = { noble: [], commoner: [], clone: [] };
+    var hpSum = 0, hpN = 0;
+
+    Object.keys(ppl.groups).forEach(function (gid) {
+      var c = classOfGroup(cfg, gid);
+      var arr = ppl.groups[gid] || [];
+      for (var i = 0; i < arr.length; i++) {
+        var p = arr[i];
+        // 只有克隆体是按真实年龄建模的个体；其余阶层的人只是名册占位（age 从 0 起），
+        // 不拿年龄卡他们的岗位，醒着就算劳动力。
+        var eligible = c !== "undecided" && !p.dormant &&
+          (c !== "clone" || num(p.age, 0) >= workAge);
+        if (!eligible) {
+          p.employed = false;
+          p.job = "";
+          p.unemployedWeeks = 0;
+          continue;
+        }
+        bucket[c].push(p);
+        hpSum += num(p.health, 70);
+        hpN++;
+      }
+    });
+
+    var allWeeks = [];
+    ["noble", "commoner", "clone"].forEach(function (c) {
+      var arr = bucket[c];
+      var slots = Math.max(0, Math.round(num(slotsByClass && slotsByClass[c], 0)));
+      // 贵族是食利层：编制外的贵族不计失业，只记 surplus，避免把上层算成失业大军
+      if (c === "noble" && arr.length > slots) {
+        for (var e = slots; e < arr.length; e++) {
+          arr[e].employed = false;
+          arr[e].job = "";
+          arr[e].unemployedWeeks = 0;
+        }
+        arr = arr.slice(0, slots);
+        bucket[c] = arr;
+      }
+      var employed = [], waiting = [];
+      arr.forEach(function (p) {
+        if (p.employed) employed.push(p); else waiting.push(p);
+      });
+      if (employed.length > slots) {
+        employed.sort(function (a, b) { return num(a.seq) - num(b.seq); });
+        var cut = employed.splice(slots, employed.length - slots);
+        cut.forEach(function (p) { p.employed = false; p.job = ""; waiting.push(p); });
+      }
+      var need = Math.max(0, slots - employed.length);
+      if (need > 0) {
+        waiting.sort(function (a, b) {
+          var d = num(b.unemployedWeeks) - num(a.unemployedWeeks);
+          return d !== 0 ? d : num(a.seq) - num(b.seq);
+        });
+        for (var i = 0; i < waiting.length && need > 0; i++, need--) {
+          waiting[i].employed = true;
+          waiting[i].job = waiting[i].dept || c;
+        }
+      }
+      var empN = 0, unN = 0;
+      arr.forEach(function (p) {
+        if (p.employed) { p.unemployedWeeks = 0; p.job = p.job || p.dept || c; empN++; }
+        else {
+          p.unemployedWeeks = num(p.unemployedWeeks, 0) + 1;
+          unN++;
+          allWeeks.push(p.unemployedWeeks);
+        }
+      });
+      out.byClass[c] = { labor: arr.length, employed: empN, unemployed: unN };
+    });
+
+    allWeeks.sort(function (a, b) { return a - b; });
+    function q(p) { return allWeeks.length ? pctOf(allWeeks, p) : 0; }
+    var sum = 0, g13 = 0, g26 = 0, g52 = 0;
+    allWeeks.forEach(function (w) {
+      sum += w;
+      if (w > 13) g13++;
+      if (w > 26) g26++;
+      if (w > 52) g52++;
+    });
+    out.unemployedWeeks = {
+      mean: allWeeks.length ? Math.round(sum / allWeeks.length * 10) / 10 : 0,
+      p10: q(0.10), p50: q(0.50), p90: q(0.90),
+      gt13: g13, gt26: g26, gt52: g52
+    };
+    out.avgHealth = hpN > 0 ? hpSum / hpN : 70;
+    return out;
+  }
+
+  /** 每周口粮双轨：免费份额全船发，付费份额从个人钱包扣；扣不起就是吃不饱。 */
+  function rationTick(state, cfg) {
+    var ppl = state.people;
+    if (!ppl || !ppl.groups) return;
+    var wk = Math.floor(num(state.weeks, 0));
+    var S = state.genetics || (state.genetics = ensureGenState());
+    if (S.rationWeek === wk) return;
+    S.rationWeek = wk;
+    S.foodWant = 0;
+    S.foodFail = 0;
+    var price = num(cfg.food && cfg.food.paidPrice, 2);
+    var share = clamp(num(cfg.food && cfg.food.paidShare, 0.30), 0, 1);
+    var freeShare = clamp(num(cfg.food && cfg.food.freeShare, 0.70), 0, 1);
+    var gRatio = clamp(num(state.last && state.last.rationActual, 1), 0, 1);
+    var kgW = num(cfg.food && cfg.food.perCapitaTpy, 0.2263) * 1000 / 52.14 * share;
+    var cost = kgW * price;
+    var gid0 = (cfg.genetics && cfg.genetics.screen && cfg.genetics.screen.group) || "clone";
+    Object.keys(ppl.groups).forEach(function (gid) {
+      if (gid === "incubator" || gid === "undecided" || gid === "derelict") return; // 未成年/不在册
+      // 贵族由船方供养：个人星币是纯可支配收入，不参与付费口粮（否则永远无钱消费）
+      if (gid === "noble" || gid === "original") return;
+      var realAge = (gid === gid0);
+      ((ppl.groups && ppl.groups[gid]) || []).forEach(function (p) {
+        if (p.dormant) { p.foodPaid = false; p.ration = 0.02; return; }
+        // 未成年吃免费维生口粮，不参与付费购买，也不算“买不起”
+        if (realAge && num(p.age, 0) < num(cfg.labor && cfg.labor.workAge, 16)) {
+          p.foodPaid = false;
+          p.ration = Math.min(freeShare, gRatio);
+          return;
+        }
+        S.foodWant++;
+        if (num(p.wallet, 0) >= cost) {
+          p.wallet -= cost;
+          p.foodPaid = true;
+        } else {
+          p.foodPaid = false;
+          S.foodFail++;
+        }
+        p.ration = Math.min(freeShare, gRatio) + (p.foodPaid ? (1 - freeShare) : 0);
+      });
+    });
+  }
+
+  /* ---------------- 按摩服务（v7.2） ----------------
+     每月结算时跑一次，全部走个人 wallet 真实转账：
+     克隆顾客 → 克隆按摩师；平民按摩师 ← 贵族顾客。
+     每人每月最多 1 次；克隆按痛苦阈值决定是否消费，贵族按概率购买。
+     返回本月统计，写进 state.massage.last 供界面与冒烟读取。 */
+  function massageTick(state, cfg) {
+    var M = (cfg.coin && cfg.coin.massage) || {};
+    if (M.enabled === false) return null;
+    var ppl = state.people;
+    if (!ppl || !ppl.groups) return null;
+    var S = state.massage || (state.massage = {});
+    var mkey = num(state.coin && state.coin.settlements, 0);
+    if (S.month === mkey) return S.last || null;   // 同一个月只结算一次
+    S.month = mkey;
+    var wk = Math.floor(num(state.weeks, 0));
+
+    function arrOf(gid) { return ppl.groups[gid] || []; }
+    var cloneArr = arrOf("clone");
+    var nobleArr = arrOf("original").concat(arrOf("noble"));
+    var comArr = arrOf("combat").concat(arrOf("tech"), arrOf("service"), arrOf("medical"));
+
+    // 1) 角色分配：在岗者里按比例指派；先清掉上月身份，避免失业后仍挂按摩师
+    function clearRole(arr, fallbackDept) {
+      arr.forEach(function (p) {
+        if (!p.masseur) return;
+        p.masseur = false;
+        p.job = p.employed ? (p.dept || fallbackDept) : "";
+      });
+    }
+    clearRole(cloneArr, "农环");
+    clearRole(comArr, "勤务");
+    var cloneWork = cloneArr.filter(function (p) { return !p.dormant && p.employed; });
+    var comWork = comArr.filter(function (p) { return !p.dormant && p.employed; });
+    var cloneM = Math.max(0, Math.round(cloneWork.length * num(M.cloneMasseurShare, 0.05)));
+    var comM = Math.max(0, Math.round(comWork.length * num(M.commonerMasseurShare, 0.02)));
+    var a;
+    for (a = 0; a < cloneWork.length && a < cloneM; a++) {
+      cloneWork[a].masseur = true;
+      cloneWork[a].job = "按摩师";
+    }
+    for (a = 0; a < comWork.length && a < comM; a++) {
+      comWork[a].masseur = true;
+      comWork[a].job = "按摩师";
+    }
+    var masseursC = cloneWork.filter(function (p) { return p.masseur; });
+    var masseursN = comWork.filter(function (p) { return p.masseur; });
+
+    // 2) 克隆 → 克隆按摩师：痛苦 ≥ mild 才想按，每人每月最多 1 次
+    var priceC = num(M.clonePrice, 5);
+    var painMin = num(M.clonePainMin, 20);
+    var urge = num(cfg.genetics && cfg.genetics.drugs && cfg.genetics.drugs.painkiller.urgeAt, 30);
+    var drugPrice = num(cfg.genetics && cfg.genetics.drugs && cfg.genetics.drugs.painkiller.price, 13);
+    var capC = masseursC.length * Math.max(1, num(M.cloneCapacity, 25));
+    var sessionsC = 0, paidC = 0;
+    cloneWork.forEach(function (c) {
+      if (sessionsC >= capC || masseursC.length === 0) return;
+      if (c.masseur || num(c.pain, 0) < painMin) return;
+      if (num(c.massageMonth, -1) === mkey) return;
+      // 痛苦高到想买药、且买得起药时，多数人优先攒钱买药；
+      // 但仍有 cloneCrowdOutP 比例的人选择先按摩，挤掉当月的药钱（权衡可见）。
+      if (num(c.pain, 0) >= urge && num(c.wallet, 0) >= drugPrice) {
+        var crowd = h01((num(c.seq, 0) + 1) * 173 + mkey * 59, 37);
+        if (crowd >= num(M.cloneCrowdOutP, 0.25)) return;
+      }
+      if (num(c.wallet, 0) < priceC) return;
+      var prov = masseursC[sessionsC % masseursC.length];
+      c.wallet = num(c.wallet, 0) - priceC;
+      prov.wallet = num(prov.wallet, 0) + priceC;
+      c.massageMonth = mkey;
+      c.massageUntil = wk + num(M.cloneWeeks, 2);
+      c.massageRelief = num(M.cloneRelief, 12);
+      sessionsC++;
+      paidC += priceC;
+    });
+
+    // 3) 贵族 → 平民按摩师：价格贵得多，按概率购买
+    var priceN = num(M.noblePrice, 45);
+    var buyP = clamp(num(M.nobleBuyP, 0.35), 0, 1);
+    var capN = masseursN.length * Math.max(1, num(M.nobleCapacity, 8));
+    var sessionsN = 0, paidN = 0;
+    nobleArr.forEach(function (c) {
+      if (c.dormant || sessionsN >= capN || masseursN.length === 0) return;
+      if (num(c.massageMonth, -1) === mkey) return;
+      if (num(c.wallet, 0) < priceN) return;
+      if (h01((num(c.seq, 0) + 1) * 131 + mkey * 97, 71) >= buyP) return;
+      var prov = masseursN[sessionsN % masseursN.length];
+      c.wallet = num(c.wallet, 0) - priceN;
+      prov.wallet = num(prov.wallet, 0) + priceN;
+      c.massageMonth = mkey;
+      c.massageUntil = wk + num(M.nobleWeeks, 2);
+      c.massageRelief = num(M.nobleRelief, 8);
+      sessionsN++;
+      paidN += priceN;
+    });
+
+    var workAge = num(cfg.labor && cfg.labor.workAge, 16);
+    var awakeC = cloneArr.filter(function (p) { return !p.dormant && num(p.age, 0) >= workAge; }).length;
+    var awakeN = nobleArr.filter(function (p) { return !p.dormant; }).length;
+    S.last = {
+      month: mkey, week: wk,
+      clone: {
+        labor: cloneWork.length, masseurs: masseursC.length,
+        clients: awakeC, served: sessionsC,
+        coverage: awakeC > 0 ? sessionsC / awakeC : 0,
+        price: priceC, paid: paidC
+      },
+      noble: {
+        clients: awakeN, masseurs: masseursN.length,
+        served: sessionsN,
+        coverage: awakeN > 0 ? sessionsN / awakeN : 0,
+        price: priceN, paid: paidN
+      },
+      flow: paidC + paidN,
+      sessions: sessionsC + sessionsN
+    };
+    S.oClone = num(M.oClone, 3) * clamp(S.last.clone.coverage, 0, 1);
+    S.oNoble = num(M.oNoble, 2) * clamp(S.last.noble.coverage, 0, 1);
+    return S.last;
+  }
+
   function sync(state, cfg) {
     if (!cfg.people || cfg.people.enabled === false) return;
     if (!state.people || !state.people.groups) {
@@ -172,13 +520,30 @@
       var st = state.groups[g.id] || { awake: 0, dormant: 0 };
       var target = Math.max(0, Math.round(num(st.awake) + num(st.dormant)));
       var dormTarget = Math.max(0, Math.min(target, Math.round(num(st.dormant))));
-      while (arr.length < target) arr.push(makePerson(ppl, cfg, g.id));
-      while (arr.length > target) arr.pop();
+      while (arr.length < target) arr.push(makePerson(ppl, cfg, g.id, false));
+      if (arr.length > target) {
+        // 外部减员（饥荒/事件/回收）：先记死因再删，避免被误算成幼龄自然死亡
+        var gone = arr.length - target;
+        if (g.id === ((cfg.genetics && cfg.genetics.screen && cfg.genetics.screen.group) || "clone")) {
+          var S0 = state.genetics || (state.genetics = ensureGenState());
+          for (var gi = 0; gi < gone; gi++) {
+            var gp = arr[arr.length - 1 - gi];
+            if (!gp) continue;
+            gp.deathCause = "external";
+            gp.deathAge = num(gp.age, 0);
+            pushDeathAge(S0, gp.deathAge);
+          }
+          S0.externalDeaths = num(S0.externalDeaths, 0) + gone;
+          S0.causes = S0.causes || {};
+          S0.causes.external = num(S0.causes.external, 0) + gone;
+        }
+        while (arr.length > target) arr.pop();
+      }
       var cut = target - dormTarget;
       var isLife = isLifeGroup(cfg, g.id);
       for (var i = 0; i < arr.length; i++) {
         if (typeof arr[i].charm !== "number") arr[i].charm = charmOf(cfg, arr[i].seq);
-        if (typeof arr[i].mutation !== "number") arr[i].mutation = mutationOf(cfg, arr[i].g, arr[i].seq);
+        if (geneticsOn(cfg) && !arr[i].genome) initGenetics(arr[i], cfg, false);
         if (typeof arr[i].cultStage !== "number") { arr[i].cultStage = 0; arr[i].cultSince = 0; arr[i].cultC = 0; }
         if (typeof arr[i].mania !== "number") {
           arr[i].mania = Math.round(num(cfg.people.mania.min, 18) +
@@ -199,7 +564,422 @@
         }
       }
     });
+    if (ppl.genWeek !== wk) {
+      geneticsTick(state, cfg);
+      ppl.genWeek = wk;
+    }
     ppl.cache = null;
+  }
+
+  /* -------------------------------------------------------------------------
+     遗传层周推进：年龄、每年辐射增量、健康/痛苦、30 岁判定与回收。
+     只对克隆组做逐人推进；其余组保留基因型与出生变异，但不判死。
+     ------------------------------------------------------------------------- */
+  function geneticsTick(state, cfg) {
+    if (!geneticsOn(cfg) || !state || !state.people || !state.groups) return;
+    var X = global.XuanShuGenetics;
+    var G = cfg.genetics;
+    var gid = G.screen.group;
+    var ppl = state.people;
+    var arr = (ppl.groups && ppl.groups[gid]) || [];
+    var wk = Math.floor(num(state.weeks, 0));
+    var S = state.genetics;
+    if (!S) {
+      S = state.genetics = ensureGenState();
+    } else {
+      var baseS = ensureGenState();
+      Object.keys(baseS).forEach(function (k) {
+        if (typeof S[k] === "undefined") S[k] = baseS[k];
+      });
+      if (!S.causes) S.causes = baseS.causes;
+      if (!S.deathAges) S.deathAges = [];
+    }
+    S.drugWant = 0;
+    S.drugBought = 0;
+    S.drugFail = 0;
+
+    var dead = [];
+    var RM = global.XuanShuResearch
+      ? global.XuanShuResearch.mods(state, cfg)
+      : { healthBase: 0, painRelief: 0, screenMin: 0 };
+    for (var i = arr.length - 1; i >= 0; i--) {
+      var p = arr[i];
+      p.age = num(p.age, 0) + 1 / 52.14;
+
+      // 止痛药周期与购买（策略开关；none 为默认）
+      geneticsPainkiller(p, state, cfg, wk);
+
+      // 每年一次独立辐射增量
+      var yr = Math.floor(p.age);
+      if (yr > num(p.mutYear, 0)) {
+        var painR = p.pk ? num(p.pk.r, 0) : 0;
+        for (var yy = num(p.mutYear, 0) + 1; yy <= yr; yy++) {
+          p.mutation += X.annualDelta(cfg, p.seq, yy, p.radMul, painR);
+        }
+        p.mutation = Math.min(G.mutation.deathAt, p.mutation);
+        p.mutYear = yr;
+      }
+
+      // 口粮双轨：免费维生份额 + 个人付费补充；只吃免费会缓慢掉健康
+      var freeShare = clamp(num(cfg.food && cfg.food.freeShare, 0.70), 0, 1);
+      var gRatio = clamp(num(state.last && state.last.rationActual, 1), 0, 1.2);
+      var freePart = Math.min(freeShare, gRatio);
+      var paidPart = (1 - freeShare) * (p.foodPaid ? 1 : 0);
+      p.ration = clamp(freePart + paidPart, 0, 1.2);
+      var malnK = num(cfg.food && cfg.food.malnHealthPerYear, 2.5);
+      var malnRec = num(cfg.food && cfg.food.malnRecoverPerYear, 0.8);
+      var dtw = 1 / 52.14;
+      if (p.ration < 1) {
+        p.maln = Math.min(60, num(p.maln, 0) + malnK * (1 - p.ration) * dtw);
+      } else {
+        p.maln = Math.max(0, num(p.maln, 0) - malnRec * dtw);
+      }
+      // 缺药下行链：全船缺药指数越高，个体健康掉得越快（恢复更慢）
+      var dsNow = clamp(num(state.health && state.health.drugShort, 0), 0, 1);
+      if (dsNow > 0) {
+        p.drugHurt = Math.min(40, num(p.drugHurt, 0) + 0.05 * dsNow);
+      } else {
+        p.drugHurt = Math.max(0, num(p.drugHurt, 0) - 0.02);
+      }
+
+      var hMul = p.pk ? X.healthFactorWithDrug(cfg, p.pk.r) : 1;
+      var hurt = (p.repairHurtUntil && wk < p.repairHurtUntil)
+        ? num(G.drugs.dnaRepair.healthCost, 0) : 0;
+      p.health = clamp(X.healthAt(cfg, p.mutation, p.tol, p.age, hMul)
+        - hurt - num(p.maln, 0) - num(p.drugHurt, 0) + num(RM.healthBase, 0), 0, 100);
+      var rawPain = X.painAt(cfg, p.mutation, p.health);
+      p.pain = p.pk
+        ? clamp(X.painWithDrug(cfg, rawPain, p.pk.r) + num(p.pk.withdraw, 0)
+          - num(RM.painRelief, 0) * num(p.pk.r, 0), 0, 100)
+        : rawPain;
+      // 按摩：只压一部分痛苦、持续 2 周，且不能替代止痛药的全效
+      if (p.massageUntil && wk < num(p.massageUntil, -1)) {
+        p.pain = clamp(num(p.pain, 0) - num(p.massageRelief, 0), 0, 100);
+      }
+
+      var cause = null;
+      if (p.mutation >= G.mutation.deathAt) cause = "mutation";
+      else if (p.health < G.health.deathBelow) cause = "health";
+      else if (p.age >= p.lifespanGene) cause = "lifespan";
+      if (cause) {
+        p.deathCause = cause;
+        p.deathAge = p.age;
+        pushDeathAge(S, p.age);
+        S.causes[cause] = num(S.causes[cause], 0) + 1;
+        if (cause === "mutation") S.mutationDeaths++;
+        else if (cause === "health") S.healthDeaths++;
+        else S.lifespanDeaths++;
+        dead.push(p);
+        continue;
+      }
+
+      // 30 岁一次判定：只看健康；通过后不再有年龄淘汰
+      if (!p.screened && p.age >= G.screen.age) {
+        p.screened = true;
+        S.screened++;
+        if (num(p.health, 0) >= num(G.screen.healthMin, 42) + num(RM.screenMin, 0)) {
+          p.breedPool = true;
+          S.passed++;
+        } else {
+          S.failed++;
+          S.screenDeaths = num(S.screenDeaths, 0) + 1;
+          S.causes.screen = num(S.causes.screen, 0) + 1;
+          p.deathCause = "screen";
+          p.deathAge = p.age;
+          pushDeathAge(S, p.age);
+          dead.push(p);
+        }
+      }
+    }
+
+    if (dead.length) {
+      var deadSet = {};
+      dead.forEach(function (p) { deadSet[p.seq] = true; });
+      for (var k = arr.length - 1; k >= 0; k--) {
+        if (deadSet[arr[k].seq]) arr.splice(k, 1);
+      }
+      // 回收：成人 / 胎儿两档，直接进库存
+      var st = state.groups && state.groups[gid];
+      if (st) st.awake = Math.max(0, num(st.awake, 0) - dead.length);
+      var rec = X.recycleOf(cfg, "adult");
+      if (state.stocks) {
+        state.stocks.metal = num(state.stocks.metal, 0) + rec.metal * dead.length;
+        state.stocks.drug = num(state.stocks.drug, 0) + rec.drug * dead.length;
+        state.stocks.food = num(state.stocks.food, 0) + rec.food * dead.length;
+      }
+    }
+
+    S.week = wk;
+    S.living = arr.length;
+    S.breedPool = 0;
+    S.classCounts = { ordinary: 0, rad: 0, tol: 0, both: 0 };
+    S.poolCounts = { ordinary: 0, rad: 0, tol: 0, both: 0 };
+    for (var m = 0; m < arr.length; m++) {
+      var q = arr[m];
+      var cls = q.gclass || "ordinary";
+      S.classCounts[cls] = (S.classCounts[cls] || 0) + 1;
+      if (q.breedPool) {
+        S.breedPool++;
+        S.poolCounts[cls] = (S.poolCounts[cls] || 0) + 1;
+      }
+    }
+    if (S.screened > 0) S.passRate = S.passed / S.screened;
+    S.poolShare = S.breedPool > 0 ? {
+      ordinary: S.poolCounts.ordinary / S.breedPool,
+      rad: S.poolCounts.rad / S.breedPool,
+      tol: S.poolCounts.tol / S.breedPool,
+      both: S.poolCounts.both / S.breedPool
+    } : { ordinary: 0, rad: 0, tol: 0, both: 0 };
+
+    // 克隆子代入口：繁育池配对、孕期、培养仓、15 岁判定
+    breedTick(state, cfg, wk);
+  }
+
+  function geneticsPainkiller(p, state, cfg, wk) {
+    var X = global.XuanShuGenetics;
+    var d = cfg.genetics.drugs.painkiller;
+    var S = state.genetics || (state.genetics = ensureGenState());
+    var mode = S.painkiller || "need";
+    if (mode === "none") {
+      p.pk = null;
+      return;
+    }
+    var urge = num(d.urgeAt, 30);
+    var want = num(p.pain, 0) >= urge;
+    var scale = mode === "half" ? 0.5 : 1;
+    var price = num(d.price, 15) * scale;
+    var needDose = !p.pk || (wk - num(p.pk.doseWeek, -999)) >= num(d.weeks, 5);
+
+    if (want && needDose) {
+      S.drugWant = num(S.drugWant, 0) + 1;
+      if (num(p.wallet, 0) >= price) {
+        p.wallet = num(p.wallet, 0) - price;
+        p.pk = {
+          doseWeek: wk,
+          streak: p.pk ? num(p.pk.streak, 0) + 1 : 1,
+          scale: scale,
+          r: 0,
+          withdraw: 0,
+          withdrawUntil: 0
+        };
+        p.pkMiss = 0;
+        S.drugBought = num(S.drugBought, 0) + 1;
+      } else {
+        // 买不起就是买不起：进戒断，不享受任何阶层特例
+        S.drugFail = num(S.drugFail, 0) + 1;
+        p.pkMiss = num(p.pkMiss, 0) + 1;
+        if (p.pk) {
+          p.pk.withdraw = num(d.withdrawPain, 10);
+          p.pk.withdrawUntil = wk + num(d.withdrawWeeks, 2);
+        }
+      }
+    }
+    if (!p.pk) return;
+    var t = wk - p.pk.doseWeek;
+    p.pk.r = X.painkillerEffect(cfg, t) * p.pk.scale;
+    p.pk.withdraw = (p.pk.withdrawUntil && wk < p.pk.withdrawUntil) ? num(d.withdrawPain, 10) : 0;
+  }
+
+  /* -------------------------------------------------------------------------
+     克隆子代入口（v7.0）
+     30 岁判定通过 → 繁育池 → 配对受孕（39 周）→ 分娩进培养仓 →
+     平民身份、普通教材（教育点按 commoner 速率累计）→ 15 岁判定。
+     基因走 XuanShuGenetics.inherit()：孟德尔分离 + 位点突变，不取父母平均。
+     ------------------------------------------------------------------------- */
+  function findPerson(state, seq) {
+    var groups = state.people && state.people.groups;
+    if (!groups) return null;
+    var keys = Object.keys(groups);
+    for (var i = 0; i < keys.length; i++) {
+      var arr = groups[keys[i]] || [];
+      for (var j = 0; j < arr.length; j++) if (arr[j].seq === seq) return arr[j];
+    }
+    return null;
+  }
+
+  function spawnBreedChild(state, cfg, father, mother, wk) {
+    var B = cfg.genetics.breed;
+    var gid = B.childGroup || "incubator";
+    if (!state.people.groups[gid]) state.people.groups[gid] = [];
+    if (!state.groups[gid]) state.groups[gid] = { awake: 0, dormant: 0 };
+    var ppl = state.people;
+    var p = makePerson(ppl, cfg, gid, false);
+    p.age = 0;
+    p.parents = [father ? father.seq : -1, mother ? mother.seq : -1];
+    p.incubator = true;
+    p.judged = false;
+    p.edu = 0;
+    p.eduSettled = 0;
+    // 真正调用 inherit()：父亲/母亲的基因组做孟德尔分离 + 突变
+    if (global.XuanShuGenetics && father && mother && father.genome && mother.genome) {
+      var X = global.XuanShuGenetics;
+      p.genome = X.inherit(cfg, father.genome, mother.genome, p.seq);
+      var ph = X.phenotype(cfg, p.genome);
+      p.tol = ph.tol; p.radMul = ph.radMul; p.rawR = ph.rawR;
+      p.lifespanGene = ph.lifespanGene; p.mutK = ph.mutK;
+      p.gclass = X.classOf(cfg, ph);
+      p.mut0 = num(cfg.genetics.mutation.birthMin, 1) +
+        X.h01(p.seq, 51) * (num(cfg.genetics.mutation.birthMax, 5) - num(cfg.genetics.mutation.birthMin, 1));
+      p.mutation = p.mut0;
+      p.health = X.healthAt(cfg, p.mutation, p.tol, 0, 1);
+      p.pain = X.painAt(cfg, p.mutation, p.health);
+    }
+    ppl.groups[gid].push(p);
+    state.groups[gid].awake = num(state.groups[gid].awake, 0) + 1;
+    if (!state.bonds) state.bonds = [];
+    state.bonds.push({ child: p.seq, parents: p.parents, week: wk });
+    var S = state.genetics;
+    if (S) S.births = num(S.births, 0) + 1;
+    return p;
+  }
+
+  function breedTick(state, cfg, wk) {
+    var B = cfg.genetics && cfg.genetics.breed;
+    if (!B || B.enabled === false || !state.people) return;
+    var S = state.genetics;
+    if (!S) return;
+    if (!S.pregnancies) S.pregnancies = [];
+    var cloneGid = cfg.genetics.screen.group;
+    var arr = (state.people.groups && state.people.groups[cloneGid]) || [];
+
+    // 1) 孕期推进 → 分娩
+    for (var i = S.pregnancies.length - 1; i >= 0; i--) {
+      var pr = S.pregnancies[i];
+      if (wk < num(pr.dueWeek, 0)) continue;
+      S.pregnancies.splice(i, 1);
+      var fa = findPerson(state, pr.f);
+      var mo = findPerson(state, pr.m);
+      if (!fa || !mo) { S.breedAbort = num(S.breedAbort, 0) + 1; continue; }
+      var gid = B.childGroup || "incubator";
+      var cap = num(B.incubatorCap, 60);
+      var occ = ((state.people.groups[gid] || []).length);
+      if (occ >= cap) {
+        // 培养仓满：保留妊娠，四周后再试；只记一次排队
+        if (!pr.queued) { S.breedQueued = num(S.breedQueued, 0) + 1; pr.queued = true; }
+        pr.dueWeek = wk + 4;
+        S.pregnancies.push(pr);
+        continue;
+      }
+      spawnBreedChild(state, cfg, fa, mo, wk);
+    }
+
+    // 2) 年度配对受孕（只在年初做一次）
+    if (wk > 0 && wk % Math.round(cfg.time.weeksPerYear) === 0) {
+      var pool = arr.filter(function (p) {
+        return p.breedPool && !p.dormant && num(p.age, 8) <= 55;
+      });
+      var pairs = Math.min(num(B.maxPairsPerYear, 12), Math.floor(pool.length / 2));
+      var made = 0;
+      for (var k = 0; k < pairs; k++) {
+        var fi = (k * 2) % pool.length;
+        var mi = (k * 2 + 1) % pool.length;
+        if (fi === mi) continue;
+        var roll = h01(wk + k * 13, 7001 + k * 31);
+        if (roll >= num(B.conceptionPerYear, 0.55)) continue;
+        S.pregnancies.push({
+          f: pool[fi].seq, m: pool[mi].seq,
+          startWeek: wk, dueWeek: wk + Math.round(num(B.pregnancyWeeks, 39))
+        });
+        made++;
+      }
+      if (made) S.pregnanciesMade = num(S.pregnanciesMade, 0) + made;
+    }
+
+    // 3) 培养仓：年龄推进、普通教材教育点、15 岁判定
+    var inc = (state.people.groups && state.people.groups[B.childGroup || "incubator"]) || [];
+    for (var n = inc.length - 1; n >= 0; n--) {
+      var c = inc[n];
+      c.age = num(c.age, 0) + 1 / 52.14;
+      c.edu = num(c.edu, 0) + num(cfg.research && cfg.research.eduPerYear &&
+        cfg.research.eduPerYear.commoner, 1.0) / 52.14;
+      if (c.judged || c.age < num(B.screenAge, 15)) continue;
+      c.judged = true;
+      var RM = global.XuanShuResearch ? global.XuanShuResearch.mods(state, cfg) : null;
+      var healthNeed = num(B.screenHealth, 45) + num(RM && RM.screenMin, 0);
+      var pass = num(c.edu, 0) >= num(B.eduPass, 10) && num(c.health, 0) >= healthNeed;
+      // 通过者按成熟分流进技术/医疗等平民编制；未通过者进勤务平民
+      var target = "service";
+      if (pass) {
+        var shares = cfg.population.maturationShares || {};
+        var roll2 = h01(c.seq, 8801);
+        var acc = 0, chosen = "tech";
+        ["tech", "medical", "combat", "service"].forEach(function (g2) {
+          if (chosen !== "tech") return;
+          acc += num(shares[g2], 0);
+          if (roll2 < acc) chosen = g2;
+        });
+        target = chosen;
+      }
+      inc.splice(n, 1);
+      var tg = state.people.groups[target] || (state.people.groups[target] = []);
+      c.g = target;
+      c.incubator = false;
+      c.judgedResult = pass ? "pass" : "fail";
+      c.dept = (cfg.people.groupDept && cfg.people.groupDept[target]) || c.dept;
+      tg.push(c);
+      if (state.groups[B.childGroup || "incubator"]) {
+        state.groups[B.childGroup || "incubator"].awake =
+          Math.max(0, num(state.groups[B.childGroup || "incubator"].awake, 0) - 1);
+      }
+      if (state.groups[target]) state.groups[target].awake = num(state.groups[target].awake, 0) + 1;
+      S.judged = num(S.judged, 0) + 1;
+      if (pass) S.judgedPass = num(S.judgedPass, 0) + 1;
+      else S.judgedFail = num(S.judgedFail, 0) + 1;
+    }
+  }
+
+  function breedSummary(state, cfg) {
+    var S = state.genetics;
+    if (!S) return null;
+    var gid = (cfg.genetics && cfg.genetics.breed && cfg.genetics.breed.childGroup) || "incubator";
+    var inc = (state.people && state.people.groups && state.people.groups[gid]) || [];
+    return {
+      pregnant: (S.pregnancies || []).length,
+      incubator: inc.length,
+      births: num(S.births, 0),
+      judged: num(S.judged, 0),
+      judgedPass: num(S.judgedPass, 0),
+      judgedFail: num(S.judgedFail, 0),
+      abort: num(S.breedAbort, 0),
+      queued: num(S.breedQueued, 0),
+      cap: num(cfg.genetics && cfg.genetics.breed && cfg.genetics.breed.incubatorCap, 60)
+    };
+  }
+
+  function geneticsSummary(state, cfg) {
+    if (!state || !state.genetics) {
+      return { enabled: false };
+    }
+    var S = state.genetics;
+    return {
+      enabled: true,
+      week: num(S.week, 0),
+      living: num(S.living, 0),
+      breedPool: num(S.breedPool, 0),
+      screened: num(S.screened, 0),
+      passed: num(S.passed, 0),
+      failed: num(S.failed, 0),
+      passRate: num(S.passRate, 0),
+      mutationDeaths: num(S.mutationDeaths, 0),
+      healthDeaths: num(S.healthDeaths, 0),
+      lifespanDeaths: num(S.lifespanDeaths, 0),
+      classCounts: S.classCounts || { ordinary: 0, rad: 0, tol: 0, both: 0 },
+      poolCounts: S.poolCounts || { ordinary: 0, rad: 0, tol: 0, both: 0 },
+      poolShare: S.poolShare || { ordinary: 0, rad: 0, tol: 0, both: 0 },
+      painkiller: S.painkiller || "need",
+      screenDeaths: num(S.screenDeaths, 0),
+      externalDeaths: num(S.externalDeaths, 0),
+      causes: S.causes || { mutation: 0, health: 0, lifespan: 0, screen: 0, external: 0 },
+      deathAge: {
+        p10: pctOf(S.deathAges, 0.10),
+        p50: pctOf(S.deathAges, 0.50),
+        p90: pctOf(S.deathAges, 0.90)
+      },
+      drugWant: num(S.drugWant, 0),
+      drugBought: num(S.drugBought, 0),
+      drugFail: num(S.drugFail, 0),
+      drugFailShare: num(S.drugWant, 0) > 0 ? num(S.drugFail, 0) / num(S.drugWant, 0) : 0
+    };
   }
 
   /**
@@ -372,6 +1152,12 @@
           action: actionOf(p, cfg),
           charm: p.charm,
           mutation: p.mutation,
+          age: p.age, health: p.health, pain: p.pain,
+          tol: p.tol, radMul: p.radMul, lifespanGene: p.lifespanGene,
+          gclass: p.gclass, screened: !!p.screened, breedPool: !!p.breedPool,
+          employed: !!p.employed, job: p.job || "",
+          unemployedWeeks: num(p.unemployedWeeks, 0),
+          wallet: num(p.wallet, 0), ration: num(p.ration, 1), maln: num(p.maln, 0),
           existYears: p.existYears, bioYears: p.bioYears, awakeYears: p.awakeYears, phase: p.phase,
           hp: ps.hp, mind: ps.mind, will: ps.will
         });
@@ -499,6 +1285,8 @@
           action: actionOf(p, cfg),
           charm: p.charm,
           mutation: p.mutation,
+          // 隐藏基因（耐受/抗辐射/寿命）不上玩家视图；只给可观察的健康与痛苦
+          health: p.health, pain: p.pain,
           existYears: p.existYears, bioYears: p.bioYears, awakeYears: p.awakeYears, phase: p.phase,
           hp: ps.hp,
           mind: ps.mind,
@@ -720,7 +1508,9 @@
   function lifeMultOf(state, cfg, tech) {
     var g = cfg.nobleLife && cfg.nobleLife.gene;
     var floor = num(g && g.floor, 0.004);
-    return Math.max(floor, lifeTierOf(cfg, tech).tier.mult - lifeReliefOf(state, cfg));
+    var rm = global.XuanShuResearch ? global.XuanShuResearch.mods(state, cfg) : null;
+    var relief = lifeReliefOf(state, cfg) + num(rm && rm.sleepRelief, 0);
+    return Math.max(floor, lifeTierOf(cfg, tech).tier.mult - relief);
   }
 
   function lifeInit(p, cfg, asleep) {
@@ -785,6 +1575,33 @@
       var st2 = state.groups && state.groups[gid];
       if (st2) { st2.awake = aw; st2.dormant = dm; }
     });
+    // v7.0：醒态贵族硬上限（含原初体）。超出的人强制回舱，仍计入人口，只是不占醒态名额。
+    var cap = num(L.awakeCap, 0);
+    if (cap > 0) {
+      var awake = [];
+      (L.groups || []).forEach(function (gid) {
+        ((state.people && state.people.groups && state.people.groups[gid]) || []).forEach(function (p) {
+          if (!p.dormant) awake.push(p);
+        });
+      });
+      if (awake.length > cap) {
+        awake.sort(function (a, b) {
+          return num(a.phaseYears, 0) - num(b.phaseYears, 0) || num(a.seq, 0) - num(b.seq, 0);
+        });
+        for (var k = 0; k < awake.length - cap; k++) {
+          var q2 = awake[k];
+          q2.phase = "asleep"; q2.phaseYears = 0; q2.dormant = true; q2.action = "休眠";
+        }
+        (L.groups || []).forEach(function (gid) {
+          var a2 = 0, d2 = 0;
+          ((state.people && state.people.groups && state.people.groups[gid]) || []).forEach(function (p) {
+            if (p.dormant) d2++; else a2++;
+          });
+          var st3 = state.groups && state.groups[gid];
+          if (st3) { st3.awake = a2; st3.dormant = d2; }
+        });
+      }
+    }
     state.nobleLife = state.nobleLife || { genes: {}, deaths: 0 };
     state.nobleLife.lastTech = tech;
     state.nobleLife.lastMult = mult;
@@ -1126,7 +1943,9 @@
       var ps = pStats(p, state, cfg);
       // 第一条线：会不会被转化 ← 健康、低变异度、高癫狂、接触暴露。
       // 意志不在这里（它只管转化后进展有多快）。
-      var resist = (ps.hp / 100) * W.hp + ((100 - num(p.mutation, 40)) / 100) * W.mut;
+      // 0–25 尺度：变异越高越易感；25 时抵抗归零
+      var mutDeath = num(cfg.genetics && cfg.genetics.mutation.deathAt, 25);
+      var resist = (ps.hp / 100) * W.hp + clamp(1 - num(p.mutation, 0) / mutDeath, 0, 1) * W.mut;
       var rf = clamp(1 - resist * num(C.resistCap, 0.85), 0.05, 1);
       var maniaF = 1 + (num(p.mania, 40) / 100) * num(C.maniaK, 1.2);
       var expo = exposureOf(p, pools, iso, wk, C);
@@ -1246,10 +2065,50 @@
     return n > 0 ? sum / n : null;
   }
 
+  /** 止痛药策略开关：none / half / full。full 为 15⭐/5 周，half 为半价半效。 */
+  function setPainkiller(state, cfg, mode) {
+    if (!state) return { ok: false, msg: "无状态" };
+    if (["none", "half", "full"].indexOf(mode) < 0) {
+      return { ok: false, msg: "模式须为 none / half / full" };
+    }
+    if (!state.genetics) state.genetics = {};
+    state.genetics.painkiller = mode;
+    return { ok: true, mode: mode, price: num(cfg.genetics.drugs.painkiller.price, 0) * (mode === "half" ? 0.5 : 1) };
+  }
+
+  /** 给单个克隆用 DNA 修复剂：640⭐、变异 −2.0、健康代价挂 26 周。 */
+  function useDnaRepair(state, cfg, seq) {
+    if (!geneticsOn(cfg) || !state || !state.people) return { ok: false, msg: "遗传层未开" };
+    var X = global.XuanShuGenetics;
+    var d = cfg.genetics.drugs.dnaRepair;
+    var arr = (state.people.groups && state.people.groups[cfg.genetics.screen.group]) || [];
+    var p = null;
+    for (var i = 0; i < arr.length; i++) if (arr[i].seq === seq) { p = arr[i]; break; }
+    if (!p) return { ok: false, msg: "没有这个克隆人" };
+    if (p.repairWeek != null && num(state.weeks, 0) - p.repairWeek < d.cooldownWeeks) {
+      return { ok: false, msg: "冷却中", left: d.cooldownWeeks - (num(state.weeks, 0) - p.repairWeek) };
+    }
+    if (num(state.coins, 0) < d.price) return { ok: false, msg: "星币不足", need: d.price };
+    state.coins -= d.price;
+    p.mutation = X.repairMutation(cfg, p.mutation);
+    p.repairWeek = num(state.weeks, 0);
+    p.repairHurtUntil = p.repairWeek + d.cooldownWeeks;
+    return { ok: true, seq: p.seq, mutation: p.mutation, price: d.price };
+  }
+
   global.XuanShuPeople = {
-    version: "1.4.0",
+    version: "1.5.0",
     create: create,
     sync: sync,
+    geneticsTick: geneticsTick,
+    geneticsSummary: geneticsSummary,
+    breedTick: breedTick,
+    breedSummary: breedSummary,
+    assignJobs: assignJobs,
+    rationTick: rationTick,
+    massageTick: massageTick,
+    setPainkiller: setPainkiller,
+    useDnaRepair: useDnaRepair,
     truth: truth,
     playerView: playerView,
     visibleRate: visibleRate,

@@ -731,9 +731,16 @@
       var FC = it.curse || {};
       if (randNext(state) < num(FC.cloneMutant, 0.10)) {
         ((soc.queues) || []).forEach(function (q) { q.C = clamp(num(q.C) + 2, 0, 100); });
-        var d2 = removePop(state, Math.max(1, Math.round(5 * num(FC.cloneDeathMul, 1.2))));
-        pushEvent(state, cfg, "丰穰之腹 · 畸变", "克隆体畸变，体征异常加重，死了 " + d2 + " 人。", "诅咒",
-          { "人口": -d2, "感染": 2 }, "克隆槽里出了怪胎");
+        // 不再直接减员：畸变只累积变异，生死仍交给遗传模块判
+        var hit = 0;
+        var arr = (state.people && state.people.groups && state.people.groups.clone) || [];
+        arr.forEach(function (p) {
+          if (!isNum(p.mutation)) return;
+          p.mutation = Math.min(25, num(p.mutation) + 2);
+          hit++;
+        });
+        pushEvent(state, cfg, "丰穰之腹 · 畸变", "克隆体畸变，变异累积 +2（" + hit + " 人）。", "诅咒",
+          { "感染": 2 }, "克隆槽里出了怪胎");
       }
     }
   }
@@ -758,12 +765,12 @@
     if (randNext(state) < 0.5) {
       var loss = Math.round(5 * mul);
       state.order = clamp(num(state.order) - 0.01 * loss, 0.05, 1);
-      pushEvent(state, cfg, "星启者 · 知识代价", "星启者带走一部分知识，秩序 −" + loss + "%。", "周期索取",
+      pushEvent(state, cfg, "星启者 · 知识花费", "星启者带走一部分知识，秩序 −" + loss + "%。", "周期索取",
         { "秩序": -loss }, "知道得越多，越难管");
     } else {
       var drug = Math.round(40 * mul);
       state.stocks.drug = Math.max(0, num(state.stocks.drug) - drug);
-      pushEvent(state, cfg, "星启者 · 知识代价", "星启者拿走了 " + drug + " 份休眠药剂。", "周期索取",
+      pushEvent(state, cfg, "星启者 · 知识花费", "星启者拿走了 " + drug + " 份休眠药剂。", "周期索取",
         null, "药剂被抽走一批");
     }
   }
@@ -794,7 +801,7 @@
       msg = "索取已经了结。";
     }
     if (!silent) pushEvent(state, cfg, "古神索取 · " + NAMES[t.id], msg, "第 " + Math.round(t.year + 1) + " 年",
-      accept ? { "秩序": 3 } : { "感染": 4 }, accept ? "献祭换来了暂时的安宁" : "拒绝的代价是全船");
+      accept ? { "秩序": 3 } : { "感染": 4 }, accept ? "献祭换来了暂时的安宁" : "拒绝的花费要全船承担");
     g.pendingTithe = null;
     return { ok: true, msg: msg, accept: !!accept };
   }

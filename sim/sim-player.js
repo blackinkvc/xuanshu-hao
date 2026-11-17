@@ -109,7 +109,7 @@
       complianceBonus: 0, willBonus: 0, dominionBonus: 0, authorityBonus: 0,
       compliance: 50, will: 30, dominion: 0, authority: 0,
       infectionC: 0, stage: 0, age: 34, infectionYears: 0,
-      geneDamage: 18, addiction: 0, charm: 52, mutation: 24, mania: 32,
+      geneDamage: 18, addiction: 0, charm: 52, mutation: 10, mania: 32,
       care: {
         stock: { calm: 2, stim: 2, suppress: 2, deep: 2 },
         active: null, leisure: null, genes: {}, repairs: 0,
@@ -347,7 +347,7 @@
     careTick(state, cfg, p);
     p.pc.health = clamp(p.pc.health, 0, 100);
     // v1.4 孕期按周推进（原先写在 yearly 里，一年只 +1，界面上的「第 N 周」会卡住不动）
-    if (p.pc.pregnant) {
+    if (p.pc.pregnant && p.pc.alive) {
       p.pc.pregnantWeeks = num(p.pc.pregnantWeeks, 0) + 1;
       if (p.pc.pregnantWeeks >= num(cfg.player.pregnancyWeeks, 39)) {
         p.pc.pregnant = 0;
@@ -410,7 +410,7 @@
       // 魅力值：个体向的派系资本（0–100），协商 / 安抚 / 公开账目吃这个数
       charm: clamp(Math.round(num(p.pc.charm, 52) + num(p.pc.will) * 0.15), 0, 100),
       // 基因变异度：固有属性，不跟成瘾挂钩（成瘾推高的是癫狂）
-      mutation: clamp(Math.round(num(p.pc.mutation, 24)), 0, 100),
+      mutation: clamp(Math.round(num(p.pc.mutation, 10) * 10) / 10, 0, 25),
       // 癫狂：药物与教义激起的亢奋，成瘾每周把它往上推
       mania: clamp(Math.round(num(p.pc.mania, 32) + num(p.pc.addiction, 0) * 0.5), 0, 100),
       compliance: rnd(p.pc.compliance),
@@ -1005,6 +1005,16 @@
     return (u && u.parts && u.parts[id]) || null;
   }
 
+  // 拆除失败：件没取出来，仍在体内、加成保留；只扣损伤，手术费与工期照收
+  function cyberRemoveFailText(d) {
+    var hurt = [];
+    if (num(d.failHp, 0) > 0) hurt.push("健康 −" + num(d.failHp, 0));
+    if (num(d.failInfect, 0) > 0) hurt.push("感染 +" + num(d.failInfect, 0));
+    if (num(d.failMind, 0) > 0) hurt.push("理智 −" + num(d.failMind, 0));
+    return "拆不下来：件仍在体内、加成保留；" + (hurt.length ? hurt.join("、") : "无额外损伤") +
+      "；手术费与工期照收（已扣）。";
+  }
+
   function cyberVolume(c) {
     var v = 0;
     ((c && c.cyberRecycle) || []).forEach(function (r) { v += num(r.volume, 0); });
@@ -1046,12 +1056,14 @@
     pc.health = clamp(num(pc.health, 0) - num(d.failHp, 0), 0, 100);
     pc.infectionC = num(pc.infectionC, 0) + num(d.failInfect, 0);
     if (num(d.failMind, 0) > 0) careAddBuff(c, "mind", -num(d.failMind, 0), 8);
+    var isRemove = action === "remove";
     pushEvent(state, cfg, "player_cyber_fail", "身份",
-      (action === "install" ? "义体植入失败 · " : "义体拆除失败 · ") + d.name,
-      d.failText || "手术失手，零件报废。", null, "零件报废，损伤自己扛");
+      (isRemove ? "义体拆除失败 · " : "义体植入失败 · ") + d.name,
+      isRemove ? cyberRemoveFailText(d) : (d.failText || "手术失手，零件报废。"), null,
+      isRemove ? "件没取出来，加成还在；钱和工期不退" : "零件报废，损伤自己扛");
   }
 
-  // 改造任务到期结算：成功才装/拆，失败报废并留下损伤
+  // 改造任务到期结算：成功才装/拆；植入失败材料报废，拆除失败件留在体内（加成保留）
   function cyberTick(state, cfg, p) {
     var pc = p.pc, c = pc.care;
     var job = c && c.cyberJob;
@@ -1069,14 +1081,14 @@
       pc.health = clamp(num(pc.health, 0) + num(d.hpBonus, 0), 0, 100);
       cyberRecalc(c, cfg);
       pushEvent(state, cfg, "player_cyber_install", "身份", "义体植入 · " + d.name,
-        "手术成功，" + (d.text || "改造完成") + "。", null, "能拆，但拆也有风险");
+        "未装 → 已装：" + (d.text || "改造完成") + "。", null, "能拆，但拆也有风险");
     } else {
       delete c.cyber[job.partId];
       pc.health = clamp(num(pc.health, 0) - num(d.hpBonus, 0), 0, 100);
       c.cyberRecycle.push({ partId: job.partId, volume: num(d.volume, 0), week: state.weeks });
       cyberRecalc(c, cfg);
       pushEvent(state, cfg, "player_cyber_remove", "身份", "义体拆除 · " + d.name,
-        "拆下的件已入库（回收仓库 " + cyberVolume(c) + " m³）。", null, "仓库占体积，满了就拆不了");
+        "已装 → 拆下入库（回收仓库 " + cyberVolume(c) + " m³）。", null, "仓库占体积，满了就拆不了");
     }
   }
 
@@ -1254,7 +1266,7 @@
     var cyber = null;
     var cyDef = k.cyber;
     if (cyDef && cyDef.parts) {
-      var capM3 = num(cyDef.warehouseCapM3, 12);
+      var capM3 = num(cyDef.warehouseCapM3, 3.6);
       var volM3 = cyberVolume(c);
       var job = c.cyberJob;
       var propTons = num(state.ship && state.ship.propellant, 0);
@@ -1328,7 +1340,7 @@
             remove: {
               coins: num(rem.coins, 0), weeks: num(rem.weeks, 0),
               fail: num(rem.fail, 0), failPct: Math.round(num(rem.fail, 0) * 100),
-              failText: d.failText || "",
+              failText: cyberRemoveFailText(d),
               costText: "星币 " + num(rem.coins, 0) + " + " + num(rem.weeks, 0) + " 周",
               can: canRemove,
               reason: canRemove ? "" : (job ? "手术台上还有一件没完工" :
@@ -1403,7 +1415,7 @@
       careAddBuff(c, "spirit", d.spirit, d.weeks);
       c.active = { id: key, until: state.weeks + num(d.weeks, 4) };
       pushEvent(state, cfg, "player_drug", "身份", "用了「" + d.name + "」",
-        d.effectText + "；代价：" + d.sideText + "；成瘾 " + (num(d.addict, 0) >= 0 ? "+" : "") +
+        d.effectText + "；花费：" + d.sideText + "；成瘾 " + (num(d.addict, 0) >= 0 ? "+" : "") +
         d.addict + "。", null, "管 " + d.weeks + " 周");
       return { ok: true, msg: "用了「" + d.name + "」：" + d.effectText + "（" + d.weeks + " 周）", care: careBrief(state, cfg) };
     }
@@ -1504,10 +1516,15 @@
       c.upkeepChangedWeek = state.weeks;
       if (c.upkeepMiss) c.upkeepMiss[tid] = false;
       var tier = list[idx];
-      pushEvent(state, cfg, "player_upkeep", "身份", "调整养护：" + t.name + " → " + tier.label,
-        "配给改为「" + tier.label + "」，每周消耗 " +
-        (num(tier.cost, 0) > 0 ? num(tier.cost, 0) + " " + (t.unit || "") : "0（不占库存）") +
-        "，下周结算起生效。", null, "随时能改，代价按周算");
+      var prevTier = list[cur];
+      var costOf = function (x) {
+        return num(x.cost, 0) > 0 ? num(x.cost, 0) + " " + (t.unit || "") : "0（不占库存）";
+      };
+      if (idx !== cur) {
+        pushEvent(state, cfg, "player_upkeep", "身份", "调整养护：" + t.name + " → " + tier.label,
+          "配给「" + prevTier.label + "」→「" + tier.label + "」，每周消耗 " +
+          costOf(prevTier) + " → " + costOf(tier) + "，下周结算起生效。", null, "随时能改，花费按周算");
+      }
       return { ok: true, msg: "「" + t.name + "」改为「" + tier.label + "」", care: careBrief(state, cfg) };
     }
 
@@ -1524,7 +1541,7 @@
       if (tp < num(d.tech, 0)) {
         return { ok: false, msg: "科技 " + tp + " 点，还差 " + (num(d.tech, 0) - tp) + " 点才能动「" + d.name + "」" };
       }
-      var capM3 = num(cy.warehouseCapM3, 12);
+      var capM3 = num(cy.warehouseCapM3, 3.6);
 
       if (act === "install") {
         if (c.cyber[pid]) return { ok: false, msg: "「" + d.name + "」已经装着" };

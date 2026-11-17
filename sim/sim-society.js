@@ -126,9 +126,26 @@
     return qs;
   }
 
+  function jobSlotsOf(queues) {
+    var total = 0;
+    var byClass = { noble: 0, commoner: 0, clone: 0 };
+    var byDept = {};
+    (queues || []).forEach(function (q) {
+      if (q.id === "L4_und") return;             // 未定/未成年不是岗位
+      var cls = (q.layer === "L1" || q.layer === "L2" || q.layer === "L3") ? "noble"
+        : (q.kind === "L4clone" ? "clone" : "commoner");
+      total += q.w;
+      byClass[cls] += q.w;
+      byDept[q.dept] = (byDept[q.dept] || 0) + q.w;
+    });
+    return { total: total, byClass: byClass, byDept: byDept };
+  }
+
   function create(cfg) {
+    var qs = buildQueues();
     var s = {
-      queues: buildQueues(),
+      queues: qs,
+      jobSlots: jobSlotsOf(qs),
       depts: {},
       mutiny: { level: 0, since: 0, dept: "", coverage: 0,
                 l1: 0, l3: 0, l4: 0, l5: 0, holdUntil: -1, l1dead: false },
@@ -276,7 +293,7 @@
     soc.queues.forEach(function (q) { if (q.layer === "L4") deptL4[q.dept] += q.n; });
 
     soc.queues.forEach(function (q) {
-      q.n = Math.max(0, env.awake * q.w / cfg.society.awakeBase);
+      q.n = Math.min(q.w, Math.max(0, env.awake * q.w / cfg.society.awakeBase));
       var cf = cfg.society.comfort;
       var dev = (c - cf.center) / cf.width;
       var oPhys = -cf.maxPenalty * clamp(dev * dev, 0, 1);
@@ -297,8 +314,15 @@
         if (sA != null) q.seniority = Math.round(sA * 10) / 10;
       }
 
+      // 按摩覆盖率 → 小幅度服从缓冲（克隆被服务、贵族被服务），不替代药物
+      var oMassage = 0;
+      if (state.massage) {
+        if (q.kind === "L4clone" || q.id === "L4_clone") oMassage = num(state.massage.oClone, 0);
+        else if (q.layer === "L1" || q.layer === "L2") oMassage = num(state.massage.oNoble, 0);
+      }
+
       var O = baseOOf(q, cfg) + oPhys - 0.45 * q.C + oTrauma + q.oPerm + soc.effects.oShift +
-        oPoolSum(soc) - q.mig * cfg.society.eduMigration.oLoss + oCharm;
+        oPoolSum(soc) - q.mig * cfg.society.eduMigration.oLoss + oCharm + oMassage;
       var W = baseWOf(q, cfg) +
         cfg.society.will.expK * Math.log(1 + q.exp) +
         cfg.society.will.comfortGain * clamp((c - cfg.society.will.comfortStart) / cfg.society.will.comfortSpan, 0, 1) +
@@ -1038,7 +1062,7 @@
       extra + "；第 " + (used + 1) + " 次用，效果" + (mul >= 0.999 ? "打满" : "打 " + Math.round(mul * 100) + "%"),
       "冷却 " + a.cdWeeks + " 周；递减序列 " + a.uses.join(" / ") + "；" + (a.note || ""),
       global.XuanShuSim.diffMetrics(M0, global.XuanShuSim.metrics(state, cfg)),
-      a.label + "，代价和效果都记在账上");
+      a.label + "，花费和效果都记在账上");
     return { ok: true, msg: a.label + "了：" + extra };
   }
 
@@ -1124,6 +1148,151 @@
     return { ok: true, msg: "感染已扩散至 " + hit.length + " 个队列（" + hit.join("、") + "）" };
   }
 
+  /* ---------------- 就业与岗位表 ---------------- */
+
+  function isNum(v) { return typeof v === "number" && isFinite(v); }
+
+  function queueClassOf(q) {
+    if (q.layer === "L1" || q.layer === "L2" || q.layer === "L3") return "noble";
+    if (q.kind === "L4clone") return "clone";
+    if (q.id === "L4_und") return "undecided";
+    return "commoner";
+  }
+
+  function ensureLaborState(state, cfg) {
+    var soc = state.society || {};
+    var slots = soc.jobSlots || jobSlotsOf(soc.queues || []);
+    var L = state.labor;
+    if (!L || typeof L !== "object") L = state.labor = {};
+    if (!Array.isArray(L.jobsTemp)) L.jobsTemp = [];
+    if (!isNum(L.wageScale)) L.wageScale = 1;
+    if (!isNum(L.workScale)) L.workScale = 1;
+    if (!isNum(L.freeFoodUntil)) L.freeFoodUntil = -1;
+    if (!isNum(L.competeUntil)) L.competeUntil = -1;
+    if (!isNum(L.lastCompeteWeek)) L.lastCompeteWeek = -1;
+    if (!isNum(L.quality)) L.quality = 0.55;
+    if (!isNum(L.competeDelta)) L.competeDelta = 0;
+    if (!isNum(L.unrest)) L.unrest = 0;
+    if (typeof L.split !== "boolean") L.split = false;
+    L.jobsBase = slots.total;
+    L.laborFull = slots.total;
+    L.slots = slots;
+    return L;
+  }
+
+  /** 岗位表 → 个人在岗/失业；产出 state.labor（与危机线共用的字段契约）。 */
+  function laborTick(state, cfg, env) {
+    var soc = state.society;
+    if (!soc || !soc.queues) return null;
+    var L = ensureLaborState(state, cfg);
+    var K = cfg.labor || {};
+    var slots = L.slots;
+
+    L.jobsTemp = (L.jobsTemp || []).filter(function (j) { return state.weeks < num(j.until); });
+
+    var slotsByClass = {
+      noble: slots.byClass.noble,
+      commoner: slots.byClass.commoner,
+      clone: slots.byClass.clone
+    };
+    // 岗位拆半：一岗两人，岗位人头翻倍（工资由 wageScale 折）
+    if (L.split) {
+      Object.keys(slotsByClass).forEach(function (k) { slotsByClass[k] *= 2; });
+    }
+    // 新建项目临时岗位：六成给克隆、四成给平民
+    var temp = 0;
+    L.jobsTemp.forEach(function (j) { temp += num(j.add); });
+    if (temp !== 0) {
+      var toClone = Math.round(temp * 0.6);
+      slotsByClass.clone = Math.max(0, slotsByClass.clone + toClone);
+      slotsByClass.commoner = Math.max(0, slotsByClass.commoner + (temp - toClone));
+    }
+    if (L.competeDelta) slotsByClass.clone = Math.max(0, slotsByClass.clone + L.competeDelta);
+
+    var info = (global.XuanShuPeople && global.XuanShuPeople.assignJobs)
+      ? global.XuanShuPeople.assignJobs(state, cfg, slotsByClass) : null;
+    var byClass = (info && info.byClass) || {};
+
+    var totalLabor = 0, totalEmp = 0, totalUnemp = 0;
+    ["noble", "commoner", "clone"].forEach(function (k) {
+      var b = byClass[k] || (byClass[k] = { labor: 0, employed: 0, unemployed: 0 });
+      b.slots = slotsByClass[k] || 0;
+      b.vacant = Math.max(0, b.slots - b.employed);
+      b.rate = b.labor > 0 ? b.unemployed / b.labor : 0;
+      totalLabor += b.labor;
+      totalEmp += b.employed;
+      totalUnemp += b.unemployed;
+    });
+    byClass.undecided = { labor: 0, slots: 0, employed: 0, unemployed: 0, vacant: 0, rate: 0 };
+
+    L.jobs = Math.max(0, slots.total + temp + num(L.competeDelta, 0) + (L.split ? slots.total : 0));
+    L.labor = totalLabor;
+    L.employed = totalEmp;
+    L.unemployed = totalUnemp;
+    L.rate = totalLabor > 0 ? totalUnemp / totalLabor : 0;
+    L.vacant = Math.max(0, L.jobs - totalEmp);
+    L.byClass = byClass;
+    L.unemployedWeeks = (info && info.unemployedWeeks) || { mean: 0, p10: 0, p50: 0, p90: 0, gt13: 0, gt26: 0, gt52: 0 };
+
+    // 分部门岗位/在岗，以及在岗比例（工资与产出按这个折）
+    L.byDept = {};
+    soc.queues.forEach(function (q) {
+      var cls = queueClassOf(q);
+      if (cls === "undecided") { q.empRatio = 0; return; }
+      var c = byClass[cls] || {};
+      var fill = (c.labor > 0) ? clamp(c.employed / c.labor, 0, 1) : 0;
+      q.empRatio = fill;
+      var d = L.byDept[q.dept] || (L.byDept[q.dept] = { slots: 0, employed: 0, vacant: 0 });
+      d.slots += q.w;
+      d.employed += q.w * fill;
+    });
+    Object.keys(L.byDept).forEach(function (d) {
+      var o = L.byDept[d];
+      o.employed = Math.round(o.employed * 10) / 10;
+      o.vacant = Math.max(0, Math.round((o.slots - o.employed) * 10) / 10);
+    });
+
+    // 素质评分：不再固定 0.55，按在岗率、秩序、平均健康算
+    var avgHp = num(info && info.avgHealth, 70);
+    L.quality = clamp(0.15 + 0.35 * (1 - L.rate) + 0.20 * clamp(num(state.order, 0.5), 0, 1) +
+      0.30 * clamp(avgHp / 100, 0, 1), 0.05, 0.95);
+
+    // 买不起：口粮/药的失败数由 people 每周汇总
+    var G = state.genetics || {};
+    L.buyFail = {
+      foodWant: num(G.foodWant), foodFail: num(G.foodFail),
+      drugWant: num(G.drugWant), drugFail: num(G.drugFail)
+    };
+
+    // 失业—贫困压力池：约 20 周滞后，推动秩序
+    var uw = L.unemployedWeeks || {};
+    var longN = num(uw.gt26);
+    var longShare = L.labor > 0 ? clamp(longN / L.labor, 0, 1) : 0;
+    var wants = L.buyFail.foodWant + L.buyFail.drugWant;
+    var fails = L.buyFail.foodFail + L.buyFail.drugFail;
+    var deprived = wants > 0 ? clamp(fails / wants, 0, 1) : 0;
+    var target = clamp(num(K.unrestRateK, 0.55) * L.rate +
+      num(K.unrestLongK, 0.30) * longShare +
+      num(K.unrestDeprivedK, 0.35) * deprived, 0, 1);
+    L.unrest = clamp(L.unrest + (target - L.unrest) * num(K.unrestLag, 0.05), 0, 1);
+    L.deprivedShare = deprived;
+    L.longShare = longShare;
+
+    if (isNum(state.order)) {
+      state.order = clamp(state.order - num(K.orderWeekK, 0.0015) * L.unrest, 0, 1);
+    }
+
+    // 缺药下行链：买不起止痛药的比例越高，全船缺药指数越高；恢复比上行慢
+    var HS = state.health || (state.health = {});
+    var wantD = num(L.buyFail.drugWant), failD = num(L.buyFail.drugFail);
+    var tgtD = wantD > 0 ? clamp(failD / wantD, 0, 1) : 0;
+    var ds = clamp(num(HS.drugShort, 0), 0, 1);
+    if (tgtD > ds) ds += (tgtD - ds) * 0.08;
+    else ds -= ds * 0.04;
+    HS.drugShort = clamp(ds, 0, 1);
+    return L;
+  }
+
   /* ---------------- 周结算入口 ---------------- */
 
   function step(state, cfg, env) {
@@ -1151,6 +1320,10 @@
     }
 
     updateQueues(state, cfg, env);
+    laborTick(state, cfg, env);
+    if (global.XuanShuPeople && global.XuanShuPeople.rationTick) {
+      global.XuanShuPeople.rationTick(state, cfg);
+    }
     updateDepts(state, cfg);
     updateLadder(state, cfg);
     updateGarrison(state, cfg, env);
@@ -1258,6 +1431,9 @@
   global.XuanShuSociety = {
     create: create,
     step: step,
+    laborTick: laborTick,
+    ensureLaborState: ensureLaborState,
+    jobSlotsOf: jobSlotsOf,
     summary: summary,
     act: act,
     triggerMutiny: triggerMutiny,

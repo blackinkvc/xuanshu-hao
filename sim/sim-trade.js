@@ -82,6 +82,13 @@
     if (t.lines.length > 6) t.lines.length = 6;
   }
 
+  // 玩家操作写事件流：周次/年季由引擎补，文案自带「改前 → 改后」与代价
+  function logOp(state, cfg, level, title, text, basis, note) {
+    if (global.XuanShuSim && global.XuanShuSim.pushEvent) {
+      global.XuanShuSim.pushEvent(state, cfg, "player_trade", level, title, text, basis || "", true, null, note || "");
+    }
+  }
+
   function roll(state, cfg) {
     var t = ensure(state);
     var r0 = rnd(t, 0);
@@ -108,6 +115,9 @@
       charm: Math.round(charm), charmMul: Math.round(charmMul * 1000) / 1000,
       at: num(state.weeks, 0) };
     t.visits += 1;
+    logOp(state, cfg, "交易", "商栈 · 叫船",
+      "「" + ship.name + "」靠泊（" + ship.risk + "），" + slots.length + " 个货槽；累计第 " +
+      t.visits + " 次叫船", "visit:" + ship.id, "叫船不花资源，只换一批货与挂牌价");
     return t.offer;
   }
 
@@ -179,10 +189,15 @@
         addStock(state, slot.good, slot.qty);
       }
       state.stocks.metal = Math.max(0, num(state.stocks.metal, 0) - price);
-      t.rep = clamp(num(t.rep, 50) + 1, 0, 100);
+      var repBuy = num(t.rep, 50);
+      t.rep = clamp(repBuy + 1, 0, 100);
       t.stats.buy += 1;
       var line = "买入 " + slot.name + " " + slot.qty + " " + g.unit + "，付 " + price + " 吨金属";
       pushLine(t, line);
+      logOp(state, cfg, "交易", "商栈 · 买入 " + slot.name,
+        line + "；商誉 " + Math.round(repBuy) + " → " + Math.round(t.rep) +
+        "；金属 " + Math.round(num(state.stocks.metal, 0) + price) + " → " + Math.round(num(state.stocks.metal, 0)) + " 吨",
+        "deal:buy:" + slot.good, "买价含 15% 泊位费");
       return { ok: true, msg: line, lines: t.lines.slice() };
     }
     // 卖：按库存上限成交，回收价 = 挂牌价 × 0.8
@@ -203,17 +218,23 @@
     if (got <= 0) return { ok: false, msg: "库存不够，卖不出去" };
     var gain = Math.max(1, Math.round(got * slot.price / slot.qty * 0.8));
     addStock(state, "metal", gain);
-    t.rep = clamp(num(t.rep, 50) + 0.5, 0, 100);
+    var repSell = num(t.rep, 50);
+    t.rep = clamp(repSell + 0.5, 0, 100);
     t.stats.sell += 1;
     var line2 = "卖出 " + slot.name + " " + got + " " + g.unit + "，得 " + gain + " 吨金属";
     pushLine(t, line2);
+    var moralNote = (slot.good === "pop" || slot.good === "clone" || slot.good === "dormant")
+      ? "；道德与秩序同时下压" : "";
+    logOp(state, cfg, "交易", "商栈 · 卖出 " + slot.name,
+      line2 + "；商誉 " + Math.round(repSell) + " → " + Math.round(t.rep) + moralNote,
+      "deal:sell:" + slot.good, "回收价 = 挂牌价 × 0.8");
     return { ok: true, msg: line2, lines: t.lines.slice() };
   }
 
   var RAID = [
-    { tier: 1, name: "一档 · 货舱", metal: [40, 80], food: [20, 40], order: 0.02, heat: 8, rep: 3 },
-    { tier: 2, name: "二档 · 商船", metal: [90, 160], food: [40, 90], order: 0.04, heat: 18, rep: 7, lossP: 0.30 },
-    { tier: 3, name: "三档 · 空间站", metal: [180, 320], food: [80, 160], order: 0.08, heat: 35, rep: 12, needCombat: 20 }
+    { tier: 1, name: "一档 · 货舱", metal: [40, 80], food: [20, 40], order: 0.02, heat: 8, rep: 3, captive: [0, 1] },
+    { tier: 2, name: "二档 · 商船", metal: [90, 160], food: [40, 90], order: 0.04, heat: 18, rep: 7, lossP: 0.30, captive: [1, 3] },
+    { tier: 3, name: "三档 · 空间站", metal: [180, 320], food: [80, 160], order: 0.08, heat: 35, rep: 12, needCombat: 20, captive: [3, 6] }
   ];
 
   function raid(state, cfg, p) {
@@ -228,6 +249,8 @@
       t.heat = clamp(num(t.heat, 0) + 12, 0, 100);
       var fail = "三档失败：战斗编制 " + Math.round(combat) + " < " + R.needCombat + "，结构 −2、秩序 −3%、热度 +12";
       pushLine(t, fail);
+      logOp(state, cfg, "掠夺", "掠夺 · " + R.name + "（失败）", fail, "raid:fail:" + tier,
+        "条件不满足也照扣结构与秩序");
       return { ok: false, msg: fail, lines: t.lines.slice() };
     }
     var mGain = pickN(t, 40 + tier, R.metal[0], R.metal[1]);
@@ -242,11 +265,27 @@
       t.statues = Math.max(0, num(t.statues, 0) + 1);
     }
     state.order = clamp(num(state.order, 1) - R.order, 0, 1);
+    // v6.63：掠夺带回俘虏，供「俘虏哗动」危机使用
+    var capGain = 0;
+    if (global.XuanShuPrison) {
+      capGain = pickN(t, 63, R.captive[0], R.captive[1]);
+      if (capGain > 0) {
+        var Pc = global.XuanShuPrison.ensure(state, cfg);
+        Pc.captives = Math.max(0, num(Pc.captives) + capGain);
+      }
+    }
+    var repRaid = num(t.rep, 50);
     t.heat = clamp(num(t.heat, 0) + R.heat, 0, 100);
-    t.rep = clamp(num(t.rep, 50) - R.rep, 0, 100);
+    t.rep = clamp(repRaid - R.rep, 0, 100);
     t.stats.raid += 1;
-    var line = "掠夺 " + R.name + "：金属 +" + mGain + "、粮 +" + fGain + "，秩序 −" + Math.round(R.order * 100) + "%、热度 +" + R.heat;
+    var line = "掠夺 " + R.name + "：金属 +" + mGain + "、粮 +" + fGain +
+      (capGain > 0 ? "、俘虏 +" + capGain : "") +
+      "，秩序 −" + Math.round(R.order * 100) + "%、热度 +" + R.heat;
     pushLine(t, line);
+    logOp(state, cfg, "掠夺", "掠夺 · " + R.name,
+      line + "；商誉 " + Math.round(repRaid) + " → " + Math.round(t.rep) +
+      "、热度 → " + Math.round(t.heat), "raid:" + tier,
+      "热度越高，商栈挂牌价越贵");
     return { ok: true, msg: line, lines: t.lines.slice() };
   }
 
@@ -263,6 +302,8 @@
     t.heat = clamp(before - 25, 0, 100);
     var line = "伪装海盗：" + (useStatue ? "耗 1 座雕像" : "耗 20 份药剂") + "，热度 " + Math.round(before) + " → " + Math.round(t.heat);
     pushLine(t, line);
+    logOp(state, cfg, "交易", "伪装海盗", line, "disguise",
+      "雕像比药剂贵，但没有别的消耗");
     return { ok: true, msg: line, lines: t.lines.slice() };
   }
 
@@ -291,6 +332,10 @@
       state.stocks.metal = Math.max(0, num(state.stocks.metal, 0) - cost);
       var line = "买入" + P.name + " " + got + " 人，付 " + cost + " 吨金属";
       pushLine(t, line);
+      logOp(state, cfg, "人口", "买卖人口 · 买入" + P.name,
+        line + "；金属 " + Math.round(num(state.stocks.metal, 0) + cost) + " → " +
+        Math.round(num(state.stocks.metal, 0)) + " 吨", "people:buy:" + kind,
+        "单价 " + P.buy + " 吨/人");
       return { ok: true, msg: line, lines: t.lines.slice() };
     }
     var moral = num(state.morality, 60);
@@ -299,10 +344,14 @@
     if (sold <= 0) return { ok: false, msg: "没有可卖的" + P.name };
     var gain = sold * P.sell;
     addStock(state, "metal", gain);
-    state.morality = clamp(moral - clamp(2 + sold / 20, 2, 10), 0, 100);
+    var moralCut = clamp(2 + sold / 20, 2, 10);
+    state.morality = clamp(moral - moralCut, 0, 100);
     state.order = clamp(num(state.order, 1) - 0.01, 0, 1);
-    var line2 = "卖出" + P.name + " " + sold + " 人，得 " + gain + " 吨金属，道德 −" + Math.round(clamp(2 + sold / 20, 2, 10));
+    var line2 = "卖出" + P.name + " " + sold + " 人，得 " + gain + " 吨金属，道德 −" + Math.round(moralCut);
     pushLine(t, line2);
+    logOp(state, cfg, "人口", "买卖人口 · 卖出" + P.name,
+      line2 + "；道德 " + Math.round(moral) + " → " + Math.round(state.morality) + "、秩序 −1%",
+      "people:sell:" + kind, "卖人换金属，花费记在道德与秩序上");
     return { ok: true, msg: line2, lines: t.lines.slice() };
   }
 
@@ -340,6 +389,8 @@
         Math.round(D.order * 100) + "%" + (D.tech ? "、科技 +" + Math.round(D.tech * 100) + " 点" : "") +
         "，100 年内遇古神概率 +" + D.god.toFixed(2);
       pushLine(t, le);
+      logOp(state, cfg, "交易", "处置雕像 · 供奉", le + "；雕像 " + (num(t.statues, 0) + 1) + " → " + num(t.statues, 0) + " 座",
+        "statue:enshrine", "供奉档位随座数递增，不能撤回");
       return { ok: true, msg: le, lines: t.lines.slice() };
     }
     t.statues = num(t.statues, 0) - 1;
@@ -349,11 +400,17 @@
       }
       var l1 = "拆解 1 座雕像：科技 +5 点";
       pushLine(t, l1);
+      logOp(state, cfg, "交易", "处置雕像 · 拆解",
+        l1 + "；雕像 " + (num(t.statues, 0) + 1) + " → " + num(t.statues, 0) + " 座",
+        "statue:tech", "换科技点，不换金属");
       return { ok: true, msg: l1, lines: t.lines.slice() };
     }
     addStock(state, "metal", 120);
     var l2 = "卖出 1 座雕像：金属 +120 吨";
     pushLine(t, l2);
+    logOp(state, cfg, "交易", "处置雕像 · 卖出",
+      l2 + "；雕像 " + (num(t.statues, 0) + 1) + " → " + num(t.statues, 0) + " 座",
+      "statue:sell", "三选一里唯一立刻见金属的");
     return { ok: true, msg: l2, lines: t.lines.slice() };
   }
 
@@ -412,14 +469,9 @@
     var line = "换装 " + def.name + "：损伤 " + Math.round(before * 100) + "% → 2%，付 " +
       price + " 吨金属";
     pushLine(t, line);
-    if (state.events) {
-      state.events.push({
-        type: "trade_part", level: "交易", week: state.weeks,
-        title: "换装零件 · " + def.name, text: line,
-        basis: "科技门槛 " + Math.round(num(def.techNeed, 0) * 100) + " 点（买件不受门槛限制）",
-        at: state.weeks
-      });
-    }
+    logOp(state, cfg, "交易", "换装零件 · " + def.name,
+      line + "；商誉 " + Math.round(num(t.rep, 50) - 1) + " → " + Math.round(num(t.rep, 50)),
+      "part:" + id, "科技门槛 " + Math.round(num(def.techNeed, 0) * 100) + " 点（买件不受门槛限制）");
     return { ok: true, msg: line, lines: t.lines.slice(), parts: partList(state, cfg) };
   }
 

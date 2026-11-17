@@ -19,7 +19,7 @@
      RNG 与判定槽位随 exportState / importState 一起走，续跑逐位一致。
 
    加载顺序（浏览器）：
-     sim-config.js → sim-judge.js → sim-people.js → sim-society.js
+     sim-config.js → sim-judge.js → sim-genetics.js → sim-people.js → sim-society.js
      → sim-player.js → sim-encounter.js → sim-gods.js → sim-run.js
      → sim-core.js → sim-engine.js
    Node：
@@ -84,9 +84,11 @@
       try {
         if (!global.XUANSHU_CONFIG) require("./sim-config.js");
         if (!global.XuanShuJudge) require("./sim-judge.js");
+        if (!global.XuanShuGenetics) require("./sim-genetics.js");
         if (!global.XuanShuPeople) require("./sim-people.js");
         if (!global.XuanShuPrison) require("./sim-prison.js");
         if (!global.XuanShuSociety) require("./sim-society.js");
+        if (!global.XuanShuResearch) require("./sim-research.js");
         if (!global.XuanShuCoin) require("./sim-coin.js");
         if (!global.XuanShuPlayer) require("./sim-player.js");
         if (!global.XuanShuEncounter) require("./sim-encounter.js");
@@ -500,6 +502,51 @@
         emit("coin", r, {});
         return r;
       },
+      /** {qid, item:"side"|"fun"|"drug", qty}；星币只在该队列内扣，返回余额/单价/扣减明细 */
+      coinBuy: function (payload) {
+        if (typeof sim.coinBuy !== "function") return { ok: false, msg: "引擎未提供星币购买" };
+        var rb = sim.coinBuy(payload || {});
+        emit("coin", rb, {});
+        return rb;
+      },
+
+      // —— 遗传层（0–25 变异尺度） ——
+      /** 30 岁判定、繁育池、三类占比、变异/健康/寿限死亡 */
+      genetics: function () {
+        return typeof sim.genetics === "function" ? sim.genetics() : { enabled: false };
+      },
+
+      // —— 研发层 / 农环病害 ——
+      research: function () {
+        return typeof sim.research === "function" ? sim.research() : { enabled: false };
+      },
+      researchStart: function (id) {
+        if (typeof sim.researchStart !== "function") return { ok: false, msg: "引擎未提供研发" };
+        var r = sim.researchStart(id);
+        emit("research", r, {});
+        return r;
+      },
+      researchCure: function (id) {
+        if (typeof sim.researchCure !== "function") return { ok: false, msg: "引擎未提供根治" };
+        var r = sim.researchCure(id);
+        emit("research", r, {});
+        return r;
+      },
+
+      /** 止痛药策略：none / half / full */
+      setPainkiller: function (mode) {
+        if (typeof sim.setPainkiller !== "function") return { ok: false, msg: "引擎未提供止痛药策略" };
+        var rp = sim.setPainkiller(mode);
+        emit("genetics", rp, {});
+        return rp;
+      },
+      /** 给单个克隆用 DNA 修复剂（640⭐ / 变异 −2.0） */
+      useDnaRepair: function (seq) {
+        if (typeof sim.useDnaRepair !== "function") return { ok: false, msg: "引擎未提供修复剂" };
+        var rp = sim.useDnaRepair(seq);
+        emit("genetics", rp, {});
+        return rp;
+      },
 
       // —— 待决策（v1.0.0） ——
       /** 待决策队列：open 弹窗项 / selected 未解决项 / resolved 历史；选项带 available + reason */
@@ -554,6 +601,13 @@
         emit("trade", rs, {});
         return rs;
       },
+      /** 换装零件 {id}；买件不受科技门槛限制，装到船上才校验 */
+      tradePart: function (p) {
+        if (typeof sim.tradePart !== "function") return { ok: false, msg: "引擎未提供换装零件" };
+        var rpt = sim.tradePart(p || {});
+        emit("trade", rpt, {});
+        return rpt;
+      },
 
       // —— 千年节点 / 自动推演 / 胜负（v2.2.0） ——
       /** 胜负、节点、运气、连续计数、历史 */
@@ -603,6 +657,14 @@
         var r = sim.hudCommit(patch);
         emit("apply", { ok: true, msg: "船上三项已结算" }, {});
         return r;
+      },
+
+      /** 只改航速（0.020–0.065c），返回公开快照；要连配给/休眠一起改就用 hudCommit。 */
+      setShip: function (v) {
+        if (typeof sim.setShip !== "function") return { ok: false, msg: "引擎未提供航速设置" };
+        var sh = sim.setShip(v);
+        emit("apply", { ok: true, msg: "航速已调整" }, {});
+        return sh;
       },
 
       /**
